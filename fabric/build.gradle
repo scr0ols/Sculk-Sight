@@ -1,0 +1,98 @@
+plugins {
+	// Fabric Loom is the whole Fabric build toolchain in one plugin. It downloads Minecraft,
+	// decompiles it (the genSources task), puts it on the compile classpath, applies mixins
+	// at build time, and generates the runClient / runServer launch configurations.
+	id 'net.fabricmc.fabric-loom' version "${loom_version}"
+	id 'maven-publish'
+}
+
+repositories {
+	// Only for other mods. Loom adds Mojang's and Fabric's own repositories automatically,
+	// so Minecraft and Fabric API need nothing declared here.
+}
+
+loom {
+	// Splits the project into a "main" source set (loaded on client and server) and a
+	// "client" source set (client only). Anything touching rendering or the local player
+	// must live in src/client, or a dedicated server would crash trying to link it.
+	// Sculk Sight is client-side only (DECISIONS.md ADR-006), so almost everything will
+	// end up in src/client; the split is kept because it makes that boundary explicit
+	// rather than implicit.
+	splitEnvironmentSourceSets()
+
+	mods {
+		"sculksight" {
+			sourceSet sourceSets.main
+			sourceSet sourceSets.client
+		}
+	}
+}
+
+dependencies {
+	// Versions live in gradle.properties, not here.
+	//
+	// Note what is absent: there is no `mappings` line. Minecraft 26.1 was the first
+	// unobfuscated release, so there is nothing to deobfuscate and Yarn was discontinued
+	// after 1.21.11. Class and member names in the decompiled source are Mojang's own.
+	// See c-docs/DECISIONS.md ADR-011.
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+
+	// Fabric API is technically optional but supplies the event and registry hooks this
+	// mod will need (key bindings, client commands, world render events).
+	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+}
+
+processResources {
+	// Substitutes ${version} inside fabric.mod.json with the version from gradle.properties,
+	// so the version number is written in exactly one place.
+	def version = project.version
+	inputs.property "version", version
+
+	filesMatching("fabric.mod.json") {
+		expand "version": version
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	// Minecraft 26.2 is compiled for Java 25 and will not load classes built for a newer
+	// release, nor link against a project built for an older one.
+	it.options.release = 25
+}
+
+java {
+	// Makes Gradle locate and use a JDK 25 regardless of which JDK is on PATH or in
+	// JAVA_HOME. Without this, a machine defaulting to an older JDK fails at compile time
+	// with a confusing "invalid source release" error.
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(25)
+	}
+
+	// Loom attaches sourcesJar to a RemapSourcesJar task and to `build` when it is present.
+	// Removing this line means no sources jar is produced.
+	withSourcesJar()
+}
+
+jar {
+	// The GPL requires the licence text to travel with the distributed work, so the
+	// LICENSE file is packaged into the jar. It lives at the repository root rather than
+	// in this module, because it covers the whole project and not just the Fabric side.
+	def projectName = project.name
+	inputs.property "projectName", projectName
+
+	from(rootProject.file("../LICENSE")) {
+		rename { "LICENSE_$projectName" }
+	}
+}
+
+publishing {
+	publications {
+		create("mavenJava", MavenPublication) {
+			from components.java
+		}
+	}
+
+	repositories {
+		// Publishing targets go here, not dependency repositories. Nothing is published yet.
+	}
+}

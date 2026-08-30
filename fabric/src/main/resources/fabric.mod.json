@@ -1,0 +1,32 @@
+{
+	"schemaVersion": 1,
+	"id": "sculksight",
+	"version": "${version}",
+	"name": "Sculk Sight",
+	"description": "Renders the effective detection surface of sculk sensors as a world overlay.",
+	"authors": [
+		"scr0ols"
+	],
+	"contact": {
+		"sources": "https://github.com/scr0ols/SculkSight"
+	},
+	"license": "GPL-3.0-or-later",
+	"environment": "client",
+	"entrypoints": {
+		"client": [
+			"com.scr0ols.sculksight.client.SculkSightClient"
+		]
+	},
+	"mixins": [
+		{
+			"config": "sculksight.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.19.3",
+		"minecraft": "~26.2",
+		"java": ">=25",
+		"fabric-api": "*"
+	}
+}
