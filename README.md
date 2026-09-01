@@ -49,7 +49,7 @@ The version bound is deliberately narrow. A mod that draws the wrong shape is wo
 
 1. Install **Fabric Loader** for Minecraft 26.2.
 2. Download **Fabric API** for 26.2 and put it in your `mods` folder.
-3. Download `sculksight-0.0.1.jar` from [Releases](https://github.com/scr0ols/Sculk-Sight/releases) and put it in the same folder.
+3. Download `sculksight-0.0.1+26.2.jar` from [Releases](https://github.com/scr0ols/Sculk-Sight/releases) and put it in the same folder. The `+26.2` is the Minecraft version the jar was built for; it is part of the version, not a separate download.
 4. Launch the game, load a world, aim at a sculk sensor and press **K**.
 
 If nothing appears, check your chat: the mod says when you are not aiming at a block, and when the block you are aiming at carries no game event listener.
