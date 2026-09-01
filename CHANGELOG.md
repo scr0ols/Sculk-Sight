@@ -2,7 +2,15 @@
 
 All notable changes to Sculk Sight are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-Nothing has been released yet. The project is in phase v0.0 (`c-docs/PLAN.md` §5), whose single objective is to prove the solver is correct. Both of v0.0's exit criteria are now met — see Verified below.
+The project is in phase v0.0 (`c-docs/PLAN.md` §5), whose single objective is to prove the solver is correct. Both of v0.0's exit criteria are now met — see Verified below.
+
+## [0.0.1] - 2026-09-01 - proof of concept
+
+**Published as a GitHub release only, and marked as a pre-release there.** The jar is `sculksight-0.0.1.jar`, built from this repository's `dev` branch with `gradlew clean build` on JDK 25, and attached to the tag `v0.0.1`. It is not listed on Modrinth or CurseForge, and deliberately so: those pages, along with the logo and icon, are v0.1 deliverables (`c-docs/PLAN.md` §10) and a GitHub release needs none of them. What it does need is honest release notes about a build that does mode A only, one sensor at a time, with no automatic invalidation and no configuration, and those are on the release itself.
+
+The number is the jar's own `version` property rather than a version cut under a formal semantic-versioning scheme, since `c-docs/CONVENTIONS.md` §4 defers adopting one until the project nears a first public release. The pre-release flag on GitHub, not the number, is what carries the "this is a proof of concept" signal.
+
+No code changed for this release. The itemised entries below are left under `[Unreleased]` rather than moved up under this heading, because they describe the whole of v0.0's development and are not usefully split at this tag.
 
 ## [Unreleased]
 
