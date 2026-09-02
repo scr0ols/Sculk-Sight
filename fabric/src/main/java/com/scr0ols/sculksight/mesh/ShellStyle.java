@@ -115,10 +115,18 @@ public record ShellStyle(int colour, float depthTestedAlpha, float seeThroughAlp
 	 * <p>The same arithmetic against {@link EdgeStyle}'s own alphas, and the same route: the lines
 	 * fragment shader {@code core/rendertype_lines} also multiplies the vertex colour by
 	 * {@code ColorModulator} (R15.7).
+	 *
+	 * <p><b>The distance fade multiplies the result rather than the input.</b> ADR-029's
+	 * inside-the-shell correction is derived from the authored alpha and restores what that alpha
+	 * was chosen to look like; ADR-028's 2026-09-02 addendum then attenuates whatever came out.
+	 * Folding the fade in before the correction would make the correction a function of the
+	 * viewing distance, which is not what either decision says.
+	 *
+	 * @param distanceFade {@link EdgeStyle#distanceFade}, or 1 to disable the fade
 	 */
-	public float edgeModulation(boolean seeThrough, boolean cameraInside) {
+	public float edgeModulation(boolean seeThrough, boolean cameraInside, float distanceFade) {
 		float target = seeThrough ? edges.seeThroughAlpha() : edges.depthTestedAlpha();
-		return modulation(target, edges.depthTestedAlpha(), cameraInside);
+		return modulation(target, edges.depthTestedAlpha(), cameraInside) * distanceFade;
 	}
 
 	private static float modulation(float targetAlpha, float encodedAlpha, boolean cameraInside) {

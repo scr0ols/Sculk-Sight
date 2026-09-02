@@ -350,6 +350,7 @@ public final class ShellRenderer {
 				(float) (sensor.z() - camera.z));
 
 		boolean inside = cameraInside(current, camera);
+		float edgeFade = STYLE.edges().distanceFade(cameraDistance(sensor, camera));
 
 		// Written as one batch rather than as four calls, because the uniform storage can grow and
 		// rebuild its ring buffer mid-frame, which would invalidate a slice handed out before the
@@ -362,8 +363,8 @@ public final class ShellRenderer {
 		GpuBufferSlice[] uniforms = RenderSystem.getDynamicUniforms().writeTransforms(
 				transform(modelView, STYLE.faceModulation(true, inside)),
 				transform(modelView, STYLE.faceModulation(false, inside)),
-				transform(modelView, STYLE.edgeModulation(true, inside)),
-				transform(modelView, STYLE.edgeModulation(false, inside)));
+				transform(modelView, STYLE.edgeModulation(true, inside, edgeFade)),
+				transform(modelView, STYLE.edgeModulation(false, inside, edgeFade)));
 
 		// Target selection copied from net.minecraft.client.renderer.rendertype.PreparedRenderType,
 		// which is how every immediate-mode vanilla draw resolves it: the main target, unless
@@ -470,6 +471,32 @@ public final class ShellRenderer {
 				Mth.floor(camera.x) - sensor.x(),
 				Mth.floor(camera.y) - sensor.y(),
 				Mth.floor(camera.z) - sensor.z());
+	}
+
+	/**
+	 * Blocks from the camera to the sensor's own centre. DECISIONS.md ADR-028's 2026-09-02
+	 * addendum, which is what consumes it.
+	 *
+	 * <p>The sensor rather than the nearest point of the shell, and its centre rather than its
+	 * corner, because the fade is one value for the whole shell and the shell is centred on the
+	 * sensor. A distance to the nearest surface would be a different number per line, which is
+	 * exactly the per-line cost the addendum declined to pay.
+	 *
+	 * <p>The shell's radius does not enter, and its absence is the addendum's second revision
+	 * rather than an omission: what fills the screen with line is the line's width in pixels
+	 * against the spacing between lines in pixels, and adjacent creases are one block apart at
+	 * every radius.
+	 *
+	 * <p>In double throughout. These are world coordinates, so the subtraction has to happen at
+	 * world precision for the same reason the model-view translation above does; unlike that one,
+	 * nothing here is ever narrowed to a float.
+	 */
+	private static double cameraDistance(SensorKey sensor, Vec3 camera) {
+		double dx = sensor.x() + 0.5 - camera.x;
+		double dy = sensor.y() + 0.5 - camera.y;
+		double dz = sensor.z() + 0.5 - camera.z;
+
+		return Math.sqrt(dx * dx + dy * dy + dz * dz);
 	}
 
 	private static DynamicUniforms.Transform transform(Matrix4f modelView, float alphaModulation) {

@@ -74,9 +74,9 @@ class ShellStyleTest {
 		EdgeStyle edges = style.edges();
 
 		assertEquals(edges.seeThroughAlpha(),
-				edges.depthTestedAlpha() * style.edgeModulation(true, false), 1.0E-6F);
+				edges.depthTestedAlpha() * style.edgeModulation(true, false, 1.0F), 1.0E-6F);
 		assertEquals(edges.depthTestedAlpha(),
-				edges.depthTestedAlpha() * style.edgeModulation(false, false), 1.0E-6F);
+				edges.depthTestedAlpha() * style.edgeModulation(false, false, 1.0F), 1.0E-6F);
 	}
 
 	/**
@@ -95,7 +95,7 @@ class ShellStyleTest {
 		assertEquals(outsideComposite(style.seeThroughAlpha()),
 				style.depthTestedAlpha() * style.faceModulation(true, true), 1.0E-6F);
 		assertEquals(outsideComposite(style.edges().depthTestedAlpha()),
-				style.edges().depthTestedAlpha() * style.edgeModulation(false, true), 1.0E-6F);
+				style.edges().depthTestedAlpha() * style.edgeModulation(false, true, 1.0F), 1.0E-6F);
 	}
 
 	/** The correction only ever raises opacity, never lowers it. */
@@ -106,7 +106,7 @@ class ShellStyleTest {
 
 		assertTrue(style.faceModulation(false, true) >= style.faceModulation(false, false));
 		assertTrue(style.faceModulation(true, true) >= style.faceModulation(true, false));
-		assertTrue(style.edgeModulation(false, true) >= style.edgeModulation(false, false));
+		assertTrue(style.edgeModulation(false, true, 1.0F) >= style.edgeModulation(false, false, 1.0F));
 		assertTrue(style.red(face) >= 0);
 	}
 
@@ -121,6 +121,39 @@ class ShellStyleTest {
 		assertEquals(0, edges.blue());
 		assertEquals(2.0F, edges.lineWidth());
 		assertTrue(edges.depthTestedAlpha() > edges.seeThroughAlpha());
+	}
+
+	/**
+	 * ADR-028's 2026-09-02 addendum: the fade scales the modulation and nothing else, so a fade of
+	 * f is exactly f times the unfaded factor on both edge passes.
+	 */
+	@Test
+	void theDistanceFadeScalesBothEdgePasses() {
+		ShellStyle style = ShellStyle.v0();
+
+		assertEquals(0.5F * style.edgeModulation(true, false, 1.0F),
+				style.edgeModulation(true, false, 0.5F), 1.0E-6F);
+		assertEquals(0.5F * style.edgeModulation(false, false, 1.0F),
+				style.edgeModulation(false, false, 0.5F), 1.0E-6F);
+	}
+
+	/**
+	 * The fade is applied after ADR-029's correction, not folded into the alpha the correction is
+	 * derived from.
+	 *
+	 * <p>The two orders give different numbers and only one of them matches the decisions: the
+	 * correction restores the authored alpha's intended appearance, and the fade then attenuates
+	 * the result. Folding the fade in first would give {@code insideFactor(alpha * fade)} instead,
+	 * a correction that changes with the viewing distance, which is not what ADR-029 says.
+	 */
+	@Test
+	void theFadeAppliesAfterTheInsideCorrectionRatherThanBeforeIt() {
+		ShellStyle style = ShellStyle.v0();
+		float fade = 0.25F;
+
+		assertEquals(fade * style.edgeModulation(false, true, 1.0F),
+				style.edgeModulation(false, true, fade), 1.0E-6F);
+		assertTrue(style.edgeModulation(false, true, fade) < style.edgeModulation(false, false, 1.0F));
 	}
 
 	@Test
