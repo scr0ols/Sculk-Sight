@@ -3,13 +3,16 @@ package com.scr0ols.sculksight.mesh;
 import com.scr0ols.sculksight.solver.Face;
 
 /**
- * How the shell looks. Fixed for v0.0 by c-docs/DECISIONS.md ADR-022, ADR-023, ADR-028 and
- * ADR-029, and specified in ARCHITECTURE.md section 4.3.
+ * How the shell looks. Fixed for v0.0 by c-docs/DECISIONS.md ADR-022, ADR-023 and ADR-029, and
+ * specified in ARCHITECTURE.md section 4.3.
  *
  * <p>Colour is {@code 0xRRGGBB}; alphas are 0..1; {@code shadeByFace} is a per-{@link Face}
- * colour multiplier indexed by {@link Face#ordinal()}, <b>never applied to alpha</b>;
- * {@code edges} is the crease-edge treatment of ADR-028, which has its own colour and its own
- * alphas and shares only the modulation route.
+ * colour multiplier indexed by {@link Face#ordinal()}, <b>never applied to alpha</b>.
+ *
+ * <p><b>There is no crease-edge treatment here any more.</b> ADR-028 gave this type an
+ * {@code edges} component and a second modulation method; ADR-030 superseded it and the shell is
+ * drawn as fill alone. The crease geometry is still solved for and still tested, so a narrower
+ * outline would restore a style component rather than a mechanism.
  *
  * <p><b>Why alpha is uniform across faces, stated here because it is load-bearing rather than
  * incidental.</b> The chosen pipeline family does not cull back faces (R15.4), so a view ray
@@ -20,24 +23,22 @@ import com.scr0ols.sculksight.solver.Face;
  * the directional shading touch alpha would make coverage order-dependent as well as brightness.
  * ADR-022 has the full argument.
  *
- * <p><b>One mesh per geometry, two draws each, and every alpha but the encoded one reached by
- * modulation.</b> The encoder writes the depth-tested alpha into the vertices; the see-through
- * pass, and ADR-029's inside-the-shell correction, are both a different {@code ColorModulator}
- * value on the same buffer. {@link #faceModulation} and {@link #edgeModulation} are where that
- * arithmetic lives, so no caller has to reconstruct it.
+ * <p><b>One mesh, two draws, and every alpha but the encoded one reached by modulation.</b> The
+ * encoder writes the depth-tested alpha into the vertices; the see-through pass, and ADR-029's
+ * inside-the-shell correction, are both a different {@code ColorModulator} value on the same
+ * buffer. {@link #faceModulation} is where that arithmetic lives, so no caller has to reconstruct
+ * it.
  *
  * <p>This type names no Minecraft class, which is why it lives in the main source set and can be
- * exercised by JUnit alongside {@link ShellQuad} and {@link ShellEdge}. {@code ShellMeshBuilder},
- * which does name Minecraft classes, is in the client source set.
+ * exercised by JUnit alongside {@link ShellQuad}. {@code ShellMeshBuilder}, which does name
+ * Minecraft classes, is in the client source set.
  */
-public record ShellStyle(int colour, float depthTestedAlpha, float seeThroughAlpha, float[] shadeByFace,
-		EdgeStyle edges) {
+public record ShellStyle(int colour, float depthTestedAlpha, float seeThroughAlpha, float[] shadeByFace) {
 
 	/**
 	 * The v0.0 style: amber {@code #FFA33C} (ADR-023), alpha 0.25 depth-tested and 0.10
 	 * see-through (ADR-022), with the directional multipliers ARCHITECTURE.md section 4.3 lists -
-	 * UP 1.00, NORTH/SOUTH 0.92, EAST/WEST 0.86, DOWN 0.80 - and the black crease edges of
-	 * ADR-028.
+	 * UP 1.00, NORTH/SOUTH 0.92, EAST/WEST 0.86, DOWN 0.80.
 	 *
 	 * <p>Hardcoded, per PLAN.md section 4: v0.0 has no config. These become sliders in v0.1 when
 	 * Cloth Config arrives, which is why they are gathered in one record rather than spread
@@ -56,7 +57,7 @@ public record ShellStyle(int colour, float depthTestedAlpha, float seeThroughAlp
 		shade[Face.WEST.ordinal()] = 0.86F;
 		shade[Face.DOWN.ordinal()] = 0.80F;
 
-		return new ShellStyle(0xFFA33C, 0.25F, 0.10F, shade, EdgeStyle.v0());
+		return new ShellStyle(0xFFA33C, 0.25F, 0.10F, shade);
 	}
 
 	public ShellStyle {
@@ -107,18 +108,6 @@ public record ShellStyle(int colour, float depthTestedAlpha, float seeThroughAlp
 	 */
 	public float faceModulation(boolean seeThrough, boolean cameraInside) {
 		return modulation(seeThrough ? seeThroughAlpha : depthTestedAlpha, depthTestedAlpha, cameraInside);
-	}
-
-	/**
-	 * The factor a crease-edge pass multiplies the encoded edge alpha by.
-	 *
-	 * <p>The same arithmetic against {@link EdgeStyle}'s own alphas, and the same route: the lines
-	 * fragment shader {@code core/rendertype_lines} also multiplies the vertex colour by
-	 * {@code ColorModulator} (R15.7).
-	 */
-	public float edgeModulation(boolean seeThrough, boolean cameraInside) {
-		float target = seeThrough ? edges.seeThroughAlpha() : edges.depthTestedAlpha();
-		return modulation(target, edges.depthTestedAlpha(), cameraInside);
 	}
 
 	private static float modulation(float targetAlpha, float encodedAlpha, boolean cameraInside) {

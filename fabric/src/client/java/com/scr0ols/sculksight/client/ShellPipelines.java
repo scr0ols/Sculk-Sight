@@ -12,13 +12,18 @@ import net.minecraft.resources.Identifier;
 import com.scr0ols.sculksight.SculkSight;
 
 /**
- * The four pipelines the shell draws with. c-docs/DECISIONS.md ADR-021, ADR-024 and ADR-028.
+ * The two pipelines the shell draws with. c-docs/DECISIONS.md ADR-021 and ADR-024.
  *
  * <p>ADR-021 draws the shell twice from one cached buffer: a see-through pass with no depth test,
  * so the whole shell is always present, then a depth-tested pass so the part with line of sight to
  * the camera is reinforced. ADR-024 fixes both to the {@code DEBUG_FILLED_SNIPPET} family at
- * {@code DefaultVertexFormat.POSITION_COLOR}. ADR-028 adds the same pair again for the crease
- * edges, from the {@code LINES_SNIPPET} family.
+ * {@code DefaultVertexFormat.POSITION_COLOR}.
+ *
+ * <p><b>There were four.</b> ADR-028 added the same pair again over the {@code LINES_SNIPPET}
+ * family, for the crease-edge outline; ADR-030 superseded it and those two are gone. What R15.7
+ * established about that family, in particular that its vertex shader already pulls a line toward
+ * the camera and so needs no depth bias of its own, stands on its own and does not depend on the
+ * pipelines existing here.
  *
  * <p><b>Every pipeline here inherits its bind-group layout and its shader from one vanilla
  * snippet, and that is a correctness requirement rather than tidiness.</b> {@code GlProgram
@@ -106,31 +111,6 @@ public final class ShellPipelines {
 	public static final RenderPipeline FACES_SEE_THROUGH = RenderPipeline
 			.builder(RenderPipelines.DEBUG_FILLED_SNIPPET)
 			.withLocation(Identifier.fromNamespaceAndPath(SculkSight.MOD_ID, "pipeline/shell_faces_see_through"))
-			.withDepthStencilState(Optional.empty())
-			.build();
-
-	/**
-	 * The depth-tested crease-edge pass: vanilla's {@code LINES_TRANSLUCENT}, unmodified (ADR-028).
-	 *
-	 * <p>It is the member of the {@code LINES_SNIPPET} family that is depth-tested without writing
-	 * depth, which is what matches the face passes; plain {@code LINES} inherits
-	 * {@code DepthStencilState.DEFAULT} and does write depth (R15.7).
-	 *
-	 * <p>No depth bias here, and that is not an oversight.
-	 * {@code core/rendertype_lines.vsh} scales every line vertex in view space by
-	 * {@code 1 - 1/256} before projecting, which pulls it toward the camera. That is vanilla's own
-	 * remedy for a line drawn exactly on the surface it outlines, and it applies here for free
-	 * (R15.7).
-	 */
-	public static final RenderPipeline EDGES_DEPTH_TESTED = RenderPipelines.LINES_TRANSLUCENT;
-
-	/**
-	 * The see-through crease-edge pass: the lines snippet with the depth state cleared, by the same
-	 * mechanism and for the same reason as {@link #FACES_SEE_THROUGH}.
-	 */
-	public static final RenderPipeline EDGES_SEE_THROUGH = RenderPipeline
-			.builder(RenderPipelines.LINES_SNIPPET)
-			.withLocation(Identifier.fromNamespaceAndPath(SculkSight.MOD_ID, "pipeline/shell_edges_see_through"))
 			.withDepthStencilState(Optional.empty())
 			.build();
 

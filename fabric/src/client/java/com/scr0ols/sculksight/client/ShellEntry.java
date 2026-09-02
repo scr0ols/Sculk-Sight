@@ -14,16 +14,16 @@ import com.scr0ols.sculksight.solver.DetectionSet;
  * <p>{@code revision} is what makes the hand-off safe against a slow solve finishing after a newer
  * one; the mechanism is {@link ShellUploadSlot}.
  *
- * <p><b>Two GPU buffers since ADR-028</b>, the boundary faces and the crease edges, uploaded
- * together from the one pair the slot hands over and replaced together. They are separate buffers
- * rather than one because they carry different vertex formats and are drawn with different
- * pipelines; nothing else about the entry changes.
+ * <p><b>One GPU buffer again, since ADR-028 was superseded by ADR-030.</b> The entry briefly held a
+ * second for the crease-edge lines. The edges are no longer drawn, so the entry is back to the
+ * single boundary-face buffer it had before; the crease geometry itself is still solved for and
+ * still tested, and is what a narrower outline would be built from.
  *
- * <p><b>The detection set is retained after the meshes are built</b>, which it was not before
- * ADR-029. The renderer needs it every frame to ask whether the camera is inside the shell, which
- * is one bitset lookup and is the right test rather than a distance test: a camera in an occlusion
- * shadow inside the sphere is outside the shell, and that is exactly the scene this mod exists for.
- * The cost of keeping it is roughly 615 bytes at radius 8 and 4.5 KB at radius 16 (ADR-016).
+ * <p><b>The detection set is retained after the mesh is built</b>, which it was not before ADR-029.
+ * The renderer needs it every frame to ask whether the camera is inside the shell, which is one
+ * bitset lookup and is the right test rather than a distance test: a camera in an occlusion shadow
+ * inside the sphere is outside the shell, and that is exactly the scene this mod exists for. The
+ * cost of keeping it is roughly 615 bytes at radius 8 and 4.5 KB at radius 16 (ADR-016).
  */
 final class ShellEntry implements AutoCloseable {
 
@@ -37,9 +37,7 @@ final class ShellEntry implements AutoCloseable {
 
 	private @Nullable DetectionSet set;
 
-	private @Nullable ShellBuffer faceBuffer;
-
-	private @Nullable ShellBuffer edgeBuffer;
+	private @Nullable ShellBuffer buffer;
 
 	private @Nullable ShellStats stats;
 
@@ -85,12 +83,8 @@ final class ShellEntry implements AutoCloseable {
 		set = solved;
 	}
 
-	@Nullable ShellBuffer faceBuffer() {
-		return faceBuffer;
-	}
-
-	@Nullable ShellBuffer edgeBuffer() {
-		return edgeBuffer;
+	@Nullable ShellBuffer buffer() {
+		return buffer;
 	}
 
 	@Nullable ShellStats stats() {
@@ -98,46 +92,32 @@ final class ShellEntry implements AutoCloseable {
 	}
 
 	/**
-	 * Render thread. Replaces both live buffers, closing the ones they displace.
+	 * Render thread. Replaces the live buffer, closing the one it displaces.
 	 *
-	 * <p>The old buffers are closed only after the new ones exist, so a failed upload leaves the
-	 * previous shell drawing rather than leaving the entry with nothing. The two are replaced in one
-	 * call rather than two, because a frame that saw new faces against an old seam would be drawing
-	 * a shell that never existed.
+	 * <p>The old buffer is closed only after the new one exists, so a failed upload leaves the
+	 * previous shell drawing rather than leaving the entry with nothing.
 	 */
-	void setBuffers(ShellBuffer newFaces, ShellBuffer newEdges, ShellStats newStats) {
-		ShellBuffer previousFaces = faceBuffer;
-		ShellBuffer previousEdges = edgeBuffer;
-
-		faceBuffer = newFaces;
-		edgeBuffer = newEdges;
+	void setBuffer(ShellBuffer newBuffer, ShellStats newStats) {
+		ShellBuffer previous = buffer;
+		buffer = newBuffer;
 		stats = newStats;
 
-		if (previousFaces != null) {
-			previousFaces.close();
-		}
-
-		if (previousEdges != null) {
-			previousEdges.close();
+		if (previous != null) {
+			previous.close();
 		}
 	}
 
 	/**
-	 * Render thread only - both buffers close GL resources, and {@code GlBuffer.close} carries the
+	 * Render thread only - both members close GL resources, and {@code GlBuffer.close} carries the
 	 * same render-thread assertion as creation (ARCHITECTURE.md section 6.4, R13).
 	 */
 	@Override
 	public void close() {
 		slot.close();
 
-		if (faceBuffer != null) {
-			faceBuffer.close();
-			faceBuffer = null;
-		}
-
-		if (edgeBuffer != null) {
-			edgeBuffer.close();
-			edgeBuffer = null;
+		if (buffer != null) {
+			buffer.close();
+			buffer = null;
 		}
 
 		set = null;

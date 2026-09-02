@@ -1,11 +1,12 @@
 package com.scr0ols.sculksight.mesh;
 
 /**
- * The two pieces of alpha arithmetic the style types share.
+ * The two pieces of alpha arithmetic a style type needs.
  *
- * <p>Package-private and static-only. It exists so that {@link ShellStyle} and {@link EdgeStyle}
- * cannot drift apart on the two things that must be identical between faces and edges: how an alpha
- * becomes a vertex channel, and how ADR-029's inside-the-shell factor is computed.
+ * <p>Package-private and static-only. It exists so that the style types cannot drift apart on the
+ * two things any of them has to get identically right: how an alpha becomes a vertex channel, and
+ * how ADR-029's inside-the-shell factor is computed. It served the crease edges' own style as well
+ * until ADR-030 removed that type, and {@link ShellStyle} is its only caller now.
  */
 final class Alphas {
 

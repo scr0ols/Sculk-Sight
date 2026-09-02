@@ -41,7 +41,6 @@ import org.joml.Vector4f;
 import org.jspecify.annotations.Nullable;
 
 import com.scr0ols.sculksight.SculkSight;
-import com.scr0ols.sculksight.mesh.ShellEdgeMeshBuilder;
 import com.scr0ols.sculksight.mesh.ShellMeshBuilder;
 import com.scr0ols.sculksight.mesh.ShellStyle;
 import com.scr0ols.sculksight.solver.DetectionSet;
@@ -59,9 +58,9 @@ import com.scr0ols.sculksight.solver.ShellSolver;
  * notification channel is R11 and is still unanswered. So v0.0 re-solves when the player presses
  * the key again and makes no claim to notice changes on its own.
  *
- * <p><b>Four draws from two buffers since ADR-028.</b> The faces are drawn twice, see-through then
- * depth-tested (ADR-021), and the crease edges twice more in the same order, so that the black seam
- * composites over the amber fill rather than under it.
+ * <p><b>Two draws from one buffer.</b> The faces are drawn see-through and then depth-tested
+ * (ADR-021). ADR-028 briefly added two more for a black crease-edge outline; ADR-030 superseded it
+ * after the live look, and the shell is fill alone again.
  *
  * <p><b>The solve runs on the client thread, not on a worker, and that is a deliberate v0.0
  * narrowing of ARCHITECTURE.md section 6.2 rather than an oversight.</b> Moving it off-thread
@@ -81,7 +80,7 @@ public final class ShellRenderer {
 			"key.sculksight.toggle_shell", InputConstants.KEY_K, KeyMapping.Category.MISC));
 
 	/**
-	 * The native storage both mesh encoders write into, owned here rather than by either encoder
+	 * The native storage the mesh encoder writes into, owned here rather than by the encoder
 	 * (RESEARCH-LOG.md R15.6, DECISIONS.md ADR-017's 2026-09-01 addendum).
 	 *
 	 * <p>A {@code MeshData}'s {@code close()} does not release the {@code ByteBufferBuilder} that
@@ -91,17 +90,18 @@ public final class ShellRenderer {
 	 * compacted by each mesh's own {@code close()} - is safe and mirrors how vanilla's own chunk
 	 * mesher holds its {@code ByteBufferBuilder}s in a pool outside any single compile call.
 	 *
-	 * <p><b>Both meshes of a solve come from this one builder, and that is safe by its own
-	 * bookkeeping.</b> {@code build()} stamps each result with the builder's current generation and
-	 * increments a result count; a result's {@code close()} decrements that count and only the close
-	 * that takes it to zero compacts the builder and moves the generation on. Two outstanding
-	 * results therefore coexist, and either may be closed first. A growth between the two builds is
-	 * equally harmless: a result stores an offset and resolves the base pointer when its bytes are
-	 * read, so a reallocation moves both (R15.6, R15.7).
+	 * <p><b>More than one outstanding result from this one builder is safe by its own bookkeeping</b>,
+	 * which is what let ADR-028 build a second mesh here and is worth keeping written down now that
+	 * ADR-030 has taken that second mesh away. {@code build()} stamps each result with the builder's
+	 * current generation and increments a result count; a result's {@code close()} decrements that
+	 * count and only the close that takes it to zero compacts the builder and moves the generation
+	 * on. Two outstanding results therefore coexist, and either may be closed first. A growth
+	 * between two builds is equally harmless: a result stores an offset and resolves the base
+	 * pointer when its bytes are read, so a reallocation moves both (R15.6, R15.7).
 	 *
 	 * <p>65536 bytes covers the radius 8 open-air shell observed on the first live run (1182 faces,
-	 * 4728 vertices) with room to spare; the crease edges and a radius 16 shell grow the buffer once,
-	 * which is the same cost any first-time growth would be and is not a correctness concern.
+	 * 4728 vertices) with room to spare; a radius 16 shell grows the buffer once, which is the same
+	 * cost any first-time growth would be and is not a correctness concern.
 	 */
 	private static final ByteBufferBuilder MESH_STORAGE = new ByteBufferBuilder(65536);
 
@@ -203,11 +203,9 @@ public final class ShellRenderer {
 	 * report the same two numbers {@code /sculksight-verify} reports for the same sensor and the
 	 * two mechanisms can be compared on one scene. Only {@code accepted()} reaches the meshes.
 	 *
-	 * <p>Two meshes are built from the one set: the boundary faces (ADR-021) and the crease edges
-	 * (ADR-028). If either comes back null the pair is not offered, and the one that was built is
-	 * closed here rather than leaked. In practice neither can be null unless the other is, since a
-	 * non-empty set has both a surface and corners, but the encoders' contracts allow it and a
-	 * half-built shell must not reach the slot.
+	 * <p>One mesh is built from the set, the boundary faces (ADR-021). ADR-028 built a second for
+	 * the crease-edge outline and ADR-030 removed it; the crease geometry is still solved for in
+	 * {@code CreaseEdgeExtractor} and still tested, and is not called from here.
 	 */
 	private static void runSolve(Minecraft client, ClientLevel level, ShellEntry target) {
 		long revision = target.revision();
@@ -220,27 +218,22 @@ public final class ShellRenderer {
 		target.setSet(accepted);
 
 		int faces = ShellMeshBuilder.countBoundaryFaces(accepted);
-		int edges = ShellEdgeMeshBuilder.countCreaseEdges(accepted);
 
 		MeshData faceMesh = ShellMeshBuilder.build(accepted, DefaultVertexFormat.POSITION_COLOR, STYLE,
 				MESH_STORAGE);
-		MeshData edgeMesh = ShellEdgeMeshBuilder.build(accepted,
-				DefaultVertexFormat.POSITION_COLOR_NORMAL_LINE_WIDTH, STYLE, MESH_STORAGE);
 
-		if (faceMesh == null || edgeMesh == null) {
-			closeQuietly(faceMesh);
-			closeQuietly(edgeMesh);
+		if (faceMesh == null) {
 			say(client, "the solver returned an empty set: nothing to draw.");
 			return;
 		}
 
 		ShellStats stats = new ShellStats(target.radius(), accepted.size(),
-				solution.occludedOut().size(), faces, edges);
+				solution.occludedOut().size(), faces);
 
 		pendingStats = stats;
 
-		if (!target.slot().offer(revision, new ShellMeshes(faceMesh, edgeMesh))) {
-			// The slot closed the pair; there is nothing further to do. In v0.0 this cannot
+		if (!target.slot().offer(revision, faceMesh)) {
+			// The slot closed the mesh; there is nothing further to do. In v0.0 this cannot
 			// happen, since one solve runs at a time on one thread, but it is written as real code
 			// rather than an assertion because it stops being unreachable the moment the solve
 			// moves off-thread.
@@ -249,12 +242,6 @@ public final class ShellRenderer {
 		}
 
 		say(client, "solved " + stats.summary() + ".");
-	}
-
-	private static void closeQuietly(@Nullable MeshData mesh) {
-		if (mesh != null) {
-			mesh.close();
-		}
 	}
 
 	// ---------------------------------------------------------------- upload and draw
@@ -268,49 +255,42 @@ public final class ShellRenderer {
 
 		consumePending(current);
 
-		ShellBuffer faces = current.faceBuffer();
-		ShellBuffer edges = current.edgeBuffer();
+		ShellBuffer faces = current.buffer();
 
-		if (faces == null || edges == null) {
+		if (faces == null) {
 			return;
 		}
 
-		draw(current, faces, edges, context.levelState().cameraRenderState.pos);
+		draw(current, faces, context.levelState().cameraRenderState.pos);
 	}
 
 	/** ARCHITECTURE.md section 7 step 5. Render thread. */
 	private static void consumePending(ShellEntry current) {
-		ShellMeshes meshes = current.slot().take();
+		MeshData mesh = current.slot().take();
 
-		if (meshes == null) {
+		if (mesh == null) {
 			return;
 		}
 
 		ShellStats stats = pendingStats;
 		pendingStats = null;
 
-		// The render thread owns this pair now, so it closes it - after createBuffer has copied
+		// The render thread owns this mesh now, so it closes it - after createBuffer has copied
 		// the bytes out (ARCHITECTURE.md section 6.3).
-		try (meshes) {
-			int expectedFaceVertices = stats == null ? -1 : stats.boundaryFaces() * 4;
-			int expectedEdgeVertices = stats == null ? -1 : stats.creaseEdges() * ShellEdgeMeshBuilder.VERTICES_PER_EDGE;
+		try (mesh) {
+			int expectedVertices = stats == null ? -1 : stats.boundaryFaces() * 4;
 
 			// The second v0.0 exit criterion, checked rather than assumed. Every boundary face is
-			// one quad and every quad is four vertices; every crease edge is two authored vertices
-			// that the lines topology stores as four (R15.7). An encoder that dropped or
-			// duplicated a primitive shows up here as an exact arithmetic mismatch rather than as
-			// a picture someone has to notice is wrong. Refusing to draw is the right response
-			// under PLAN.md section 1: a shell that does not match the solver is the wrong shape,
-			// and drawing the wrong shape is worse than drawing nothing.
-			if (!vertexCountAgrees("faces", meshes.faces(), expectedFaceVertices)
-					|| !vertexCountAgrees("crease edges", meshes.edges(), expectedEdgeVertices)) {
+			// one quad and every quad is four vertices. An encoder that dropped or duplicated a
+			// face shows up here as an exact arithmetic mismatch rather than as a picture someone
+			// has to notice is wrong. Refusing to draw is the right response under PLAN.md
+			// section 1: a shell that does not match the solver is the wrong shape, and drawing
+			// the wrong shape is worse than drawing nothing.
+			if (!vertexCountAgrees("faces", mesh, expectedVertices)) {
 				return;
 			}
 
-			current.setBuffers(
-					ShellBuffer.upload("Sculk Sight shell face buffer", meshes.faces()),
-					ShellBuffer.upload("Sculk Sight shell edge buffer", meshes.edges()),
-					stats);
+			current.setBuffer(ShellBuffer.upload(mesh), stats);
 		}
 	}
 
@@ -330,14 +310,12 @@ public final class ShellRenderer {
 	/**
 	 * ARCHITECTURE.md section 7 step 6. Render thread, once per frame, touching no vertex data.
 	 *
-	 * <p>Four draws from two buffers in one render pass, in the order see-through faces,
-	 * depth-tested faces, see-through edges, depth-tested edges. The order is load-bearing twice
-	 * over. Within each geometry the depth-tested pass goes second because it is the one that
-	 * reinforces the half with line of sight to the camera, so it composites on top (ADR-021). And
-	 * the edges go after both face passes because the seam is what the player is meant to read
-	 * first (ADR-028).
+	 * <p>Two draws from one buffer in one render pass, see-through then depth-tested. The order is
+	 * load-bearing: the depth-tested pass goes second because it is the one that reinforces the half
+	 * with line of sight to the camera, so it composites on top (ADR-021). ADR-028 added two further
+	 * draws for the crease-edge outline and ADR-030 removed them.
 	 */
-	private static void draw(ShellEntry current, ShellBuffer faces, ShellBuffer edges, Vec3 camera) {
+	private static void draw(ShellEntry current, ShellBuffer faces, Vec3 camera) {
 		SensorKey sensor = current.sensor();
 
 		// ADR-014: the cached vertices are sensor-relative and are never rebuilt because the
@@ -351,19 +329,16 @@ public final class ShellRenderer {
 
 		boolean inside = cameraInside(current, camera);
 
-		// Written as one batch rather than as four calls, because the uniform storage can grow and
+		// Written as one batch rather than as two calls, because the uniform storage can grow and
 		// rebuild its ring buffer mid-frame, which would invalidate a slice handed out before the
-		// growth. writeTransforms reserves every block together, so all four slices stay valid.
+		// growth. writeTransforms reserves every block together, so both slices stay valid.
 		//
-		// Each mesh carries its own depth-tested alpha and every other value is reached by
-		// modulating, since both fragment shaders in play multiply the vertex colour by
-		// ColorModulator and ColorModulator is a member of the same DynamicTransforms block all
-		// four passes bind (R15.4 for the faces, R15.7 for the lines). Two meshes, four draws.
+		// The mesh carries the depth-tested alpha and the see-through value is reached by
+		// modulating, since the fragment shader multiplies the vertex colour by ColorModulator and
+		// ColorModulator is a member of the same DynamicTransforms block both passes bind (R15.4).
 		GpuBufferSlice[] uniforms = RenderSystem.getDynamicUniforms().writeTransforms(
 				transform(modelView, STYLE.faceModulation(true, inside)),
-				transform(modelView, STYLE.faceModulation(false, inside)),
-				transform(modelView, STYLE.edgeModulation(true, inside)),
-				transform(modelView, STYLE.edgeModulation(false, inside)));
+				transform(modelView, STYLE.faceModulation(false, inside)));
 
 		// Target selection copied from net.minecraft.client.renderer.rendertype.PreparedRenderType,
 		// which is how every immediate-mode vanilla draw resolves it: the main target, unless
@@ -383,7 +358,6 @@ public final class ShellRenderer {
 		// not a thing to do with a pass already open. DebugCrosshairRenderer resolves its own the
 		// same way, before its try block (R15.7).
 		Indexed faceIndices = Indexed.of(ShellMeshBuilder.TOPOLOGY, faces);
-		Indexed edgeIndices = Indexed.of(ShellEdgeMeshBuilder.TOPOLOGY, edges);
 
 		try (RenderPass pass = RenderSystem.getDevice()
 				.createCommandEncoder()
@@ -393,10 +367,6 @@ public final class ShellRenderer {
 			drawGeometry(pass, faces, faceIndices,
 					ShellPipelines.FACES_SEE_THROUGH, uniforms[0],
 					ShellPipelines.FACES_DEPTH_TESTED, uniforms[1]);
-
-			drawGeometry(pass, edges, edgeIndices,
-					ShellPipelines.EDGES_SEE_THROUGH, uniforms[2],
-					ShellPipelines.EDGES_DEPTH_TESTED, uniforms[3]);
 		}
 	}
 

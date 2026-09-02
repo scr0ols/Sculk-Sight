@@ -33,18 +33,18 @@ final class ShellBuffer implements AutoCloseable {
 	}
 
 	/**
-	 * Render thread. Copies the mesh's bytes into a fresh GPU buffer under the given debug label.
+	 * Render thread. Copies the mesh's bytes into a fresh GPU buffer.
 	 *
 	 * <p>Does not close the mesh: ownership of the {@link MeshData} stays with the caller, per
 	 * ARCHITECTURE.md section 6.3's rule that whoever removed the reference from the slot closes
 	 * it. Splitting that responsibility here would give two places a claim on the same native
 	 * memory, which is the exact failure the rule exists to prevent.
 	 */
-	static ShellBuffer upload(String label, MeshData mesh) {
+	static ShellBuffer upload(MeshData mesh) {
 		RenderSystem.assertOnRenderThread();
 
 		GpuBuffer buffer = RenderSystem.getDevice().createBuffer(
-				() -> label, GpuBuffer.USAGE_VERTEX, mesh.vertexBuffer());
+				() -> "Sculk Sight shell vertex buffer", GpuBuffer.USAGE_VERTEX, mesh.vertexBuffer());
 
 		return new ShellBuffer(buffer, mesh.drawState().vertexCount());
 	}
