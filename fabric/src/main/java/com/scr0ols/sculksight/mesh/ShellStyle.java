@@ -36,9 +36,17 @@ import com.scr0ols.sculksight.solver.Face;
 public record ShellStyle(int colour, float depthTestedAlpha, float seeThroughAlpha, float[] shadeByFace) {
 
 	/**
-	 * The v0.0 style: amber {@code #FFA33C} (ADR-023), alpha 0.25 depth-tested and 0.10
-	 * see-through (ADR-022), with the directional multipliers ARCHITECTURE.md section 4.3 lists -
-	 * UP 1.00, NORTH/SOUTH 0.92, EAST/WEST 0.86, DOWN 0.80.
+	 * The v0.0 style: amber {@code #FFA300} (ADR-023 as amended 2026-09-02), alpha 0.25
+	 * depth-tested and 0.10 see-through (ADR-022), with the directional multipliers ADR-022's
+	 * amendment of the same date widened to - UP 1.00, NORTH/SOUTH 0.86, EAST/WEST 0.78, DOWN 0.66.
+	 *
+	 * <p><b>The colour has no blue component, and that is the decision rather than a detail.</b>
+	 * The shell was measured against a third-party sphere overlay in one screenshot of the same
+	 * scene, and the two composited to the same opacity, 0.55 against 0.54, so the gap between them
+	 * was never alpha. What separated them was that the old {@code #FFA33C} carried 60 units of
+	 * blue, which against a blue-green background survives compositing and turns the gold to pale
+	 * tan. Removing it leaves the hue where ADR-023 put it and strengthens that ADR's own argument,
+	 * since amber was chosen for being the complement of the Deep Dark's blue-teal.
 	 *
 	 * <p>Hardcoded, per PLAN.md section 4: v0.0 has no config. These become sliders in v0.1 when
 	 * Cloth Config arrives, which is why they are gathered in one record rather than spread
@@ -51,13 +59,13 @@ public record ShellStyle(int colour, float depthTestedAlpha, float seeThroughAlp
 		float[] shade = new float[Face.values().length];
 
 		shade[Face.UP.ordinal()] = 1.00F;
-		shade[Face.NORTH.ordinal()] = 0.92F;
-		shade[Face.SOUTH.ordinal()] = 0.92F;
-		shade[Face.EAST.ordinal()] = 0.86F;
-		shade[Face.WEST.ordinal()] = 0.86F;
-		shade[Face.DOWN.ordinal()] = 0.80F;
+		shade[Face.NORTH.ordinal()] = 0.86F;
+		shade[Face.SOUTH.ordinal()] = 0.86F;
+		shade[Face.EAST.ordinal()] = 0.78F;
+		shade[Face.WEST.ordinal()] = 0.78F;
+		shade[Face.DOWN.ordinal()] = 0.66F;
 
-		return new ShellStyle(0xFFA33C, 0.25F, 0.10F, shade);
+		return new ShellStyle(0xFFA300, 0.25F, 0.10F, shade);
 	}
 
 	public ShellStyle {

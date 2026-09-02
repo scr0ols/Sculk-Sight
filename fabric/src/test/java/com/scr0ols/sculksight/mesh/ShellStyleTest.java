@@ -17,10 +17,28 @@ class ShellStyleTest {
 	void theV0ColourIsTheAmberAdr023Chose() {
 		ShellStyle style = ShellStyle.v0();
 
-		assertEquals(0xFFA33C, style.colour());
+		assertEquals(0xFFA300, style.colour());
 		assertEquals(0xFF, style.red(Face.UP));
 		assertEquals(0xA3, style.green(Face.UP));
-		assertEquals(0x3C, style.blue(Face.UP));
+		assertEquals(0x00, style.blue(Face.UP));
+	}
+
+	/**
+	 * ADR-023's 2026-09-02 amendment: the shell colour has no blue component on any face.
+	 *
+	 * <p>This is the whole of that amendment and it is asserted rather than left to the constant,
+	 * because the reason it is right is not visible at the constant. Measured against a third-party
+	 * sphere overlay in the same scene, the two shells composited to the same opacity; what made
+	 * ours read as pale tan and theirs as gold was that ours carried blue into a blue-green
+	 * background. A future palette entry that reintroduces blue here would undo that silently.
+	 *
+	 * <p>Every face is checked rather than only UP, since the shading multiplies each channel by a
+	 * different factor and zero is the one value that survives all of them.
+	 */
+	@ParameterizedTest
+	@EnumSource(Face.class)
+	void theV0ColourCarriesNoBlueOnAnyFace(Face face) {
+		assertEquals(0, ShellStyle.v0().blue(face));
 	}
 
 	/**
