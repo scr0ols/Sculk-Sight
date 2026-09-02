@@ -62,6 +62,13 @@ import com.scr0ols.sculksight.solver.ShellSolver;
  * (ADR-021). ADR-028 briefly added two more for a black crease-edge outline; ADR-030 superseded it
  * after the live look, and the shell is fill alone again.
  *
+ * <p><b>It times itself, in a development environment or under {@code -Dsculksight.timing=true},
+ * and not otherwise.</b> The clocks sit at PLAN.md section 3.3's two budget lines rather than at
+ * its tier boundaries: the encode and the upload around the hand-off slot, whose sum is the
+ * per-tick budget, and the draw, which is the per-frame one. See {@link TierTiming} for what that
+ * placement buys and what the numbers do not cover, and DECISIONS.md ADR-031 for why it is not
+ * blocked on the threading question ADR-026 leaves open.
+ *
  * <p><b>The solve runs on the client thread, not on a worker, and that is a deliberate v0.0
  * narrowing of ARCHITECTURE.md section 6.2 rather than an oversight.</b> Moving it off-thread
  * means reading the client level from a second thread while the main thread mutates it, and this
@@ -117,6 +124,30 @@ public final class ShellRenderer {
 	 * through the slot alongside the meshes it describes.
 	 */
 	private static @Nullable ShellStats pendingStats;
+
+	/**
+	 * The encode half of the solve that produced the meshes in the slot, waiting for the upload
+	 * half to arrive on the render thread. DECISIONS.md ADR-031.
+	 *
+	 * <p>It travels beside the slot for the same reason {@link #pendingStats} does, and is correct
+	 * under the same condition and for as long: while producer and consumer are one thread, which
+	 * is the v0.0 arrangement ADR-026 records. When the solve moves off-thread this moves into the
+	 * slot with the stats, which is the fix ADR-026 already names.
+	 */
+	private static long pendingEncodeNanos;
+
+	/** Tier 3 samples for as long as the current shell is up. ADR-031. */
+	private static final TierTiming.Frames FRAMES = new TierTiming.Frames();
+
+	/**
+	 * When the current run of tier 3 samples started reporting, so that the periodic flush is paced
+	 * by wall time rather than by a frame count. Zero when no run is in progress.
+	 *
+	 * <p>The pace has to be wall time because the pass runs with the frame cap off, and a frame
+	 * count then means whatever the machine happens to be fast enough to draw (ADR-031's 2026-09-02
+	 * second addendum, which is the run that showed it).
+	 */
+	private static long lastFlushNanos;
 
 	private ShellRenderer() {
 	}
@@ -192,6 +223,12 @@ public final class ShellRenderer {
 		}
 
 		pendingStats = null;
+		pendingEncodeNanos = 0L;
+
+		// The shell going away is the natural end of a tier 3 sample run: the frames it covers are
+		// exactly the frames this shell was drawn for (DECISIONS.md ADR-031).
+		flushFrames();
+		lastFlushNanos = 0L;
 	}
 
 	// ---------------------------------------------------------------- solve and encode
@@ -211,16 +248,26 @@ public final class ShellRenderer {
 		long revision = target.revision();
 		SensorKey sensor = target.sensor();
 
+		// DECISIONS.md ADR-031 times from here to the end of the encode. This is tier 1 plus
+		// everything the producer does before the slot, which is the half of PLAN.md section 3.3's
+		// per-tick budget that belongs to the client thread today and to a worker the day
+		// OPEN-QUESTIONS.md section 15 is answered.
+		long encodeStart = TierTiming.start();
+
 		ShellSolution solution = ShellSolver.solveDetailed(new LevelWorldView(level),
 				sensor.x(), sensor.y(), sensor.z(), target.radius());
 
 		DetectionSet accepted = solution.accepted();
-		target.setSet(accepted);
 
 		int faces = ShellMeshBuilder.countBoundaryFaces(accepted);
 
 		MeshData faceMesh = ShellMeshBuilder.build(accepted, DefaultVertexFormat.POSITION_COLOR, STYLE,
 				MESH_STORAGE);
+
+		long encodeNanos = TierTiming.since(encodeStart);
+
+		// Bookkeeping rather than budgeted work, so it sits outside the timed region.
+		target.setSet(accepted);
 
 		if (faceMesh == null) {
 			say(client, "the solver returned an empty set: nothing to draw.");
@@ -231,6 +278,7 @@ public final class ShellRenderer {
 				solution.occludedOut().size(), faces);
 
 		pendingStats = stats;
+		pendingEncodeNanos = encodeNanos;
 
 		if (!target.slot().offer(revision, faceMesh)) {
 			// The slot closed the mesh; there is nothing further to do. In v0.0 this cannot
@@ -238,6 +286,7 @@ public final class ShellRenderer {
 			// rather than an assertion because it stops being unreachable the moment the solve
 			// moves off-thread.
 			pendingStats = null;
+			pendingEncodeNanos = 0L;
 			return;
 		}
 
@@ -261,7 +310,22 @@ public final class ShellRenderer {
 			return;
 		}
 
+		long drawStart = TierTiming.start();
+
 		draw(current, faces, context.levelState().cameraRenderState.pos);
+
+		if (TimingGate.ENABLED) {
+			// One clock read serves as both the end of this sample and the flush check, which is
+			// the only place in this class where a second read would be per frame.
+			long now = System.nanoTime();
+			FRAMES.record(now - drawStart);
+
+			if (lastFlushNanos == 0L) {
+				lastFlushNanos = now;
+			} else if (now - lastFlushNanos >= TierTiming.FLUSH_INTERVAL_NANOS) {
+				flushFrames();
+			}
+		}
 	}
 
 	/** ARCHITECTURE.md section 7 step 5. Render thread. */
@@ -273,7 +337,9 @@ public final class ShellRenderer {
 		}
 
 		ShellStats stats = pendingStats;
+		long encodeNanos = pendingEncodeNanos;
 		pendingStats = null;
+		pendingEncodeNanos = 0L;
 
 		// The render thread owns this mesh now, so it closes it - after createBuffer has copied
 		// the bytes out (ARCHITECTURE.md section 6.3).
@@ -290,8 +356,35 @@ public final class ShellRenderer {
 				return;
 			}
 
-			current.setBuffer(ShellBuffer.upload(mesh), stats);
+			// The other half of PLAN.md section 3.3's per-tick budget, and the only part of a
+			// solve that has to happen here rather than wherever the producer runs (ADR-031).
+			long uploadStart = TierTiming.start();
+			ShellBuffer uploaded = ShellBuffer.upload(mesh);
+			long uploadNanos = TierTiming.since(uploadStart);
+
+			current.setBuffer(uploaded, stats);
+
+			if (TimingGate.ENABLED) {
+				say(Minecraft.getInstance(), new ShellTimings(encodeNanos, uploadNanos).summary());
+			}
 		}
+	}
+
+	/**
+	 * Prints the tier 3 aggregate and starts a fresh run. DECISIONS.md ADR-031.
+	 *
+	 * <p>Called when the shell is cleared, so that a run of samples covers exactly the frames one
+	 * shell was drawn for, and periodically while it stays up, so that a long look still reports.
+	 * Client thread, which is where every one of its samples was taken.
+	 */
+	private static void flushFrames() {
+		if (!TimingGate.ENABLED || FRAMES.isEmpty()) {
+			return;
+		}
+
+		say(Minecraft.getInstance(), FRAMES.summary());
+		FRAMES.reset();
+		lastFlushNanos = System.nanoTime();
 	}
 
 	private static boolean vertexCountAgrees(String what, MeshData mesh, int expected) {
@@ -453,7 +546,8 @@ public final class ShellRenderer {
 	}
 
 	/**
-	 * Reports to the log and to the player's own chat.
+	 * Reports to the log, to the player's own chat, and, while the instrument of ADR-031 is on, to
+	 * {@link TimingLog}.
 	 *
 	 * <p>Client-side chat rather than the HUD overlay, because the message that matters carries
 	 * numbers to be compared against {@code /sculksight-verify}'s output on the same sensor,
@@ -462,6 +556,11 @@ public final class ShellRenderer {
 	 */
 	private static void say(Minecraft client, String message) {
 		SculkSight.LOGGER.info("[sculksight] {}", message);
+
+		// A chat line cannot be copied and latest.log interleaves these with everything else, so
+		// while the instrument is on they are mirrored into a file of their own (ADR-031's
+		// 2026-09-02 addendum). Off by default, and it costs nothing when off.
+		TimingLog.append(message);
 
 		if (client.gui != null) {
 			client.gui.hud.getChat().addClientSystemMessage(Component.literal("[sculksight] " + message));
