@@ -8,8 +8,11 @@
 		"scr0ols"
 	],
 	"contact": {
+		"homepage": "https://github.com/scr0ols/Sculk-Sight",
 		"sources": "https://github.com/scr0ols/Sculk-Sight",
-        "issues": "https://github.com/scr0ols/Sculk-Sight/issues"
+        "issues": "https://github.com/scr0ols/Sculk-Sight/issues",
+        "modrinth": "https://www.youtube.com/watch?v=YkADj0TPrJA&list=RDYkADj0TPrJA&start_radio=1",
+        "curseforge": "https://www.youtube.com/watch?v=YkADj0TPrJA&list=RDYkADj0TPrJA&start_radio=1"
     },
 	"license": "GPL-3.0-or-later",
 	"environment": "client",
