@@ -1,3 +1,4 @@
 {
-	"key.sculksight.toggle_shell": "Toggle detection shell"
+	"key.sculksight.toggle_shell": "Toggle detection shell",
+	"key.sculksight.toggle_detection": "Toggle detection indicator"
 }
