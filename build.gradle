@@ -1,0 +1,10 @@
+// This root project holds no code of its own - see c-docs/ARCHITECTURE.md section 2.1 for the
+// four layers and where each lives. Plugins are declared here with `apply false` so that each
+// subproject applies only the ones its own module needs, at the one version named here, so that
+// common/, fabric/ and neoforge/ cannot silently drift onto different plugin builds.
+plugins {
+	// see https://fabricmc.net/develop/ for new versions
+	id 'net.fabricmc.fabric-loom' version "${loom_version}" apply false
+	// see https://projects.neoforged.net/neoforged/moddev for new versions
+	id 'net.neoforged.moddev' version "${neoforge_moddev_version}" apply false
+}

@@ -1,0 +1,26 @@
+# Templated by neoforge/build.gradle's generateModMetadata task, from the official
+# MDK-26.2-ModDevGradle template (github.com/NeoForgeMDKs/MDK-26.2-ModDevGradle), read
+# 2026-09-04. See fabric/src/main/resources/fabric.mod.json for this mod's Fabric-side metadata.
+license="${mod_license}"
+
+[[mods]]
+modId="${mod_id}"
+version="${mod_version}"
+displayName="${mod_name}"
+description='''
+Renders the effective detection surface of sculk sensors as a world overlay.
+'''
+
+[[dependencies.${mod_id}]]
+	modId="neoforge"
+	type="required"
+	versionRange="[${neo_version},)"
+	ordering="NONE"
+	side="CLIENT"
+
+[[dependencies.${mod_id}]]
+	modId="minecraft"
+	type="required"
+	versionRange="${minecraft_version_range}"
+	ordering="NONE"
+	side="CLIENT"

@@ -1,0 +1,119 @@
+plugins {
+	id 'java-library'
+	id 'net.neoforged.moddev'
+	id 'maven-publish'
+}
+
+base {
+	archivesName = "${project.mod_id}-neoforge"
+}
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(Integer.parseInt(project.java_version))
+	}
+
+	withSourcesJar()
+}
+
+neoForge {
+	// Unlike common/'s NeoForm-only mode, this is the real loader: the mod jar this module
+	// builds is loaded by NeoForge itself, so it needs the NeoForge API, not only Minecraft.
+	version = project.neo_version
+
+	// Fabric's dev-environment gate (ADR-019) has no exact equivalent confirmed for NeoForge
+	// yet - c-docs/ARCHITECTURE.md section 8 already carries this as an open item next to R11,
+	// and this module's own verify commands are therefore not wired up this session. See
+	// c-docs/NEXT-STEPS.md for what is deferred and why.
+	runs {
+		client {
+			client()
+		}
+
+		configureEach {
+			systemProperty 'forge.logging.markers', 'REGISTRIES'
+			logLevel = org.slf4j.event.Level.DEBUG
+		}
+	}
+
+	mods {
+		"${project.mod_id}" {
+			sourceSet(sourceSets.main)
+		}
+	}
+}
+
+// See fabric/build.gradle's identical block for what this wires up and why: common/'s sources
+// are recompiled here rather than depended on as a jar, because NeoForge's NeoForm Minecraft
+// artifact and Fabric Loom's are not the same binary even though both carry 26.2's Mojang names.
+configurations {
+	commonJava {
+		canBeResolved = true
+		canBeConsumed = false
+	}
+}
+
+dependencies {
+	commonJava project(path: ':common', configuration: 'commonJava')
+}
+
+tasks.named('compileJava', JavaCompile) {
+	dependsOn(configurations.commonJava)
+	source(configurations.commonJava)
+}
+
+tasks.named('sourcesJar', Jar) {
+	dependsOn(configurations.commonJava)
+	from(configurations.commonJava)
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.release = Integer.parseInt(project.java_version)
+	options.encoding = 'UTF-8'
+}
+
+// Substitutes the shared gradle.properties values into the mods.toml template, the same
+// mechanism the official MDK-26.2-ModDevGradle template uses (read 2026-09-04). fabric.mod.json
+// is expanded through processResources instead (see fabric/build.gradle); neoforge.mods.toml is
+// generated at build time from src/main/templates rather than edited directly, because
+// ModDevGradle's own ideSyncTask hook (below) needs a task it can depend on, not a static file.
+var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {
+	var replaceProperties = [
+			minecraft_version      : project.minecraft_version,
+			minecraft_version_range: project.minecraft_version_range,
+			neo_version            : project.neo_version,
+			mod_id                 : project.mod_id,
+			mod_name               : project.mod_name,
+			mod_license            : 'GPL-3.0-or-later',
+			mod_version            : project.version,
+	]
+	inputs.properties replaceProperties
+	expand replaceProperties
+	from "src/main/templates"
+	into "build/generated/sources/modMetadata"
+}
+sourceSets.main.resources.srcDir generateModMetadata
+neoForge.ideSyncTask generateModMetadata
+
+jar {
+	// See fabric/build.gradle's identical block: the GPL requires the licence text inside the
+	// distributed jar, and it lives at the repository root because it covers the whole project.
+	def projectName = project.name
+	inputs.property "projectName", projectName
+
+	from(rootProject.file("LICENSE")) {
+		rename { "LICENSE_$projectName" }
+	}
+}
+
+publishing {
+	publications {
+		create("mavenJava", MavenPublication) {
+			from components.java
+		}
+	}
+
+	repositories {
+		// Publishing targets go here, not dependency repositories. Nothing is published yet.
+	}
+}
