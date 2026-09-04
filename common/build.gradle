@@ -56,8 +56,26 @@ configurations {
 		canBeResolved = false
 		canBeConsumed = true
 	}
+
+	commonClientJava {
+		canBeResolved = false
+		canBeConsumed = true
+	}
 }
 
 artifacts {
 	commonJava sourceSets.main.java.sourceDirectories.singleFile
+
+	// src/client/java is a second, sibling source directory - not a Gradle sourceSet compiled by
+	// this module's own compileJava. Its classes need net.minecraft.client and com.mojang.blaze3d
+	// types, and this module's own classpath (this file's own top comment) has no client/server
+	// split the way Fabric Loom's does: a NeoForm-only classpath is the whole of vanilla, but
+	// still only the real, unwidened Mojang modifiers, with neither loader's own access
+	// transformer applied, because neither loader is attached. That surfaced concretely,
+	// mechanically, not as a guess: RenderPipelines.DEBUG_FILLED_SNIPPET compiles under Fabric
+	// Loom's classpath (it always has) but "has private access" under this bare classpath, and
+	// exposing the directory as a source artifact - the same mechanism the main sourceDirectories
+	// above already use - lets each real loader recompile it under its own real classpath instead
+	// of asking this module to compile it under neither.
+	commonClientJava file('src/client/java')
 }

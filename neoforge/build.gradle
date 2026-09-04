@@ -46,8 +46,18 @@ neoForge {
 // See fabric/build.gradle's identical block for what this wires up and why: common/'s sources
 // are recompiled here rather than depended on as a jar, because NeoForge's NeoForm Minecraft
 // artifact and Fabric Loom's are not the same binary even though both carry 26.2's Mojang names.
+//
+// Both commonJava and commonClientJava go into this module's one "main" source set, unlike
+// fabric/'s own main/client split: Sculk Sight is client-side only (ADR-006) and this module has
+// no server-side source set of its own to keep the client-only half out of, so there is nothing
+// for the two directories to be kept apart for here.
 configurations {
 	commonJava {
+		canBeResolved = true
+		canBeConsumed = false
+	}
+
+	commonClientJava {
 		canBeResolved = true
 		canBeConsumed = false
 	}
@@ -55,16 +65,19 @@ configurations {
 
 dependencies {
 	commonJava project(path: ':common', configuration: 'commonJava')
+	commonClientJava project(path: ':common', configuration: 'commonClientJava')
 }
 
 tasks.named('compileJava', JavaCompile) {
-	dependsOn(configurations.commonJava)
+	dependsOn(configurations.commonJava, configurations.commonClientJava)
 	source(configurations.commonJava)
+	source(configurations.commonClientJava)
 }
 
 tasks.named('sourcesJar', Jar) {
-	dependsOn(configurations.commonJava)
+	dependsOn(configurations.commonJava, configurations.commonClientJava)
 	from(configurations.commonJava)
+	from(configurations.commonClientJava)
 }
 
 tasks.withType(JavaCompile).configureEach {

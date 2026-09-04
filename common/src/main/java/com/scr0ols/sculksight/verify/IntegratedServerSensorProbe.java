@@ -23,7 +23,7 @@ import net.minecraft.world.level.gameevent.vibrations.VibrationSystem;
  * would be offered to is {@code GameEventListenerRegistry.NOOP}.
  *
  * <p><b>Every method here must run on the server thread.</b> The caller is responsible for the
- * hop; see {@link VerificationCommand}, which makes it once for a whole run rather than once
+ * hop; see {@link VerificationCommandCore}, which makes it once for a whole run rather than once
  * per sample.
  *
  * <p>Mechanism and citations: RESEARCH-LOG.md R14.

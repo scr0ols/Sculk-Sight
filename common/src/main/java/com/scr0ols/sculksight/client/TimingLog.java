@@ -10,8 +10,6 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 
-import net.fabricmc.loader.api.FabricLoader;
-
 import com.scr0ols.sculksight.SculkSight;
 
 /**
@@ -40,6 +38,10 @@ import com.scr0ols.sculksight.SculkSight;
  * so the two flags below need no synchronisation. If the producer ever moves to a worker, this
  * becomes one more thing that crosses a thread boundary, alongside the stats and the timings
  * ADR-026 already names.
+ *
+ * <p><b>Moved here from {@code fabric}'s client source set, DECISIONS.md ADR-043's own
+ * "what did not move" consequence.</b> {@link ClientPlatform} replaces the direct
+ * {@code FabricLoader.getInstance().getGameDir()} read; everything else is unchanged.
  */
 final class TimingLog {
 
@@ -79,7 +81,7 @@ final class TimingLog {
 		}
 
 		try {
-			Path file = FabricLoader.getInstance().getGameDir().resolve(FILE_NAME);
+			Path file = ClientPlatform.get().gameDir().resolve(FILE_NAME);
 
 			if (!headerWritten) {
 				write(file, header(LocalDateTime.now()));

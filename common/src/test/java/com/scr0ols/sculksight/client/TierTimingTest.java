@@ -13,11 +13,12 @@ import org.junit.jupiter.api.Test;
  * The arithmetic behind what a tier report says, and what a mirrored line looks like.
  * DECISIONS.md ADR-031 and its two addenda.
  *
- * <p>The first tests in this project over classes from the {@code client} source set, which the
- * test source set turns out to see. They name no Minecraft class and they deliberately touch
- * neither {@link TimingGate} nor {@code TierTiming.start}: the gate reads {@code FabricLoader} and
- * cannot initialise outside a launched game, which is why it is a separate type (RESEARCH-LOG.md
- * E7).
+ * <p>These tests deliberately touch neither {@link TimingGate} nor {@code TierTiming.start}: the
+ * gate reads {@link ClientPlatform#get}, which throws until a loader's entrypoint has set an
+ * {@link Environment} (that class's own javadoc), which is why it is a separate type
+ * (RESEARCH-LOG.md E7). Moved here from {@code fabric}'s own client source set by
+ * DECISIONS.md ADR-043's follow-up split - see that ADR for why the whole class needed no
+ * change beyond its package's new home.
  *
  * <p>What this proves is that the numbers a budget question is answered with are the numbers the
  * samples support. It proves nothing about the samples themselves, which come from a clock in a

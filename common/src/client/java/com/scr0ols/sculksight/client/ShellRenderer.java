@@ -16,13 +16,6 @@ import com.mojang.blaze3d.vertex.ByteBufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.MeshData;
 
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLevelEvents;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
-import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
-import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents;
-
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
@@ -78,13 +71,22 @@ import com.scr0ols.sculksight.solver.ShellSolver;
  * so the hand-off machinery is built and used exactly as section 6.3 specifies while the producer
  * stays on the client thread. The day that question is answered, the change is which executor
  * {@link #runSolve} is submitted to. See DECISIONS.md ADR-026.
+ *
+ * <p><b>Loader-neutral since DECISIONS.md ADR-043's follow-up split.</b> {@link #TOGGLE_KEY} is
+ * constructed here but not registered - vanilla's {@code KeyMapping} constructor touches no
+ * loader API, only a loader's own key-mapping registry does. {@link #onRender} takes the camera
+ * position directly rather than a level-render-event object, because that object's own type is
+ * per loader; {@link #onLevelChanged} and {@link #onClientStopping} replace what was one
+ * {@code register()} method's worth of Fabric event registration, now done by each loader's own
+ * entrypoint instead. Fabric's own registration lives in {@code fabric}'s {@code SculkSightClient}.
  */
 public final class ShellRenderer {
 
 	private static final ShellStyle STYLE = ShellStyle.v0();
 
-	private static final KeyMapping TOGGLE_KEY = KeyMappingHelper.registerKeyMapping(new KeyMapping(
-			"key.sculksight.toggle_shell", InputConstants.KEY_K, KeyMapping.Category.MISC));
+	/** Constructed, not registered - see the class javadoc. */
+	public static final KeyMapping TOGGLE_KEY = new KeyMapping(
+			"key.sculksight.toggle_shell", InputConstants.KEY_K, KeyMapping.Category.MISC);
 
 	/**
 	 * The native storage the mesh encoder writes into, owned here rather than by the encoder
@@ -152,25 +154,10 @@ public final class ShellRenderer {
 	private ShellRenderer() {
 	}
 
-	public static void register() {
-		ClientTickEvents.END_CLIENT_TICK.register(ShellRenderer::onEndTick);
-		LevelRenderEvents.AFTER_TRANSLUCENT_TERRAIN.register(ShellRenderer::onRender);
-
-		// Both of these drop the entry, and both run on the client thread - which is also the
-		// render thread (R13 point 4), and that is what makes it legal to close a GpuBuffer from
-		// here at all (ARCHITECTURE.md section 6.4).
-		ClientLevelEvents.AFTER_CLIENT_LEVEL_CHANGE.register((client, level) -> clear());
-		ClientLifecycleEvents.CLIENT_STOPPING.register(client -> {
-			clear();
-			// MESH_STORAGE outlives any one entry by design (see its own comment); the game
-			// shutting down is the one point where nothing will ever reuse it again.
-			MESH_STORAGE.close();
-		});
-	}
-
 	// ---------------------------------------------------------------- input
 
-	private static void onEndTick(Minecraft client) {
+	/** Called from a loader's own client tick event, once per tick. */
+	public static void onEndTick(Minecraft client) {
 		// consumeClick rather than isDown: this is a toggle, and isDown would fire it on every
 		// tick the key is held down.
 		while (TOGGLE_KEY.consumeClick()) {
@@ -229,6 +216,28 @@ public final class ShellRenderer {
 		// exactly the frames this shell was drawn for (DECISIONS.md ADR-031).
 		flushFrames();
 		lastFlushNanos = 0L;
+	}
+
+	/**
+	 * A level change - join, dimension change, or disconnect - drops the cached shell, both of
+	 * whose GPU resources are tied to the level that produced them. Called from a loader's own
+	 * client-level-change event, which runs on the client thread - also the render thread
+	 * (R13 point 4), which is what makes it legal to close a {@code GpuBuffer} from here at all
+	 * (ARCHITECTURE.md section 6.4).
+	 */
+	public static void onLevelChanged() {
+		clear();
+	}
+
+	/**
+	 * Called from a loader's own client-stopping event, which runs on the client thread - see
+	 * {@link #onLevelChanged}'s javadoc for why that makes closing GPU resources here legal.
+	 */
+	public static void onClientStopping() {
+		clear();
+		// MESH_STORAGE outlives any one entry by design (see its own comment); the game
+		// shutting down is the one point where nothing will ever reuse it again.
+		MESH_STORAGE.close();
 	}
 
 	// ---------------------------------------------------------------- solve and encode
@@ -295,7 +304,16 @@ public final class ShellRenderer {
 
 	// ---------------------------------------------------------------- upload and draw
 
-	private static void onRender(LevelRenderContext context) {
+	/**
+	 * ARCHITECTURE.md section 7 steps 5 and 6. Render thread, once per frame.
+	 *
+	 * <p>Takes the camera position directly rather than a level-render-event object: that
+	 * object's own type - {@code LevelRenderContext} on Fabric - is per loader, and the camera
+	 * position, a vanilla {@link Vec3}, is the only thing this method ever read out of it. Each
+	 * loader's own registration extracts that position from whatever its own render event hands
+	 * it and calls this method with it.
+	 */
+	public static void onRender(Vec3 cameraPos) {
 		ShellEntry current = entry;
 
 		if (current == null) {
@@ -312,7 +330,7 @@ public final class ShellRenderer {
 
 		long drawStart = TierTiming.start();
 
-		draw(current, faces, context.levelState().cameraRenderState.pos);
+		draw(current, faces, cameraPos);
 
 		if (TimingGate.ENABLED) {
 			// One clock read serves as both the end of this sample and the flush check, which is

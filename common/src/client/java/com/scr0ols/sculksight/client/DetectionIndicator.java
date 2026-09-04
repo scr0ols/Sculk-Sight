@@ -4,10 +4,6 @@ import java.util.Map;
 
 import com.mojang.blaze3d.platform.InputConstants;
 
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLevelEvents;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
-
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
@@ -23,7 +19,7 @@ import com.scr0ols.sculksight.solver.WorldView;
  * Mode C: "am I detected". PLAN.md section 3.4, ARCHITECTURE.md section 10, DECISIONS.md
  * ADR-039.
  *
- * <p><b>No geometry, by design.</b> Unlike {@link ShellRenderer}, this class builds no
+ * <p><b>No geometry, by design.</b> Unlike {@code ShellRenderer}, this class builds no
  * {@code DetectionSet}, no mesh, no GPU buffer, and touches no render pass. It asks
  * {@link SensorDetector#isDetectedAt} once per indexed sensor, once per client tick, while
  * enabled - the "N sensors, N raycasts" plan section 3.4 describes, run against
@@ -31,7 +27,7 @@ import com.scr0ols.sculksight.solver.WorldView;
  *
  * <p><b>Client thread, synchronous, and deliberately so.</b> Every candidate sensor's occlusion
  * test reads the live {@code ClientLevel} through {@link LevelWorldView}, exactly as
- * {@link ShellRenderer#runSolve} still does under ADR-026's v0.0 narrowing. Moving this off a
+ * {@code ShellRenderer#runSolve} still does under ADR-026's v0.0 narrowing. Moving this off a
  * worker thread would need the snapshot ARCHITECTURE.md section 6.2 and R16 require, and
  * starting that work is out of this session's scope (its trigger is a measured, accepted cost,
  * not its own availability - `NEXT-STEPS.md`). At the cost this indicator actually pays - a
@@ -43,13 +39,19 @@ import com.scr0ols.sculksight.solver.WorldView;
  * mode C draws no shell. What is built here - a toggle key, a chat line on the transition
  * between detected and not detected, nothing persistent - is argued in `DECISIONS.md` ADR-039
  * against the alternatives it considered and rejected.
+ *
+ * <p><b>Loader-neutral since DECISIONS.md ADR-043's follow-up split.</b> {@link #TOGGLE_KEY} is
+ * constructed here but not registered - vanilla's {@code KeyMapping} constructor touches no
+ * loader API, only a loader's own key-mapping registry does. Each loader's entrypoint registers
+ * this key and this class's tick and level-change callbacks against its own event API; Fabric's
+ * own registration lives in {@code fabric}'s {@code SculkSightClient}.
  */
 public final class DetectionIndicator {
 
 	// KEY_J, not KEY_L: L collides with vanilla's own default key.advancements binding. See
 	// DECISIONS.md ADR-039's 2026-09-04 addendum for how that was found and why J was chosen.
-	private static final KeyMapping TOGGLE_KEY = KeyMappingHelper.registerKeyMapping(new KeyMapping(
-			"key.sculksight.toggle_detection", InputConstants.KEY_J, KeyMapping.Category.MISC));
+	public static final KeyMapping TOGGLE_KEY = new KeyMapping(
+			"key.sculksight.toggle_detection", InputConstants.KEY_J, KeyMapping.Category.MISC);
 
 	private static boolean enabled;
 
@@ -61,17 +63,8 @@ public final class DetectionIndicator {
 	private DetectionIndicator() {
 	}
 
-	public static void register() {
-		ClientTickEvents.END_CLIENT_TICK.register(DetectionIndicator::onEndTick);
-
-		// A level change - join, dimension change, or disconnect - makes the last reading stale
-		// regardless of whether the indicator stays on, the same reasoning ShellRenderer applies
-		// to its own cached shell. The toggle state itself is left alone: it is a standing player
-		// preference, not tied to any one sensor the way mode A's aimed shell is.
-		ClientLevelEvents.AFTER_CLIENT_LEVEL_CHANGE.register((client, level) -> hasReading = false);
-	}
-
-	private static void onEndTick(Minecraft client) {
+	/** Called from a loader's own client tick event, once per tick. */
+	public static void onEndTick(Minecraft client) {
 		while (TOGGLE_KEY.consumeClick()) {
 			toggle(client);
 		}
@@ -79,6 +72,17 @@ public final class DetectionIndicator {
 		if (enabled) {
 			tick(client);
 		}
+	}
+
+	/**
+	 * A level change - join, dimension change, or disconnect - makes the last reading stale
+	 * regardless of whether the indicator stays on, the same reasoning {@code ShellRenderer}
+	 * applies to its own cached shell. The toggle state itself is left alone: it is a standing
+	 * player preference, not tied to any one sensor the way mode A's aimed shell is. Called from
+	 * a loader's own client-level-change event.
+	 */
+	public static void onLevelChanged() {
+		hasReading = false;
 	}
 
 	private static void toggle(Minecraft client) {
@@ -146,7 +150,7 @@ public final class DetectionIndicator {
 	}
 
 	/**
-	 * Duplicated from {@link ShellRenderer#say} rather than shared: that method also mirrors
+	 * Duplicated from {@code ShellRenderer#say} rather than shared: that method also mirrors
 	 * into {@code TimingLog} for ADR-031's instrument, a concern this class has no shell timing
 	 * to report and no reason to carry.
 	 */
