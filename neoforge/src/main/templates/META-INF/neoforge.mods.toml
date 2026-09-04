@@ -17,6 +17,20 @@ Renders the effective detection surface of sculk sensors as a world overlay.
 authors="scr0ols"
 credits="Solo project, so all credits go to me and myself. Issues and PRs welcome."
 displayURL="https://github.com/scr0ols/Sculk-Sight"
+# NeoForge 26.2 split the old (deprecated) single `logoFile` into two independent slots -
+# confirmed by decompiling neoforge-26.2.0.75-universal.jar's own META-INF/neoforge.mods.toml
+# and LogoFileWarningsHandler.class rather than trusting memory, per this project's own
+# never-guess-a-NeoForge-internal rule:
+#   - iconFile   -> the small square shown next to the mod's name in the Mods-screen list.
+#   - bannerFile -> stretched across the details-pane header when that mod is selected.
+# bannerFile is scaled by ModListScreen's ModInfoPanel (nested class) to whichever is smaller
+# of "fit the full panel width" or "cap the height at 50 GUI px" - so a banner shaped like mark-e's original
+# banner-1280x400 (aspect 3.2:1) hits the height cap first and renders narrower than the panel,
+# leaving empty space on the right. NeoForge's own bundled banner (neoforge_logo.png) is 77x17,
+# aspect ~4.53:1; banner-1280x200-neoforge.svg here reshapes the same icon+wordmark layout to
+# 1280x200 (aspect 6.4:1), comfortably past that ratio, so it fills the panel width instead.
+iconFile="sculksight_icon.png"
+bannerFile="sculksight_banner.png"
 
 # Not part of NeoForge's mods.toml schema - informal keys, ignored by the loader, kept here
 # only so both metadata files list the same set of "places to find this mod" side by side.
