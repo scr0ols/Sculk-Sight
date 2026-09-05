@@ -62,15 +62,21 @@ import com.scr0ols.sculksight.solver.ShellSolver;
  * placement buys and what the numbers do not cover, and DECISIONS.md ADR-031 for why it is not
  * blocked on the threading question ADR-026 leaves open.
  *
- * <p><b>The solve runs on the client thread, not on a worker, and that is a deliberate v0.0
- * narrowing of ARCHITECTURE.md section 6.2 rather than an oversight.</b> Moving it off-thread
- * means reading the client level from a second thread while the main thread mutates it, and this
- * project has no research-log entry establishing that this is safe - vanilla's own chunk mesher
- * copies a region rather than reading the live level, which is evidence against rather than for.
- * Under CONVENTIONS.md section 6 an unbacked claim about Minecraft behaviour may not be written,
- * so the hand-off machinery is built and used exactly as section 6.3 specifies while the producer
- * stays on the client thread. The day that question is answered, the change is which executor
- * {@link #runSolve} is submitted to. See DECISIONS.md ADR-026.
+ * <p><b>The solve now runs on a worker thread, not the client thread - DECISIONS.md ADR-046
+ * through ADR-048.</b> ARCHITECTURE.md section 6.2's four phases are wired end to end for the
+ * first time here. {@link #runSolve} still runs on the client thread, but only for the first
+ * phase: taking a snapshot of the sensor's bounding cube (RESEARCH-LOG.md R16 found a worker may
+ * not read the live level; the snapshot type is ADR-047's {@link VolumeSnapshot}). Everything
+ * after that - the solve, the boundary extraction, the encode and the offer into
+ * {@link ShellEntry#slot()} - runs on {@link #WORKER}'s one thread instead, which is what
+ * DECISIONS.md ADR-046 built and ADR-048 made safe to actually use. The render thread still does
+ * the upload and the draw, on the render callback, exactly as ARCHITECTURE.md section 7 describes.
+ *
+ * <p><b>The encode's own {@code ByteBufferBuilder} now travels with its mesh through the slot, one
+ * per solve, rather than living in one long-lived field here.</b> RESEARCH-LOG.md R19 found that a
+ * single builder shared across solves would be written by the worker while the render thread frees
+ * results from it - a native-memory race, not merely a stale read. {@link ShellSolveResult} is the
+ * pair's shape and DECISIONS.md ADR-048 is the decision.
  *
  * <p><b>Loader-neutral since DECISIONS.md ADR-043's follow-up split.</b> {@link #TOGGLE_KEY} is
  * constructed here but not registered - vanilla's {@code KeyMapping} constructor touches no
@@ -89,63 +95,25 @@ public final class ShellRenderer {
 			"key.sculksight.toggle_shell", InputConstants.KEY_K, KeyMapping.Category.MISC);
 
 	/**
-	 * The native storage the mesh encoder writes into, owned here rather than by the encoder
-	 * (RESEARCH-LOG.md R15.6, DECISIONS.md ADR-017's 2026-09-01 addendum).
-	 *
-	 * <p>A {@code MeshData}'s {@code close()} does not release the {@code ByteBufferBuilder} that
-	 * backs it - only the builder's own {@code close()} does, and doing that while a {@code MeshData}
-	 * built from it is still unread throws when that mesh is finally consumed. v0.0 has exactly one
-	 * shell in flight at a time, so one long-lived, growable builder - reused across every solve and
-	 * compacted by each mesh's own {@code close()} - is safe and mirrors how vanilla's own chunk
-	 * mesher holds its {@code ByteBufferBuilder}s in a pool outside any single compile call.
-	 *
-	 * <p><b>More than one outstanding result from this one builder is safe by its own bookkeeping</b>,
-	 * which is what let ADR-028 build a second mesh here and is worth keeping written down now that
-	 * ADR-030 has taken that second mesh away. {@code build()} stamps each result with the builder's
-	 * current generation and increments a result count; a result's {@code close()} decrements that
-	 * count and only the close that takes it to zero compacts the builder and moves the generation
-	 * on. Two outstanding results therefore coexist, and either may be closed first. A growth
-	 * between two builds is equally harmless: a result stores an offset and resolves the base
-	 * pointer when its bytes are read, so a reallocation moves both (R15.6, R15.7).
+	 * The initial size of each solve's own {@code ByteBufferBuilder} (DECISIONS.md ADR-048).
 	 *
 	 * <p>65536 bytes covers the radius 8 open-air shell observed on the first live run (1182 faces,
-	 * 4728 vertices) with room to spare; a radius 16 shell grows the buffer once, which is the same
-	 * cost any first-time growth would be and is not a correctness concern.
+	 * 4728 vertices) with room to spare; a radius 16 shell grows its builder once, which is the same
+	 * cost any first-time growth would be and is not a correctness concern. Every solve gets a fresh
+	 * builder now rather than reusing one long-lived instance - see {@link ShellSolveResult}'s
+	 * javadoc for why a shared builder stopped being safe the moment the encode left this thread.
 	 */
-	private static final ByteBufferBuilder MESH_STORAGE = new ByteBufferBuilder(65536);
+	private static final int INITIAL_STORAGE_BYTES = 65536;
 
 	private static @Nullable ShellEntry entry;
 
 	/**
 	 * ARCHITECTURE.md section 6.2's worker executor, DECISIONS.md ADR-046. Constructed here and
-	 * shut down from {@link #onClientStopping}, the same lifecycle {@code MESH_STORAGE} already
-	 * has, but not yet submitted to: {@link #runSolve} still runs synchronously on the client
-	 * thread (ADR-026), since moving it onto this executor also needs the client-thread snapshot
-	 * phase section 6.2 names beside it, which is a separate decision this session did not take.
+	 * shut down from {@link #onClientStopping}. {@link #solveAndEncode} is submitted to it since
+	 * DECISIONS.md ADR-048's wiring; {@link #runSolve} itself stays on the client thread, for the
+	 * snapshot phase only.
 	 */
 	private static final ShellWorkerExecutor WORKER = new ShellWorkerExecutor();
-
-	/**
-	 * The stats belonging to the meshes currently sitting in the slot.
-	 *
-	 * <p>A field beside the slot rather than inside it, because {@link ShellUploadSlot}'s shape is
-	 * fixed by ADR-017 and widening it to carry a payload would change a contract in order to
-	 * report a number. This is correct while producer and consumer are the same thread, which is
-	 * the v0.0 arrangement ADR-026 records; when the solve moves off-thread this has to travel
-	 * through the slot alongside the meshes it describes.
-	 */
-	private static @Nullable ShellStats pendingStats;
-
-	/**
-	 * The encode half of the solve that produced the meshes in the slot, waiting for the upload
-	 * half to arrive on the render thread. DECISIONS.md ADR-031.
-	 *
-	 * <p>It travels beside the slot for the same reason {@link #pendingStats} does, and is correct
-	 * under the same condition and for as long: while producer and consumer are one thread, which
-	 * is the v0.0 arrangement ADR-026 records. When the solve moves off-thread this moves into the
-	 * slot with the stats, which is the fix ADR-026 already names.
-	 */
-	private static long pendingEncodeNanos;
 
 	/** Tier 3 samples for as long as the current shell is up. ADR-031. */
 	private static final TierTiming.Frames FRAMES = new TierTiming.Frames();
@@ -209,17 +177,18 @@ public final class ShellRenderer {
 		int radius = provider.getListener().getListenerRadius();
 		ShellEntry created = new ShellEntry(SensorKey.of(pos), radius);
 		entry = created;
-		runSolve(client, level, created);
+		runSolve(level, created);
 	}
 
 	private static void clear() {
 		if (entry != null) {
+			// entry.close() closes the slot (ARCHITECTURE.md section 6.4), which drains and closes
+			// whatever ShellSolveResult is pending - the mesh and its per-solve builder together
+			// (DECISIONS.md ADR-048) - rather than leaving that for a worker still in flight to
+			// discover on its own next offer.
 			entry.close();
 			entry = null;
 		}
-
-		pendingStats = null;
-		pendingEncodeNanos = 0L;
 
 		// The shell going away is the natural end of a tier 3 sample run: the frames it covers are
 		// exactly the frames this shell was drawn for (DECISIONS.md ADR-031).
@@ -244,75 +213,102 @@ public final class ShellRenderer {
 	 */
 	public static void onClientStopping() {
 		clear();
-		// MESH_STORAGE outlives any one entry by design (see its own comment); the game
-		// shutting down is the one point where nothing will ever reuse it again.
-		MESH_STORAGE.close();
-		// Same reasoning as MESH_STORAGE, and the same point in the sequence Minecraft.close()
-		// itself uses for Util.shutdownExecutors() (RESEARCH-LOG.md R18): after the shell's own
-		// GPU and native resources are already gone, not before.
+		// The same point in the sequence Minecraft.close() itself uses for
+		// Util.shutdownExecutors() (RESEARCH-LOG.md R18): after the shell's own GPU and native
+		// resources are already gone, not before. WORKER.close() waits for a solve already in
+		// flight to finish (RESEARCH-LOG.md R18 point 2), and that solve's own offer into a
+		// by-then-closed slot is what frees its result rather than leaking it (DECISIONS.md
+		// ADR-017, ADR-048).
 		WORKER.close();
 	}
 
 	// ---------------------------------------------------------------- solve and encode
 
 	/**
-	 * ARCHITECTURE.md section 7 steps 3 and 4: solve, extract, encode, offer.
+	 * ARCHITECTURE.md section 6.2's snapshot phase, then the dispatch that starts the other three.
+	 * Client thread - but only this method's own body runs on it now.
+	 *
+	 * <p><b>The snapshot must be taken here, before anything is handed to the worker.</b>
+	 * RESEARCH-LOG.md R16 found a worker may not read the live {@code ClientLevel}, and the copy
+	 * is only legal from the thread that is also free to mutate the level (DECISIONS.md ADR-047).
+	 * Everything after the copy - the solve, the boundary extraction, the encode and the offer
+	 * into the slot - runs on {@link #WORKER}'s one thread instead of here, in
+	 * {@link #solveAndEncode}, which is what DECISIONS.md ADR-046 built and ADR-048 made safe to
+	 * actually use.
+	 */
+	private static void runSolve(ClientLevel level, ShellEntry target) {
+		long revision = target.revision();
+		SensorKey sensor = target.sensor();
+		int radius = target.radius();
+
+		VolumeSnapshot snapshot = VolumeSnapshot.of(level, sensor.x(), sensor.y(), sensor.z(), radius);
+
+		WORKER.execute(() -> solveAndEncode(target, revision, sensor, radius, snapshot));
+	}
+
+	/**
+	 * ARCHITECTURE.md section 6.2's second phase, and the encode with it: solve, extract, encode,
+	 * offer. Worker thread, DECISIONS.md ADR-046 and ADR-048.
 	 *
 	 * <p>{@code solveDetailed} rather than {@code solve}, at no extra ray cost, so the shell can
 	 * report the same two numbers {@code /sculksight-verify} reports for the same sensor and the
-	 * two mechanisms can be compared on one scene. Only {@code accepted()} reaches the meshes.
+	 * two mechanisms can be compared on one scene. Only {@code accepted()} reaches the mesh.
 	 *
 	 * <p>One mesh is built from the set, the boundary faces (ADR-021). ADR-028 built a second for
 	 * the crease-edge outline and ADR-030 removed it; the crease geometry is still solved for in
 	 * {@code CreaseEdgeExtractor} and still tested, and is not called from here.
+	 *
+	 * <p><b>Reports nothing to chat itself.</b> DECISIONS.md ADR-048 moves that to
+	 * {@link #consumePending}, on the render thread, once the result offered here has actually
+	 * been taken and uploaded. Chat and the HUD are not known to be safe to touch from any thread
+	 * but the client's own, and CONVENTIONS.md section 6 forbids assuming they are without a
+	 * research-log entry; {@link SculkSight#LOGGER} is the one channel already used from this
+	 * executor's thread (DECISIONS.md ADR-046 point 4), so it is the only one used here too.
 	 */
-	private static void runSolve(Minecraft client, ClientLevel level, ShellEntry target) {
-		long revision = target.revision();
-		SensorKey sensor = target.sensor();
+	private static void solveAndEncode(ShellEntry target, long revision, SensorKey sensor, int radius,
+			VolumeSnapshot snapshot) {
 
 		// DECISIONS.md ADR-031 times from here to the end of the encode. This is tier 1 plus
-		// everything the producer does before the slot, which is the half of PLAN.md section 3.3's
-		// per-tick budget that belongs to the client thread today and to a worker the day
-		// OPEN-QUESTIONS.md section 15 is answered.
+		// everything the producer does before the slot - the half of PLAN.md section 3.3's
+		// per-tick budget that now genuinely belongs to a worker rather than to this thread.
 		long encodeStart = TierTiming.start();
 
-		ShellSolution solution = ShellSolver.solveDetailed(new LevelWorldView(level),
-				sensor.x(), sensor.y(), sensor.z(), target.radius());
+		ShellSolution solution = ShellSolver.solveDetailed(new LevelWorldView(snapshot),
+				sensor.x(), sensor.y(), sensor.z(), radius);
 
 		DetectionSet accepted = solution.accepted();
 
 		int faces = ShellMeshBuilder.countBoundaryFaces(accepted);
 
+		// DECISIONS.md ADR-048: a fresh builder per solve now that the encode runs on a worker.
+		// The one long-lived, shared builder this class used to own is retired - RESEARCH-LOG.md
+		// R19 found ByteBufferBuilder carries no synchronisation on any field, so a worker writing
+		// into a shared builder while the render thread frees results from it would be a
+		// native-memory race, not merely a stale read.
+		ByteBufferBuilder storage = new ByteBufferBuilder(INITIAL_STORAGE_BYTES);
+
 		MeshData faceMesh = ShellMeshBuilder.build(accepted, DefaultVertexFormat.POSITION_COLOR, STYLE,
-				MESH_STORAGE);
+				storage);
 
 		long encodeNanos = TierTiming.since(encodeStart);
 
-		// Bookkeeping rather than budgeted work, so it sits outside the timed region.
+		// Bookkeeping rather than budgeted work, so it sits outside the timed region above.
 		target.setSet(accepted);
 
 		if (faceMesh == null) {
-			say(client, "the solver returned an empty set: nothing to draw.");
+			storage.close();
+			SculkSight.LOGGER.info("[sculksight] the solver returned an empty set: nothing to draw.");
 			return;
 		}
 
-		ShellStats stats = new ShellStats(target.radius(), accepted.size(),
-				solution.occludedOut().size(), faces);
+		ShellStats stats = new ShellStats(radius, accepted.size(), solution.occludedOut().size(), faces);
 
-		pendingStats = stats;
-		pendingEncodeNanos = encodeNanos;
-
-		if (!target.slot().offer(revision, faceMesh)) {
-			// The slot closed the mesh; there is nothing further to do. In v0.0 this cannot
-			// happen, since one solve runs at a time on one thread, but it is written as real code
-			// rather than an assertion because it stops being unreachable the moment the solve
-			// moves off-thread.
-			pendingStats = null;
-			pendingEncodeNanos = 0L;
-			return;
-		}
-
-		say(client, "solved " + stats.summary() + ".");
+		// If this returns false the slot has already closed the mesh and the builder together
+		// (DECISIONS.md ADR-048 point 2); there is nothing further to do. In v0.0 this cannot
+		// happen from a newer revision racing this one, since one sensor has one solve in flight
+		// at a time, but it is real code rather than an assertion: a world unload racing this
+		// solve reaches exactly this path.
+		target.slot().offer(revision, new ShellSolveResult(faceMesh, storage, stats, encodeNanos));
 	}
 
 	// ---------------------------------------------------------------- upload and draw
@@ -361,21 +357,21 @@ public final class ShellRenderer {
 
 	/** ARCHITECTURE.md section 7 step 5. Render thread. */
 	private static void consumePending(ShellEntry current) {
-		MeshData mesh = current.slot().take();
+		ShellSolveResult result = current.slot().take();
 
-		if (mesh == null) {
+		if (result == null) {
 			return;
 		}
 
-		ShellStats stats = pendingStats;
-		long encodeNanos = pendingEncodeNanos;
-		pendingStats = null;
-		pendingEncodeNanos = 0L;
+		ShellStats stats = result.stats();
+		long encodeNanos = result.encodeNanos();
 
-		// The render thread owns this mesh now, so it closes it - after createBuffer has copied
-		// the bytes out (ARCHITECTURE.md section 6.3).
-		try (mesh) {
-			int expectedVertices = stats == null ? -1 : stats.boundaryFaces() * 4;
+		// The render thread owns this result now, so it closes both the mesh and the per-solve
+		// builder that backs it, together - after createBuffer has copied the mesh's bytes out
+		// (ARCHITECTURE.md section 6.3, widened to the pair by DECISIONS.md ADR-048).
+		try (result) {
+			MeshData mesh = result.mesh();
+			int expectedVertices = stats.boundaryFaces() * 4;
 
 			// The second v0.0 exit criterion, checked rather than assumed. Every boundary face is
 			// one quad and every quad is four vertices. An encoder that dropped or duplicated a
@@ -394,6 +390,11 @@ public final class ShellRenderer {
 			long uploadNanos = TierTiming.since(uploadStart);
 
 			current.setBuffer(uploaded, stats);
+
+			// Moved here from the worker, DECISIONS.md ADR-048: this is the first point after the
+			// solve where the client thread - the only thread chat and the HUD are known to be
+			// safe to touch from (CONVENTIONS.md section 6) - has its hands on the result.
+			say(Minecraft.getInstance(), "solved " + stats.summary() + ".");
 
 			if (TimingGate.ENABLED) {
 				say(Minecraft.getInstance(), new ShellTimings(encodeNanos, uploadNanos).summary());

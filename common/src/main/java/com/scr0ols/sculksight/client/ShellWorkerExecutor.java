@@ -43,14 +43,12 @@ import com.scr0ols.sculksight.SculkSight;
  * and {@code RenderSystem.shutdownRenderer()} runs - itself reached from
  * {@code Minecraft.exitWorldAndClose()}, which {@code Main.main} calls immediately after
  * {@code minecraft.run()} returns. {@link ShellRenderer#onClientStopping()} is this mod's own
- * analogue of that moment (already called from each loader's own client-stopping event, on the
- * client thread) and is where {@link #close()} belongs, for the same reason {@code close()}
- * already runs there for {@code MESH_STORAGE}.
+ * analogue of that moment, already called from each loader's own client-stopping event on the
+ * client thread, and is where {@link #close()} belongs.
  *
- * <p><b>Built and unit-tested, not yet submitted to.</b> {@link ShellRenderer#runSolve} still runs
- * synchronously on the client thread (DECISIONS.md ADR-026): moving it here also needs the
- * client-thread snapshot phase section 6.2 names beside this one, which is a separate,
- * not-yet-taken decision about the snapshot's own shape and is out of this session's scope.
+ * <p><b>Submitted to since DECISIONS.md ADR-048's wiring.</b> {@link ShellRenderer#solveAndEncode}
+ * runs on this executor's one thread; {@link ShellRenderer#runSolve} itself stays on the client
+ * thread, for the snapshot phase section 6.2 names ahead of the solve (DECISIONS.md ADR-047).
  */
 final class ShellWorkerExecutor implements AutoCloseable {
 

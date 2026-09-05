@@ -24,6 +24,15 @@ import com.scr0ols.sculksight.solver.DetectionSet;
  * bitset lookup and is the right test rather than a distance test: a camera in an occlusion shadow
  * inside the sphere is outside the shell, and that is exactly the scene this mod exists for. The
  * cost of keeping it is roughly 615 bytes at radius 8 and 4.5 KB at radius 16 (ADR-016).
+ *
+ * <p><b>{@code set} is {@code volatile}, since DECISIONS.md ADR-048's wiring.</b> It is written by
+ * whichever thread solved it - the worker, once the solve moves off the client thread - and read
+ * every frame by the render thread's inside test (ADR-029). A plain field was correct only while
+ * those were the same thread (ADR-026); {@code volatile} publishes it safely across the two now,
+ * which is enough because the set is fully built by the time {@code ShellSolver.solveDetailed}
+ * returns and nothing mutates it afterward - the same single-writer argument ADR-017's
+ * {@code AtomicReference} rests on, applied to a field that needs visibility but no closing
+ * discipline.
  */
 final class ShellEntry implements AutoCloseable {
 
@@ -31,11 +40,11 @@ final class ShellEntry implements AutoCloseable {
 
 	private final int radius;
 
-	private final ShellUploadSlot slot = new ShellUploadSlot();
+	private final ShellUploadSlot<ShellSolveResult> slot = new ShellUploadSlot<>();
 
 	private long revision = 1L;
 
-	private @Nullable DetectionSet set;
+	private volatile @Nullable DetectionSet set;
 
 	private @Nullable ShellBuffer buffer;
 
@@ -63,7 +72,7 @@ final class ShellEntry implements AutoCloseable {
 		return ++revision;
 	}
 
-	ShellUploadSlot slot() {
+	ShellUploadSlot<ShellSolveResult> slot() {
 		return slot;
 	}
 

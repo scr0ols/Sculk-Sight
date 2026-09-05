@@ -60,12 +60,16 @@ public final class ShellMeshBuilder {
 	 * {@code Result} when it runs (confirmed 2026-09-01 by direct read of
 	 * {@code ByteBufferBuilder.java} and {@code MeshData.java}, RESEARCH-LOG.md R15.6). Because
 	 * this mod defers reading the mesh's bytes past the point where {@code build} returns - across
-	 * the worker-to-render hand-off, ARCHITECTURE.md section 6.3 - closing a fresh, method-local
-	 * builder before returning invalidates the very {@code MeshData} being handed back. Vanilla
-	 * avoids this by never scoping a {@code ByteBufferBuilder} to one build: {@code SectionCompiler}
-	 * receives its builders from a pool held outside {@code compile()} and never closes them itself
-	 * (R15.6). This method follows that precedent - {@code storage} is expected to be a single
-	 * long-lived builder the caller reuses across solves and closes only at teardown.
+	 * the worker-to-render hand-off, ARCHITECTURE.md section 6.3 - closing a builder scoped to this
+	 * method call before returning would invalidate the very {@code MeshData} being handed back.
+	 * {@code storage} therefore has to outlive this call and be closed by the caller once the mesh
+	 * has actually been read (DECISIONS.md ADR-048: since the encode moved to a worker thread, that
+	 * caller opens one fresh builder per solve and closes it alongside the mesh once the render
+	 * thread has uploaded it - {@code ShellSolveResult} is where the two travel together - rather
+	 * than reusing a single long-lived builder across every solve, which is how this method's own
+	 * javadoc read before that ADR. Vanilla's own precedent for a caller-owned builder outliving one
+	 * build call is the same either way: {@code SectionCompiler} receives its builders from a pool
+	 * held outside {@code compile()} and never closes them itself (R15.6).
 	 *
 	 * @return the mesh, or {@code null} if the set has no boundary faces at all - which happens
 	 *         only for an empty set, since any non-empty set has a surface. Returning null rather
