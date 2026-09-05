@@ -117,6 +117,15 @@ public final class ShellRenderer {
 	private static @Nullable ShellEntry entry;
 
 	/**
+	 * ARCHITECTURE.md section 6.2's worker executor, DECISIONS.md ADR-046. Constructed here and
+	 * shut down from {@link #onClientStopping}, the same lifecycle {@code MESH_STORAGE} already
+	 * has, but not yet submitted to: {@link #runSolve} still runs synchronously on the client
+	 * thread (ADR-026), since moving it onto this executor also needs the client-thread snapshot
+	 * phase section 6.2 names beside it, which is a separate decision this session did not take.
+	 */
+	private static final ShellWorkerExecutor WORKER = new ShellWorkerExecutor();
+
+	/**
 	 * The stats belonging to the meshes currently sitting in the slot.
 	 *
 	 * <p>A field beside the slot rather than inside it, because {@link ShellUploadSlot}'s shape is
@@ -238,6 +247,10 @@ public final class ShellRenderer {
 		// MESH_STORAGE outlives any one entry by design (see its own comment); the game
 		// shutting down is the one point where nothing will ever reuse it again.
 		MESH_STORAGE.close();
+		// Same reasoning as MESH_STORAGE, and the same point in the sequence Minecraft.close()
+		// itself uses for Util.shutdownExecutors() (RESEARCH-LOG.md R18): after the shell's own
+		// GPU and native resources are already gone, not before.
+		WORKER.close();
 	}
 
 	// ---------------------------------------------------------------- solve and encode

@@ -7,7 +7,9 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.loading.FMLEnvironment;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
+import net.neoforged.neoforge.client.event.RegisterClientCommandsEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import net.neoforged.neoforge.client.event.lifecycle.ClientStoppingEvent;
@@ -19,6 +21,9 @@ import com.scr0ols.sculksight.client.ClientPlatform;
 import com.scr0ols.sculksight.client.DetectionIndicator;
 import com.scr0ols.sculksight.client.SensorIndex;
 import com.scr0ols.sculksight.client.ShellRenderer;
+import com.scr0ols.sculksight.verify.DetectionVerificationCommand;
+import com.scr0ols.sculksight.verify.IndexVerificationCommand;
+import com.scr0ols.sculksight.verify.VerificationCommand;
 
 /**
  * The NeoForge entrypoint, and - since DECISIONS.md ADR-043's follow-up split - the NeoForge
@@ -44,11 +49,16 @@ import com.scr0ols.sculksight.client.ShellRenderer;
  * confirmed a client-setup hook against. See {@link ClientPlatform}'s own javadoc for why this
  * ordering is what the seam relies on.
  *
- * <p><b>What this class does not wire: the three dev-only verify commands.</b> Their mechanism -
- * {@code RegisterClientCommandsEvent}, firing on {@code NeoForge.EVENT_BUS} with a
- * {@code CommandDispatcher<CommandSourceStack>}, per the same source read - is now known and
- * unblocks that work, but wiring it is out of this session's scope (`NEXT-STEPS.md` names mode A
- * and mode C only). `ARCHITECTURE.md` §8 carries this row's remaining half.
+ * <p><b>The three dev-only verify commands are wired here too</b>, through
+ * {@code RegisterClientCommandsEvent}, which fires on {@code NeoForge.EVENT_BUS} with a
+ * {@code CommandDispatcher<CommandSourceStack>} rather than a client-only source type (read from
+ * `neoforged/NeoForge`'s own source, DECISIONS.md ADR-044 point 5). Gated by
+ * {@code !FMLEnvironment.isProduction()}, the same real ADR-019 check fabric's own
+ * {@code SculkSightClient} applies through {@code FabricLoader.getInstance().isDevelopmentEnvironment()} -
+ * so, as on Fabric, nothing in {@code com.scr0ols.sculksight.verify} is reachable from a shipped
+ * jar. {@link VerificationCommand}, {@link DetectionVerificationCommand} and
+ * {@link IndexVerificationCommand} are this loader's own thin Brigadier shims over the same
+ * {@code common}-side cores Fabric's own commands call.
  *
  * <p><b>What NeoForge does not offer: a block-entity-specific load/unload event.</b>
  * {@code net.neoforged.neoforge.client.event} and {@code net.neoforged.neoforge.event.level}
@@ -150,6 +160,40 @@ public final class SculkSightNeoForge {
 	static void onChunkUnload(ChunkEvent.Unload event) {
 		if (event.getLevel() instanceof ClientLevel) {
 			SensorIndex.onChunkUnload(event.getChunk());
+		}
+	}
+
+	// ---------------------------------------------------------------- dev-only verify commands
+
+	/**
+	 * DECISIONS.md ADR-019 permits the verification mechanism to reach server-side state only in
+	 * a development environment, and requires that the dev-only status be real rather than
+	 * intended - the same gate {@code SculkSightClient} applies on Fabric through
+	 * {@code FabricLoader}, applied here through {@code FMLEnvironment} directly rather than
+	 * through the package-private {@code ClientPlatform}/{@code Environment} seam, which this
+	 * class's own package cannot reach and which exists for {@code TimingGate}/{@code TimingLog}
+	 * alone (see {@code Environment}'s own javadoc).
+	 */
+	@SubscribeEvent
+	static void onRegisterClientCommands(RegisterClientCommandsEvent event) {
+		if (!FMLEnvironment.isProduction()) {
+			VerificationCommand.register(event.getDispatcher());
+
+			// Mode C's own gate: TESTING-STRATEGY.md section 4's v0.1 criterion names both modes,
+			// and mode A's command asks a different piece of code. Same mechanism below the
+			// prediction, same ADR-019 concession, a separate command for the reason
+			// DetectionVerificationCommand's own javadoc gives.
+			DetectionVerificationCommand.register(event.getDispatcher());
+
+			// Mode C's index, checked against an independent sweep rather than against this mod's
+			// own geometry: DECISIONS.md ADR-041, closing OPEN-QUESTIONS.md section 21. Same
+			// ADR-019 concession, same reason - see the command's own javadoc for why it is a
+			// third mechanism rather than an extension of either command above it.
+			IndexVerificationCommand.register(event.getDispatcher());
+
+			SculkSight.LOGGER.info("Development environment: /sculksight-verify, "
+					+ "/sculksight-verify-detection and /sculksight-verify-index registered "
+					+ "(ADR-019).");
 		}
 	}
 }
