@@ -63,9 +63,25 @@ configurations {
 	}
 }
 
+// Only for other mods: ModDevGradle adds NeoForge's and Mojang's own repositories itself.
+repositories {
+	// Cloth Config (PLAN.md section 4). shedaniel publishes nowhere else.
+	maven {
+		name = "shedaniel"
+		url = uri("https://maven.shedaniel.me/")
+	}
+}
+
 dependencies {
 	commonJava project(path: ':common', configuration: 'commonJava')
 	commonClientJava project(path: ':common', configuration: 'commonClientJava')
+
+	// Cloth Config, for the v0.1 configuration screen. The same version as fabric/ declares -
+	// see gradle.properties - but the loader's own artifact: cloth-config-neoforge rather than
+	// cloth-config-fabric. The API types common/src/client/java/.../config/ConfigScreens names
+	// are identical in both, which is what lets that file be compiled once per loader here the
+	// same way the rest of common already is.
+	implementation "me.shedaniel.cloth:cloth-config-neoforge:${project.cloth_config_version}"
 }
 
 tasks.named('compileJava', JavaCompile) {

@@ -5,6 +5,7 @@ import net.minecraft.client.multiplayer.ClientLevel;
 
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.loading.FMLEnvironment;
@@ -13,6 +14,7 @@ import net.neoforged.neoforge.client.event.RegisterClientCommandsEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import net.neoforged.neoforge.client.event.lifecycle.ClientStoppingEvent;
+import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 import net.neoforged.neoforge.event.level.ChunkEvent;
 import net.neoforged.neoforge.event.level.LevelEvent;
 
@@ -21,6 +23,8 @@ import com.scr0ols.sculksight.client.ClientPlatform;
 import com.scr0ols.sculksight.client.DetectionIndicator;
 import com.scr0ols.sculksight.client.SensorIndex;
 import com.scr0ols.sculksight.client.ShellRenderer;
+import com.scr0ols.sculksight.config.ClientConfig;
+import com.scr0ols.sculksight.config.ConfigScreens;
 import com.scr0ols.sculksight.verify.DetectionVerificationCommand;
 import com.scr0ols.sculksight.verify.IndexVerificationCommand;
 import com.scr0ols.sculksight.verify.VerificationCommand;
@@ -83,10 +87,33 @@ import com.scr0ols.sculksight.verify.VerificationCommand;
 @EventBusSubscriber(modid = SculkSight.MOD_ID, value = Dist.CLIENT)
 public final class SculkSightNeoForge {
 
-	public SculkSightNeoForge() {
+	/**
+	 * @param container injected by FancyModLoader, which allows exactly four constructor argument
+	 *        types and this among them ({@code FMLModContainer.constructMod} reads them from a map
+	 *        of {@code IEventBus}, {@code ModContainer}, {@code FMLModContainer} and {@code Dist} -
+	 *        read from the real loader-11.0.13 artifact on 2026-09-06, per CONVENTIONS.md section
+	 *        6, rather than assumed). It is what a config screen is registered against.
+	 */
+	public SculkSightNeoForge(ModContainer container) {
 		// Installed before anything else touches com.scr0ols.sculksight.client: see this class's
 		// own javadoc for why the constructor is early enough.
 		ClientPlatform.set(new NeoForgeEnvironment());
+
+		// The v0.1 settings file (PLAN.md section 4), read once, here - after ClientPlatform.set
+		// above, since ClientConfig asks it for the loader's own config directory, and before any
+		// event below can reach something that reads a setting.
+		ClientConfig.load();
+
+		// How a NeoForge player reaches the screen: the loader's own mod list offers a config
+		// button for any mod that has registered this extension point (IConfigScreenFactory's own
+		// javadoc, read from neoforge-26.2.0.75-sources on 2026-09-06). No third-party mod is
+		// involved, unlike Fabric's Mod Menu - see fabric's own ModMenuIntegration.
+		// Held in a typed local first: ModContainer overloads registerExtensionPoint on the value and
+		// on a Supplier of it, and a lambda passed inline matches both, which the compiler reports as
+		// ambiguous rather than choosing for us.
+		IConfigScreenFactory screens = (ignored, modListScreen) -> ConfigScreens.create(modListScreen);
+
+		container.registerExtensionPoint(IConfigScreenFactory.class, screens);
 
 		SculkSight.LOGGER.info("Sculk Sight (NeoForge) client initialised.");
 	}

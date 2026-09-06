@@ -8,10 +8,52 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
+import com.scr0ols.sculksight.config.SculkSightConfig;
 import com.scr0ols.sculksight.solver.Face;
 
 /** Tests for the v0.0 style constants of ADR-022, ADR-023 and ADR-029. */
 class ShellStyleTest {
+
+	/**
+	 * The v0.1 config screen must not move the shell by existing: at the default slider position
+	 * the configured style is the authored one, component for component.
+	 */
+	@Test
+	void atTheDefaultSettingTheConfiguredStyleIsTheAuthoredOne() {
+		ShellStyle authored = ShellStyle.v0();
+		ShellStyle configured = ShellStyle.fromConfig(SculkSightConfig.defaults());
+
+		assertEquals(authored.colour(), configured.colour());
+		assertEquals(authored.depthTestedAlpha(), configured.depthTestedAlpha(), 1.0E-6F);
+		assertEquals(authored.seeThroughAlpha(), configured.seeThroughAlpha(), 1.0E-6F);
+
+		for (Face face : Face.values()) {
+			assertEquals(authored.red(face), configured.red(face));
+			assertEquals(authored.green(face), configured.green(face));
+			assertEquals(authored.blue(face), configured.blue(face));
+		}
+	}
+
+	/** The slider moves the alphas and nothing else - ADR-023's colour is not a v0.1 setting. */
+	@Test
+	void theSliderMovesBothAlphasAndLeavesTheColourAlone() {
+		ShellStyle configured = ShellStyle.fromConfig(new SculkSightConfig(60));
+
+		assertEquals(0xFFA300, configured.colour());
+		assertEquals(0.60F, configured.depthTestedAlpha(), 1.0E-6F);
+		assertEquals(0.24F, configured.seeThroughAlpha(), 1.0E-6F);
+		assertEquals(153, configured.encodedAlpha());
+	}
+
+	/** A configured style is still a fresh array, not a view onto the authored one. */
+	@Test
+	void aConfiguredStyleDoesNotShareItsShadingArrayWithTheAuthoredOne() {
+		ShellStyle configured = ShellStyle.fromConfig(SculkSightConfig.defaults());
+
+		configured.shadeByFace()[Face.UP.ordinal()] = 0.0F;
+
+		assertEquals(1.00F, ShellStyle.v0().shadeByFace()[Face.UP.ordinal()], 1.0E-6F);
+	}
 
 	@Test
 	void theV0ColourIsTheAmberAdr023Chose() {

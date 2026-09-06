@@ -54,3 +54,20 @@ curseforgeURL="https://www.youtube.com/watch?v=YkADj0TPrJA&list=RDYkADj0TPrJA&st
 	versionRange="${minecraft_version_range}"
 	ordering="NONE"
 	side="CLIENT"
+
+# Cloth Config draws the v0.1 settings screen (PLAN.md section 4). Required rather than optional,
+# and deliberately: the screen is the only way a player changes a setting in game, so a build that
+# loads without Cloth would offer a mod whose configuration is hand-editing a JSON file. The
+# persistence layer beneath the screen is this project's own and does not depend on Cloth at all,
+# which is what would make relaxing this to "optional" a one-line change if it ever earns one.
+#
+# The version bound is open above 26.2.155 - the release read from maven.shedaniel.me on
+# 2026-09-06 - rather than pinned to it. Cloth's major component tracks the Minecraft version it
+# targets, so [26.2.155,) cannot admit a build for a different game version, which is the thing a
+# bound here is for.
+[[dependencies.${mod_id}]]
+	modId="cloth_config"
+	type="required"
+	versionRange="[26.2.155,)"
+	ordering="AFTER"
+	side="CLIENT"

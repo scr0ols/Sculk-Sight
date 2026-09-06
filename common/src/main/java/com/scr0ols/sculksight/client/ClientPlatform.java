@@ -18,9 +18,13 @@ import org.jspecify.annotations.Nullable;
  * interface's fields are implicitly {@code public static final} and cannot hold the mutable
  * reference this needs. Two small types cost less to read than one type doing two jobs.
  *
- * <p><b>{@link #get} stays package-private, but the class itself is public.</b> Only
- * {@link TimingGate} and {@link TimingLog} - this package's own reason this class exists - read
- * {@link #get}. {@link #set}, though, has to be reachable from each loader's own entrypoint
+ * <p><b>{@link #get} was package-private until the v0.1 config screen, and is now public.</b>
+ * {@link TimingGate} and {@link TimingLog} - this package's own reason this class exists - were
+ * its only readers, and the narrower visibility recorded that. PLAN.md section 4's persistence
+ * layer added a genuine second one in a different package,
+ * {@code com.scr0ols.sculksight.config.ClientConfig}, which needs {@link Environment#configDir()}
+ * for the same reason {@link TimingLog} needs the game directory: the loader owns the answer.
+ * {@link #set}, meanwhile, always had to be reachable from each loader's own entrypoint
  * package - {@code com.scr0ols.sculksight.neoforge} is a genuinely different package from this
  * one, unlike Fabric's own {@code FabricEnvironment}, which sits inside this package physically
  * (fabric's client source set) even though it is a different module.
@@ -44,13 +48,13 @@ public final class ClientPlatform {
 	 *         produced before this seam existed (see that class's own javadoc). Both classes need a
 	 *         running, initialised game; neither is meant to be testable in a plain JVM.
 	 */
-	static Environment get() {
+	public static Environment get() {
 		Environment current = environment;
 
 		if (current == null) {
 			throw new NullStateException(
-					"ClientPlatform.set was never called - TimingGate and TimingLog need a running, "
-							+ "initialised game.");
+					"ClientPlatform.set was never called - TimingGate, TimingLog and ClientConfig "
+							+ "need a running, initialised game.");
 		}
 
 		return current;

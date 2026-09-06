@@ -1,5 +1,6 @@
 package com.scr0ols.sculksight.mesh;
 
+import com.scr0ols.sculksight.config.SculkSightConfig;
 import com.scr0ols.sculksight.solver.Face;
 
 /**
@@ -48,9 +49,11 @@ public record ShellStyle(int colour, float depthTestedAlpha, float seeThroughAlp
 	 * tan. Removing it leaves the hue where ADR-023 put it and strengthens that ADR's own argument,
 	 * since amber was chosen for being the complement of the Deep Dark's blue-teal.
 	 *
-	 * <p>Hardcoded, per PLAN.md section 4: v0.0 has no config. These become sliders in v0.1 when
-	 * Cloth Config arrives, which is why they are gathered in one record rather than spread
-	 * through the encoder.
+	 * <p>These were hardcoded outright in v0.0, per PLAN.md section 4, and gathered in one record
+	 * rather than spread through the encoder precisely so that a config could later move them. It
+	 * has: v0.1 puts the two alphas behind one opacity slider, and {@link #fromConfig} is what a
+	 * running game builds its style with. This method stays the authored baseline that slider
+	 * departs from, and the thing the tests hold ADR-022 and ADR-023 to.
 	 *
 	 * <p>The array is built fresh on each call rather than shared as a constant, because a
 	 * {@code float[]} in a record component is mutable and a shared one would be a mutable static.
@@ -66,6 +69,23 @@ public record ShellStyle(int colour, float depthTestedAlpha, float seeThroughAlp
 		shade[Face.DOWN.ordinal()] = 0.66F;
 
 		return new ShellStyle(0xFFA300, 0.25F, 0.10F, shade);
+	}
+
+	/**
+	 * The style a player's own settings ask for: ADR-023's colour and ADR-022's shading unchanged,
+	 * with both alphas taken from the one opacity slider PLAN.md section 4 puts on the v0.1 screen
+	 * (see {@link SculkSightConfig} for why one control moves two numbers).
+	 *
+	 * <p><b>{@link #v0()} is not obsolete and this is not a duplicate of it.</b> That method is the
+	 * authored style - what ADR-022 and ADR-023 decided, with nothing overridden - and it stays
+	 * what the tests pin those ADRs against. This one is the same style with the player's opacity
+	 * substituted, and at the default slider position the two are equal, which is itself a test.
+	 */
+	public static ShellStyle fromConfig(SculkSightConfig config) {
+		ShellStyle authored = v0();
+
+		return new ShellStyle(authored.colour(), config.depthTestedAlpha(), config.seeThroughAlpha(),
+				authored.shadeByFace());
 	}
 
 	public ShellStyle {

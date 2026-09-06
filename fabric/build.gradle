@@ -18,6 +18,18 @@ base {
 repositories {
 	// Only for other mods. Loom adds Mojang's and Fabric's own repositories automatically,
 	// so Minecraft and Fabric API need nothing declared here.
+
+	// Cloth Config (PLAN.md section 4). shedaniel publishes nowhere else.
+	maven {
+		name = "shedaniel"
+		url = uri("https://maven.shedaniel.me/")
+	}
+
+	// Mod Menu, compile-time only - see gradle.properties for why it is a soft dependency.
+	maven {
+		name = "TerraformersMC"
+		url = uri("https://maven.terraformersmc.com/releases/")
+	}
 }
 
 loom {
@@ -103,6 +115,27 @@ dependencies {
 	// transitively. That is why the compile classpath is complete, and why no jar ever
 	// appears in .gradle/loom-cache/remapped_mods: nothing is being remapped.
 	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+
+	// Cloth Config, for the v0.1 configuration screen (PLAN.md section 4). Declared on the client
+	// source set because only client code names it, the same reason commonClientJava is wired to
+	// compileClientJava above; `implementation` rather than `modImplementation` for the reason the
+	// Fabric API comment above already gives - 26.2 is unobfuscated and Loom registers no `mod*`
+	// configurations at all.
+	//
+	// Fabric API is excluded from its transitive graph deliberately: this module already declares
+	// the version it wants a few lines up, and letting Cloth's own POM pull a second one in is the
+	// classic way a build ends up resolving a Fabric API this project never chose.
+	clientImplementation("me.shedaniel.cloth:cloth-config-fabric:${project.cloth_config_version}") {
+		exclude(group: "net.fabricmc.fabric-api")
+	}
+
+	// Mod Menu, compile-time and dev-runtime only. ModMenuIntegration implements one of its
+	// interfaces, so the class has to be on the compile classpath; nothing else in this mod names
+	// it, and fabric.mod.json lists it under "recommends" rather than "depends", so a player
+	// without it gets the whole mod minus the route to the screen. runtimeOnly puts it in the dev
+	// client so the screen can actually be opened while working on it.
+	clientCompileOnly "com.terraformersmc:modmenu:${project.mod_menu_version}"
+	clientRuntimeOnly "com.terraformersmc:modmenu:${project.mod_menu_version}"
 
 	// JUnit, test scope only. Every test in this project now lives in common/'s own test source
 	// set, including TierTimingTest since the ADR-043 follow-up split moved TierTiming itself

@@ -11,6 +11,7 @@ import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents;
 import net.fabricmc.loader.api.FabricLoader;
 
 import com.scr0ols.sculksight.SculkSight;
+import com.scr0ols.sculksight.config.ClientConfig;
 import com.scr0ols.sculksight.verify.DetectionVerificationCommand;
 import com.scr0ols.sculksight.verify.IndexVerificationCommand;
 import com.scr0ols.sculksight.verify.VerificationCommand;
@@ -50,6 +51,13 @@ public class SculkSightClient implements ClientModInitializer {
 		ClientPlatform.set(new FabricEnvironment());
 
 		SculkSight.LOGGER.info("Sculk Sight client initialised.");
+
+		// The v0.1 settings file (PLAN.md section 4), read once, here, after ClientPlatform.set
+		// above - ClientConfig asks it for the loader's own config directory - and before anything
+		// that reads a setting. ShellRenderer reads one when it encodes a mesh, which is a keypress
+		// at the earliest, so this is comfortably early. Cloth Config draws the screen over this
+		// (see ConfigScreens); it is not what stores anything.
+		ClientConfig.load();
 
 		registerShellRenderer();
 

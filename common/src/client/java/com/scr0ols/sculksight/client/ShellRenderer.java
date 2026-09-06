@@ -34,6 +34,7 @@ import org.joml.Vector4f;
 import org.jspecify.annotations.Nullable;
 
 import com.scr0ols.sculksight.SculkSight;
+import com.scr0ols.sculksight.config.ClientConfig;
 import com.scr0ols.sculksight.mesh.ShellMeshBuilder;
 import com.scr0ols.sculksight.mesh.ShellStyle;
 import com.scr0ols.sculksight.solver.DetectionSet;
@@ -88,7 +89,17 @@ import com.scr0ols.sculksight.solver.ShellSolver;
  */
 public final class ShellRenderer {
 
-	private static final ShellStyle STYLE = ShellStyle.v0();
+	/**
+	 * The shell's appearance, rebuilt from the player's settings the first time it is needed after
+	 * they change.
+	 *
+	 * <p>Was {@code ShellStyle.v0()} in a final field until the v0.1 config screen (PLAN.md section
+	 * 4). Held lazily rather than initialised eagerly so that this class carries no ordering
+	 * requirement against {@code ClientConfig.load()}: the first read happens on a keypress at the
+	 * earliest, long after either loader's entrypoint has run.
+	 */
+	private static @Nullable ShellStyle style;
+
 
 	/** Constructed, not registered - see the class javadoc. */
 	public static final KeyMapping TOGGLE_KEY = new KeyMapping(
@@ -197,6 +208,44 @@ public final class ShellRenderer {
 	}
 
 	/**
+	 * The current style, built from the player's settings on first use and kept until they change.
+	 *
+	 * <p>One instance serves both the encode and the draw, and that is load-bearing rather than
+	 * incidental: {@code ShellStyle.faceModulation} reaches every alpha but the encoded one by
+	 * dividing by the alpha the mesh was built at, so a mesh encoded under one style and drawn
+	 * under another would be modulated against the wrong denominator. {@link #onConfigChanged()}
+	 * is what keeps that from happening - it drops the cached shell along with the style.
+	 */
+	private static ShellStyle style() {
+		ShellStyle current = style;
+
+		if (current == null) {
+			current = ShellStyle.fromConfig(ClientConfig.get());
+			style = current;
+		}
+
+		return current;
+	}
+
+	/**
+	 * The player saved new settings: forget the style built from the old ones, and drop the cached
+	 * shell that was encoded at the old alpha.
+	 *
+	 * <p>Called from the config screen's own save, which runs on the client thread - also the
+	 * render thread (R13 point 4), which is what makes closing this entry's GPU resources legal
+	 * here, exactly as in {@link #onLevelChanged()}.
+	 *
+	 * <p>Re-solving rather than re-modulating is the deliberate choice. The alternative - keeping
+	 * the mesh and changing only the uniform - would need the encoded alpha tracked separately from
+	 * the target one, for a saving on an action a player takes seconds apart at most, against a
+	 * solve NEXT-STEPS-ARCHIVE.md Step 29 measured at well under a millisecond.
+	 */
+	public static void onConfigChanged() {
+		style = null;
+		clear();
+	}
+
+	/**
 	 * A level change - join, dimension change, or disconnect - drops the cached shell, both of
 	 * whose GPU resources are tied to the level that produced them. Called from a loader's own
 	 * client-level-change event, which runs on the client thread - also the render thread
@@ -296,7 +345,7 @@ public final class ShellRenderer {
 		// native-memory race, not merely a stale read.
 		ByteBufferBuilder storage = new ByteBufferBuilder(INITIAL_STORAGE_BYTES);
 
-		MeshData faceMesh = ShellMeshBuilder.build(accepted, DefaultVertexFormat.POSITION_COLOR, STYLE,
+		MeshData faceMesh = ShellMeshBuilder.build(accepted, DefaultVertexFormat.POSITION_COLOR, style(),
 				storage);
 
 		long encodeNanos = TierTiming.since(encodeStart);
@@ -475,8 +524,8 @@ public final class ShellRenderer {
 		// modulating, since the fragment shader multiplies the vertex colour by ColorModulator and
 		// ColorModulator is a member of the same DynamicTransforms block both passes bind (R15.4).
 		GpuBufferSlice[] uniforms = RenderSystem.getDynamicUniforms().writeTransforms(
-				transform(modelView, STYLE.faceModulation(true, inside)),
-				transform(modelView, STYLE.faceModulation(false, inside)));
+				transform(modelView, style().faceModulation(true, inside)),
+				transform(modelView, style().faceModulation(false, inside)));
 
 		// Target selection copied from net.minecraft.client.renderer.rendertype.PreparedRenderType,
 		// which is how every immediate-mode vanilla draw resolves it: the main target, unless
