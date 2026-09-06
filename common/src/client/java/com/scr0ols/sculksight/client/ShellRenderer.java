@@ -241,9 +241,17 @@ public final class ShellRenderer {
 		SensorKey sensor = target.sensor();
 		int radius = target.radius();
 
+		// ARCHITECTURE.md section 6.2's first phase, and the only phase still on the client thread.
+		// Timed since 2026-09-06 (DECISIONS.md ADR-031's addendum of that date): nothing measured
+		// it before, so the one part of a solve that genuinely costs the player a frame was the one
+		// part the instrument could not see.
+		long snapshotStart = TierTiming.start();
+
 		VolumeSnapshot snapshot = VolumeSnapshot.of(level, sensor.x(), sensor.y(), sensor.z(), radius);
 
-		WORKER.execute(() -> solveAndEncode(target, revision, sensor, radius, snapshot));
+		long snapshotNanos = TierTiming.since(snapshotStart);
+
+		WORKER.execute(() -> solveAndEncode(target, revision, sensor, radius, snapshot, snapshotNanos));
 	}
 
 	/**
@@ -266,11 +274,12 @@ public final class ShellRenderer {
 	 * executor's thread (DECISIONS.md ADR-046 point 4), so it is the only one used here too.
 	 */
 	private static void solveAndEncode(ShellEntry target, long revision, SensorKey sensor, int radius,
-			VolumeSnapshot snapshot) {
+			VolumeSnapshot snapshot, long snapshotNanos) {
 
-		// DECISIONS.md ADR-031 times from here to the end of the encode. This is tier 1 plus
-		// everything the producer does before the slot - the half of PLAN.md section 3.3's
-		// per-tick budget that now genuinely belongs to a worker rather than to this thread.
+		// DECISIONS.md ADR-031 times from here to the end of the encode: tier 1 plus everything the
+		// producer does before the slot. Reported beside the client-thread figure and deliberately
+		// not added into it (ADR-031's 2026-09-06 addendum) - this thread is not the frame, so this
+		// number is the shell's latency rather than any part of PLAN.md section 3.3's per-tick budget.
 		long encodeStart = TierTiming.start();
 
 		ShellSolution solution = ShellSolver.solveDetailed(new LevelWorldView(snapshot),
@@ -308,7 +317,8 @@ public final class ShellRenderer {
 		// happen from a newer revision racing this one, since one sensor has one solve in flight
 		// at a time, but it is real code rather than an assertion: a world unload racing this
 		// solve reaches exactly this path.
-		target.slot().offer(revision, new ShellSolveResult(faceMesh, storage, stats, encodeNanos));
+		target.slot().offer(revision,
+				new ShellSolveResult(faceMesh, storage, stats, snapshotNanos, encodeNanos));
 	}
 
 	// ---------------------------------------------------------------- upload and draw
@@ -383,8 +393,10 @@ public final class ShellRenderer {
 				return;
 			}
 
-			// The other half of PLAN.md section 3.3's per-tick budget, and the only part of a
-			// solve that has to happen here rather than wherever the producer runs (ADR-031).
+			// The second of the two phases PLAN.md section 3.3's per-tick budget is actually about,
+			// the snapshot in runSolve being the first: both are on the client thread (the render
+			// thread and the client thread being one, RESEARCH-LOG.md R13 point 4), and the upload is
+			// the only part of a solve that has to happen here rather than wherever the producer runs.
 			long uploadStart = TierTiming.start();
 			ShellBuffer uploaded = ShellBuffer.upload(mesh);
 			long uploadNanos = TierTiming.since(uploadStart);
@@ -397,7 +409,8 @@ public final class ShellRenderer {
 			say(Minecraft.getInstance(), "solved " + stats.summary() + ".");
 
 			if (TimingGate.ENABLED) {
-				say(Minecraft.getInstance(), new ShellTimings(encodeNanos, uploadNanos).summary());
+				say(Minecraft.getInstance(),
+						new ShellTimings(result.snapshotNanos(), encodeNanos, uploadNanos).summary());
 			}
 		}
 	}

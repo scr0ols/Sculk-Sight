@@ -98,12 +98,22 @@ class TierTimingTest {
 	}
 
 	@Test
-	void aSolveReportsBothHalvesAndTheSumTheBudgetIsAbout() {
-		ShellTimings timings = new ShellTimings(4 * MS, MS / 4);
+	void aSolveSumsOnlyTheTwoPhasesThatCostAFrame() {
+		// The encode is the large number and it is deliberately not in the sum: DECISIONS.md ADR-048
+		// moved it to a worker, so adding it to a per-tick budget figure would report work the
+		// player never waits on as though it cost a frame. ADR-031's 2026-09-06 addendum.
+		ShellTimings timings = new ShellTimings(3 * MS / 2, 16 * MS, MS / 4);
 
-		assertEquals(4 * MS + MS / 4, timings.totalNanos());
-		assertEquals("tiers 1+2: encode 4.000 ms + upload 0.250 ms = 4.250 ms of CPU "
-				+ "(budget 2 ms per tick).", timings.summary());
+		assertEquals(3 * MS / 2 + MS / 4, timings.clientNanos());
+	}
+
+	@Test
+	void aSolveReportsTheClientThreadAndTheWorkerAsSeparateFigures() {
+		ShellTimings timings = new ShellTimings(3 * MS / 2, 16 * MS, MS / 4);
+
+		assertEquals("client thread: snapshot 1.500 ms + upload 0.250 ms = 1.750 ms of CPU "
+				+ "(budget 2 ms per tick); worker: encode 16.000 ms, off the frame path.",
+				timings.summary());
 	}
 
 	@Test

@@ -6,8 +6,8 @@ import com.mojang.blaze3d.vertex.MeshData;
 /**
  * One solve's complete output: the whole of what DECISIONS.md ADR-048 widens
  * {@link ShellUploadSlot}'s payload to carry - the mesh, the per-solve builder that backs its
- * native memory, and the two numbers {@link ShellRenderer} reports once the render thread has
- * taken this off the slot.
+ * native memory, and the numbers {@link ShellRenderer} reports once the render thread has taken
+ * this off the slot.
  *
  * <p><b>Why the builder travels with the mesh now, rather than staying the one long-lived field
  * the renderer used to own (the retired {@code MESH_STORAGE}).</b> RESEARCH-LOG.md R19 found
@@ -18,10 +18,14 @@ import com.mojang.blaze3d.vertex.MeshData;
  * builder, and {@link #close()} closes both the mesh and the builder together, which is what makes
  * one call site correct for the pair rather than two call sites that could disagree.
  *
- * <p><b>{@code stats} and {@code encodeNanos} travel here for the same reason DECISIONS.md
- * ADR-026 already named.</b> They were static fields beside {@link ShellUploadSlot} in
- * {@link ShellRenderer}, correct only while producer and consumer were the same thread; ADR-048
- * point 4 is where moving them into the payload was decided.
+ * <p><b>{@code stats}, {@code snapshotNanos} and {@code encodeNanos} travel here for the same
+ * reason DECISIONS.md ADR-026 already named.</b> They were static fields beside
+ * {@link ShellUploadSlot} in {@link ShellRenderer}, correct only while producer and consumer were
+ * the same thread; ADR-048
+ * point 4 is where moving them into the payload was decided. {@code snapshotNanos} joined them on
+ * 2026-09-06 (ADR-031's addendum of that date): it is measured on the client thread in
+ * {@code runSolve}, before the worker exists, and has to reach the render thread that reports it,
+ * so it travels the same road as the rest even though nothing on the worker reads it.
  *
  * <p>Implements {@link ShellUploadSlot.Payload} rather than a checked-exception-throwing
  * {@code AutoCloseable} directly, since neither {@code MeshData#close()} nor
@@ -36,12 +40,16 @@ final class ShellSolveResult implements ShellUploadSlot.Payload {
 
 	private final ShellStats stats;
 
+	private final long snapshotNanos;
+
 	private final long encodeNanos;
 
-	ShellSolveResult(MeshData mesh, ByteBufferBuilder storage, ShellStats stats, long encodeNanos) {
+	ShellSolveResult(MeshData mesh, ByteBufferBuilder storage, ShellStats stats, long snapshotNanos,
+			long encodeNanos) {
 		this.mesh = mesh;
 		this.storage = storage;
 		this.stats = stats;
+		this.snapshotNanos = snapshotNanos;
 		this.encodeNanos = encodeNanos;
 	}
 
@@ -51,6 +59,10 @@ final class ShellSolveResult implements ShellUploadSlot.Payload {
 
 	ShellStats stats() {
 		return stats;
+	}
+
+	long snapshotNanos() {
+		return snapshotNanos;
 	}
 
 	long encodeNanos() {
