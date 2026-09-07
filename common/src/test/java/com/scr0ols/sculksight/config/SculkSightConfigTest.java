@@ -62,6 +62,34 @@ class SculkSightConfigTest {
 		assertEquals(expected, SculkSightConfig.clampShellOpacityPercent(given));
 	}
 
+	/**
+	 * The {@code double} overload, and the reason it exists: every one of these is a value that
+	 * {@code (int) Math.round(...)} would have wrapped before any clamp could see it
+	 * (OPEN-QUESTIONS.md section 22.2). The last row is why {@code NaN} is named explicitly rather
+	 * than left to {@code Math.max} and {@code Math.min}, which propagate it.
+	 */
+	@ParameterizedTest
+	@CsvSource({"-1.0, 0.0", "0.0, 0.0", "30.4, 30.4", "100.0, 100.0", "100.6, 100.0",
+			"1.0E300, 100.0", "-1.0E300, 0.0", "Infinity, 100.0", "-Infinity, 0.0", "NaN, 0.0"})
+	void clampingADoubleBoundsItBeforeAnyNarrowingCanWrap(double given, double expected) {
+		assertEquals(expected, SculkSightConfig.clampShellOpacityPercent(given));
+	}
+
+	/**
+	 * The property the {@code double} overload is for, stated as the thing that was wrong: after it
+	 * runs, the narrowing cannot lose information, because the value is inside a range an
+	 * {@code int} represents exactly.
+	 */
+	@ParameterizedTest
+	@ValueSource(doubles = {1.0E300, Double.MAX_VALUE, Double.POSITIVE_INFINITY,
+			Double.NEGATIVE_INFINITY, Double.NaN, 2147483648.0})
+	void aClampedDoubleNarrowsToAPercentageTheRecordAccepts(double given) {
+		int percent = (int) Math.round(SculkSightConfig.clampShellOpacityPercent(given));
+
+		assertEquals(percent, new SculkSightConfig(percent).shellOpacityPercent(),
+				"the record's own constructor is the check: it refuses anything out of range");
+	}
+
 	@Test
 	void changingASettingLeavesTheOriginalAlone() {
 		SculkSightConfig original = SculkSightConfig.defaults();

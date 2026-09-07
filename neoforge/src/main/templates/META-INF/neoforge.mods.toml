@@ -65,6 +65,13 @@ curseforgeURL="https://www.youtube.com/watch?v=YkADj0TPrJA&list=RDYkADj0TPrJA&st
 # 2026-09-06 - rather than pinned to it. Cloth's major component tracks the Minecraft version it
 # targets, so [26.2.155,) cannot admit a build for a different game version, which is the thing a
 # bound here is for.
+#
+# Fabric states the same bound as ">=26.2.155" and carries the same reasoning, under
+# custom/sculksight:notes in fabric.mod.json, JSON having no comments. Until 2026-09-07 it declared
+# "*" while this file was bounded, so one dependency was two different statements depending on
+# which manifest you read; OPEN-QUESTIONS.md section 22 is where that was recorded. Cloth's Fabric
+# mod id is "cloth-config" with a hyphen and its NeoForge one "cloth_config" with an underscore -
+# that difference is the publisher's, not a slip here, and both were read from the artifacts.
 [[dependencies.${mod_id}]]
 	modId="cloth_config"
 	type="required"

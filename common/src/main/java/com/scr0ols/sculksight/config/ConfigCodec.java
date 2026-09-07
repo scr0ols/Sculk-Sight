@@ -77,23 +77,29 @@ public final class ConfigCodec {
 					KEY_SHELL_OPACITY_PERCENT + " must be a number, not " + describe(raw));
 		}
 
-		int rounded = (int) Math.round(number.doubleValue());
+		double value = number.doubleValue();
 
-		if (rounded != number.doubleValue()) {
-			repairs.accept(KEY_SHELL_OPACITY_PERCENT + " is a whole percentage; "
-					+ number.doubleValue() + " was rounded to " + rounded);
-		}
+		// Bounded as a double, and only then narrowed, which is the order the whole of this fix
+		// consists of. Json's number scanner accepts by character shape, so a literal too large for
+		// a double is a well-formed document to it and Double.valueOf answers positive infinity
+		// rather than throwing; rounding that gives Long.MAX_VALUE and the cast to int wraps it to
+		// -1, which a clamp applied afterward would move to zero. The player asked for the densest
+		// shell there is and would have got no shell at all. OPEN-QUESTIONS.md section 22.2.
+		double bounded = SculkSightConfig.clampShellOpacityPercent(value);
 
-		int clamped = SculkSightConfig.clampShellOpacityPercent(rounded);
+		int percent = (int) Math.round(bounded);
 
-		if (clamped != rounded) {
+		if (bounded != value) {
 			repairs.accept(KEY_SHELL_OPACITY_PERCENT + " must be "
 					+ SculkSightConfig.MIN_SHELL_OPACITY_PERCENT + ".."
-					+ SculkSightConfig.MAX_SHELL_OPACITY_PERCENT + "; " + rounded
-					+ " was moved to " + clamped);
+					+ SculkSightConfig.MAX_SHELL_OPACITY_PERCENT + "; " + value
+					+ " was moved to " + percent);
+		} else if (percent != value) {
+			repairs.accept(KEY_SHELL_OPACITY_PERCENT + " is a whole percentage; "
+					+ value + " was rounded to " + percent);
 		}
 
-		return clamped;
+		return percent;
 	}
 
 	/** What a wrong-typed value is, in the words a player would recognise from their own file. */

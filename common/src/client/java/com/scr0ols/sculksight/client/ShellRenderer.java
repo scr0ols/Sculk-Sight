@@ -97,6 +97,17 @@ public final class ShellRenderer {
 	 * 4). Held lazily rather than initialised eagerly so that this class carries no ordering
 	 * requirement against {@code ClientConfig.load()}: the first read happens on a keypress at the
 	 * earliest, long after either loader's entrypoint has run.
+	 *
+	 * <p><b>This field belongs to the client thread alone, and that is what makes a plain field
+	 * enough.</b> It is written by {@link #onConfigChanged} and read by {@link #style()}, whose
+	 * only callers are {@link #runSolve}, {@link #fillIsOff} and {@link #draw} - the client thread
+	 * and the render thread, which RESEARCH-LOG.md R13 point 4 establishes are one thread. The
+	 * {@link #fillIsOff} caller arrived with OPEN-QUESTIONS.md section 23 and does not weaken the
+	 * argument, being on the render thread like the two in {@link #draw} beside it. The worker never
+	 * touches it; it is handed the captured instance as a parameter instead. Until 2026-09-07 it
+	 * did touch it, reading this field from {@link #solveAndEncode} with no happens-before edge
+	 * against the write, so a save could leave a worker encoding at the old alpha - the outcome
+	 * DECISIONS.md ADR-058 exists to prevent. OPEN-QUESTIONS.md section 22.1 is the finding.
 	 */
 	private static @Nullable ShellStyle style;
 
@@ -215,6 +226,13 @@ public final class ShellRenderer {
 	 * dividing by the alpha the mesh was built at, so a mesh encoded under one style and drawn
 	 * under another would be modulated against the wrong denominator. {@link #onConfigChanged()}
 	 * is what keeps that from happening - it drops the cached shell along with the style.
+	 *
+	 * <p><b>Client thread only</b>, which is also the render thread (R13 point 4): the callers are
+	 * {@link #runSolve}, {@link #fillIsOff} and {@link #draw}. The encode does not call this -
+	 * {@link #runSolve} captures the instance here and passes it to {@link #solveAndEncode} as a parameter, the way
+	 * the snapshot already travels under R16 and DECISIONS.md ADR-048. That is what makes "one
+	 * instance serves both the encode and the draw" a property of the code rather than a sentence
+	 * asking the reader to trust it, and it is the fix OPEN-QUESTIONS.md section 22.1 named.
 	 */
 	private static ShellStyle style() {
 		ShellStyle current = style;
@@ -235,10 +253,18 @@ public final class ShellRenderer {
 	 * render thread (R13 point 4), which is what makes closing this entry's GPU resources legal
 	 * here, exactly as in {@link #onLevelChanged()}.
 	 *
-	 * <p>Re-solving rather than re-modulating is the deliberate choice. The alternative - keeping
-	 * the mesh and changing only the uniform - would need the encoded alpha tracked separately from
-	 * the target one, for a saving on an action a player takes seconds apart at most, against a
-	 * solve NEXT-STEPS-ARCHIVE.md Step 29 measured at well under a millisecond.
+	 * <p><b>Dropping rather than re-modulating is the deliberate choice</b>, and dropping is all
+	 * this method does: the shell disappears on save and comes back on the player's next keypress.
+	 * Nothing is re-solved here. The alternative - keeping the mesh and changing only the uniform -
+	 * would need the encoded alpha tracked separately from the target one, for a saving on an
+	 * action a player takes seconds apart at most; dropping the mesh instead makes "a mesh drawn
+	 * under a style it was not encoded at" unrepresentable rather than merely avoided.
+	 *
+	 * <p>This paragraph used to say "re-solving rather than re-modulating" and cite
+	 * NEXT-STEPS-ARCHIVE.md Step 29's sub-millisecond solve as what made a re-solve affordable,
+	 * describing work the method has never performed. Review found it on 2026-09-07
+	 * (OPEN-QUESTIONS.md section 22.4); the visible behaviour was reconsidered at the same time and
+	 * kept, so the comment moved rather than the code. DECISIONS.md ADR-058 carries both halves.
 	 */
 	public static void onConfigChanged() {
 		style = null;
@@ -284,11 +310,19 @@ public final class ShellRenderer {
 	 * into the slot - runs on {@link #WORKER}'s one thread instead of here, in
 	 * {@link #solveAndEncode}, which is what DECISIONS.md ADR-046 built and ADR-048 made safe to
 	 * actually use.
+	 *
+	 * <p><b>The style is captured here for the same reason and by the same rule</b>, though for a
+	 * narrower one than the snapshot's: {@link #style} is not a live game object, it is a field the
+	 * client thread writes on a settings save (ADR-058), and reading it from the worker was a data
+	 * race with no happens-before edge - OPEN-QUESTIONS.md section 22.1. Capturing it beside the
+	 * snapshot means the instance the worker encodes at is the instance that was current when the
+	 * solve was dispatched, by construction rather than by timing.
 	 */
 	private static void runSolve(ClientLevel level, ShellEntry target) {
 		long revision = target.revision();
 		SensorKey sensor = target.sensor();
 		int radius = target.radius();
+		ShellStyle style = style();
 
 		// ARCHITECTURE.md section 6.2's first phase, and the only phase still on the client thread.
 		// Timed since 2026-09-06 (DECISIONS.md ADR-031's addendum of that date): nothing measured
@@ -300,7 +334,8 @@ public final class ShellRenderer {
 
 		long snapshotNanos = TierTiming.since(snapshotStart);
 
-		WORKER.execute(() -> solveAndEncode(target, revision, sensor, radius, snapshot, snapshotNanos));
+		WORKER.execute(
+				() -> solveAndEncode(target, revision, sensor, radius, snapshot, snapshotNanos, style));
 	}
 
 	/**
@@ -321,9 +356,18 @@ public final class ShellRenderer {
 	 * but the client's own, and CONVENTIONS.md section 6 forbids assuming they are without a
 	 * research-log entry; {@link SculkSight#LOGGER} is the one channel already used from this
 	 * executor's thread (DECISIONS.md ADR-046 point 4), so it is the only one used here too.
+	 *
+	 * <p><b>Everything this method reads arrives as a parameter, including the style.</b> It is a
+	 * {@code static} method on a class whose mutable statics belong to the client thread, so the
+	 * parameter list is the whole of what this thread is allowed to see. {@code style} shadows
+	 * {@link #style} deliberately: the field is not reachable from this body by name, which is
+	 * OPEN-QUESTIONS.md section 22.1's fix made structural rather than remembered.
+	 *
+	 * @param style the appearance captured on the client thread in {@link #runSolve}, and the same
+	 *        instance the draw will modulate against - never re-read from the field here
 	 */
 	private static void solveAndEncode(ShellEntry target, long revision, SensorKey sensor, int radius,
-			VolumeSnapshot snapshot, long snapshotNanos) {
+			VolumeSnapshot snapshot, long snapshotNanos, ShellStyle style) {
 
 		// DECISIONS.md ADR-031 times from here to the end of the encode: tier 1 plus everything the
 		// producer does before the slot. Reported beside the client-thread figure and deliberately
@@ -345,7 +389,7 @@ public final class ShellRenderer {
 		// native-memory race, not merely a stale read.
 		ByteBufferBuilder storage = new ByteBufferBuilder(INITIAL_STORAGE_BYTES);
 
-		MeshData faceMesh = ShellMeshBuilder.build(accepted, DefaultVertexFormat.POSITION_COLOR, style(),
+		MeshData faceMesh = ShellMeshBuilder.build(accepted, DefaultVertexFormat.POSITION_COLOR, style,
 				storage);
 
 		long encodeNanos = TierTiming.since(encodeStart);
@@ -396,6 +440,10 @@ public final class ShellRenderer {
 			return;
 		}
 
+		if (fillIsOff()) {
+			return;
+		}
+
 		long drawStart = TierTiming.start();
 
 		draw(current, faces, cameraPos);
@@ -412,6 +460,40 @@ public final class ShellRenderer {
 				flushFrames();
 			}
 		}
+	}
+
+	/**
+	 * True when the player has turned the fill off, in which case there is nothing to draw and
+	 * {@link #draw} must not be entered. OPEN-QUESTIONS.md section 23, decided as DECISIONS.md
+	 * ADR-022's 2026-09-07 addendum.
+	 *
+	 * <p><b>Zero is a permitted setting and this is what it means.</b>
+	 * {@code SculkSightConfig.MIN_SHELL_OPACITY_PERCENT} is 0, and its own javadoc promises that a
+	 * player may turn the fill off and keep the mod loaded. At that setting
+	 * {@code ShellStyle.encodedAlpha()} is 0, and {@code faceModulation} - which {@link #draw}
+	 * calls twice per frame - divides by it: {@code ShellStyle.modulation} throws
+	 * {@code IllegalStateException} for exactly that case. Without this method a player who moved
+	 * the slider to zero and pressed the toggle key got an exception every frame instead of an
+	 * absent fill.
+	 *
+	 * <p><b>The guard in {@code modulation} is deliberately left as it is.</b> It is right about
+	 * its own arithmetic - ADR-022's modulation scheme (ARCHITECTURE.md section 4.3) reaches every
+	 * alpha but the encoded one by dividing by it, and no factor turns an encoded zero into a
+	 * visible anything. The fix is that the guard is no longer reached, not that it is weakened;
+	 * an encoded zero arriving at {@code faceModulation} would still be a defect and should still
+	 * throw.
+	 *
+	 * <p><b>Why the encoded alpha rather than the percentage.</b> The encoded alpha is the exact
+	 * quantity the guard divides by, so testing it here cannot drift from what is tested there
+	 * through a rounding step in between. The two agree in any case:
+	 * {@code Alphas.toChannel} rounds {@code percent / 100} times 255, which is 0 at 0 and 3 at 1,
+	 * and {@code ShellStyleTest} pins that boundary.
+	 *
+	 * <p>Client thread, which is also the render thread (R13 point 4) - the same condition every
+	 * other {@link #style()} caller sits under.
+	 */
+	private static boolean fillIsOff() {
+		return style().encodedAlpha() <= 0;
 	}
 
 	/** ARCHITECTURE.md section 7 step 5. Render thread. */
@@ -501,6 +583,11 @@ public final class ShellRenderer {
 	 * load-bearing: the depth-tested pass goes second because it is the one that reinforces the half
 	 * with line of sight to the camera, so it composites on top (ADR-021). ADR-028 added two further
 	 * draws for the crease-edge outline and ADR-030 removed them.
+	 *
+	 * <p><b>Never entered while the fill is off.</b> The two {@code faceModulation} calls below
+	 * divide by the encoded alpha and throw when it is zero, which is a permitted slider position;
+	 * {@link #fillIsOff} is the guard {@link #onRender} applies before reaching here, and its
+	 * javadoc carries the argument. OPEN-QUESTIONS.md section 23.
 	 */
 	private static void draw(ShellEntry current, ShellBuffer faces, Vec3 camera) {
 		SensorKey sensor = current.sensor();

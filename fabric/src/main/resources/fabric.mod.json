@@ -43,9 +43,15 @@
 		"minecraft": "~26.2",
 		"java": ">=25",
 		"fabric-api": "*",
-		"cloth-config": "*"
+		"cloth-config": ">=26.2.155"
 	},
 	"recommends": {
 		"modmenu": "*"
+	},
+	"custom": {
+		"sculksight:notes": {
+			"cloth-config": "The bound is the same statement NeoForge's neoforge.mods.toml makes as [26.2.155,), and the reasoning is repeated here rather than only there because a reader of one manifest should not have to open the other. DECISIONS.md ADR-056: 26.2.155 is the <release> in Cloth's own maven-metadata.xml at maven.shedaniel.me, read 2026-09-06; the mod version in cloth-config-fabric-26.2.155.jar's own fabric.mod.json is the identical string, checked in the artifact rather than inferred from the coordinate. Open above that release rather than pinned to it, because Cloth's major component tracks the Minecraft version it targets, so >=26.2.155 cannot admit a build for a different game version - which is the thing a bound here is for. It was '*' until 2026-09-07 while NeoForge already carried the bound, which OPEN-QUESTIONS.md section 22 recorded as the same dependency stated two different ways. JSON carries no comments, so this note lives under 'custom', which the Fabric metadata specification reserves for exactly this and the loader ignores.",
+			"parity": "See neoforge/src/main/templates/META-INF/neoforge.mods.toml for this mod's NeoForge-side metadata - the two are kept at parity by hand; there is no shared source for these fields."
+		}
 	}
 }

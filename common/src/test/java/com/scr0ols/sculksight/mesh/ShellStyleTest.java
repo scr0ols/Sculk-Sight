@@ -161,6 +161,69 @@ class ShellStyleTest {
 				() -> new ShellStyle(0xFFFFFF, 0.25F, 0.10F, new float[] {1.0F}));
 	}
 
+	/**
+	 * OPEN-QUESTIONS.md section 23's finding, pinned as a property rather than left as a sentence:
+	 * the lowest setting the config layer permits produces a style this type cannot modulate.
+	 *
+	 * <p>This is not a defect being tolerated. ADR-022's scheme reaches every alpha but the encoded
+	 * one by dividing by it, so at an encoded zero there is nothing to divide and no factor that
+	 * would help; the decision (ADR-022's 2026-09-07 addendum) is that the renderer does not reach
+	 * here at all when the fill is off. What this test holds is the half of that decision that
+	 * lives in this module: that zero really is the throwing case, so that a future change which
+	 * quietly made {@code modulation} return something for it - and therefore made the renderer's
+	 * guard look redundant - fails the build instead.
+	 *
+	 * <p><b>What it does not cover, stated plainly.</b> It does not show that
+	 * {@code ShellRenderer.onRender} actually returns before {@code draw} at this setting, because
+	 * no test in this module can: {@code ShellRenderer} lives in {@code common/src/client/java},
+	 * which this module's build does not compile (ADR-044, the same wall
+	 * {@code ShellRendererStyleCaptureTest} documents), and neither loader module has a test source
+	 * set. That half is held by the three-module compile and, ultimately, by a live client, where
+	 * nothing here has yet been seen at any opacity.
+	 *
+	 * <p><b>And no source-text guard was added for it</b>, deliberately, which is the one place
+	 * this diverges from section 22.1's precedent. That guard exists because a data race is
+	 * invisible by nature - a passing suite would never have caught it and a reader checking by eye
+	 * is the only other instrument. This defect is the opposite: it throws on every frame the
+	 * shell is up, so removing the renderer's guard is caught by the first person who runs the
+	 * client at zero. A second text-matching test would add a maintenance burden against a
+	 * regression that cannot hide.
+	 */
+	@Test
+	void theLowestPermittedOpacityIsExactlyTheOneThisTypeCannotModulate() {
+		ShellStyle off = ShellStyle.fromConfig(
+				new SculkSightConfig(SculkSightConfig.MIN_SHELL_OPACITY_PERCENT));
+
+		assertEquals(0, off.encodedAlpha());
+		assertThrows(IllegalStateException.class, () -> off.faceModulation(false, false));
+		assertThrows(IllegalStateException.class, () -> off.faceModulation(true, false));
+		assertThrows(IllegalStateException.class, () -> off.faceModulation(false, true));
+		assertThrows(IllegalStateException.class, () -> off.faceModulation(true, true));
+	}
+
+	/**
+	 * The renderer's guard tests the encoded alpha; the throwing guard tests the float it was
+	 * rounded from. This pins that the two agree over every permitted setting, so that "the fill is
+	 * off" and "the modulation would throw" cannot come apart on some percentage in the middle.
+	 *
+	 * <p>The interesting end is 1, where the alpha is 0.01 and the encoded channel is
+	 * {@code Math.round(0.01 * 255)}, which is 3 rather than 0 - the rounding does not swallow the
+	 * lowest visible setting.
+	 */
+	@Test
+	void everyPermittedSettingAboveZeroModulatesWithoutThrowing() {
+		for (int percent = SculkSightConfig.MIN_SHELL_OPACITY_PERCENT + 1;
+				percent <= SculkSightConfig.MAX_SHELL_OPACITY_PERCENT; percent++) {
+
+			ShellStyle style = ShellStyle.fromConfig(new SculkSightConfig(percent));
+
+			assertTrue(style.encodedAlpha() > 0, "encoded alpha was zero at " + percent + "%");
+			assertTrue(style.faceModulation(true, true) > 0.0F, "no modulation at " + percent + "%");
+		}
+
+		assertEquals(3, ShellStyle.fromConfig(new SculkSightConfig(1)).encodedAlpha());
+	}
+
 	private static float outsideComposite(float alpha) {
 		return 1.0F - (1.0F - alpha) * (1.0F - alpha);
 	}

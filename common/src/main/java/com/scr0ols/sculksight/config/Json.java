@@ -34,6 +34,26 @@ public final class Json {
 
 	private static final String INDENT = "\t";
 
+	/**
+	 * How deeply objects and arrays may nest before the document is rejected.
+	 *
+	 * <p><b>A bound is needed at all because the reader is recursive and the file is a player's to
+	 * edit.</b> {@code readValue} descends into {@code readObject} and {@code readArray}, which call
+	 * it back; unbounded, a file of a few thousand opening brackets exhausts the stack. A
+	 * {@code StackOverflowError} is an {@link Error}, so it would pass straight through
+	 * {@code ConfigStore.load}'s {@code catch (JsonParseException)} and out of the layer that
+	 * promised a damaged file yields the shipped defaults (DECISIONS.md ADR-055). Reporting the
+	 * depth here keeps that promise where it was made, rather than widening a catch elsewhere to
+	 * cover it. OPEN-QUESTIONS.md section 22.3 is the finding.
+	 *
+	 * <p>64 is chosen as generous rather than measured, and it can be: this mod's own schema is a
+	 * flat object of numbers, one level deep, and ADR-053's reason for a general parser is that a
+	 * later version's or a player's own extra keys still load - not that anyone would nest them
+	 * sixty-four deep. It is a project choice about this project's own file, so it needs no
+	 * research entry under CONVENTIONS.md section 6.
+	 */
+	static final int MAX_DEPTH = 64;
+
 	private Json() {
 	}
 
@@ -183,6 +203,17 @@ public final class Json {
 
 		private int at;
 
+		/**
+		 * How many objects and arrays are open around the value being read, so that
+		 * {@link Json#MAX_DEPTH} can be enforced. Only ever incremented and decremented in
+		 * {@link #readObject} and {@link #readArray}, in that order, on the way in and out.
+		 *
+		 * <p>It is deliberately not restored when a parse throws. A {@code Parser} reads one
+		 * document and is then discarded, and a throw ends that document; there is no second read
+		 * for a stale value to be wrong for.
+		 */
+		private int depth;
+
 		private Parser(String text) {
 			this.text = text;
 		}
@@ -206,6 +237,16 @@ public final class Json {
 		}
 
 		private Map<String, Object> readObject() throws JsonParseException {
+			enter();
+
+			Map<String, Object> object = readObjectBody();
+
+			depth--;
+
+			return object;
+		}
+
+		private Map<String, Object> readObjectBody() throws JsonParseException {
 			expect('{');
 			skipWhitespace();
 
@@ -238,6 +279,16 @@ public final class Json {
 		}
 
 		private List<Object> readArray() throws JsonParseException {
+			enter();
+
+			List<Object> array = readArrayBody();
+
+			depth--;
+
+			return array;
+		}
+
+		private List<Object> readArrayBody() throws JsonParseException {
 			expect('[');
 			skipWhitespace();
 
@@ -367,6 +418,24 @@ public final class Json {
 
 			at += keyword.length();
 			return value;
+		}
+
+		/**
+		 * Opens one more object or array, refusing to open a {@link Json#MAX_DEPTH}-and-first.
+		 *
+		 * <p>The refusal is a {@link JsonParseException} - the same thing every other malformed
+		 * document produces here - so that the caller that already handles a damaged file handles
+		 * this one too. It has to be thrown before the recursion rather than caught after it: what
+		 * the recursion would produce is a {@code StackOverflowError}, and an {@link Error} is
+		 * neither reliably catchable at a useful point nor something {@code ConfigStore.load}'s
+		 * {@code catch (JsonParseException)} would see.
+		 */
+		private void enter() throws JsonParseException {
+			if (depth >= MAX_DEPTH) {
+				throw error("objects and arrays may nest at most " + MAX_DEPTH + " deep");
+			}
+
+			depth++;
 		}
 
 		private void skipDigits() {

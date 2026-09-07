@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -169,5 +170,67 @@ class JsonTest {
 		object.put("a", Double.valueOf(Double.NaN));
 
 		assertThrows(IllegalArgumentException.class, () -> Json.write(object));
+	}
+
+	// ------------------------------------------------- nesting depth (OPEN-QUESTIONS.md 22.3)
+
+	@Test
+	void readsAnObjectNestedExactlyAsDeepAsIsAllowed() throws JsonParseException {
+		assertInstanceOf(Map.class, Json.parse(nestedObjects(Json.MAX_DEPTH)));
+	}
+
+	@Test
+	void readsAnArrayNestedExactlyAsDeepAsIsAllowed() throws JsonParseException {
+		assertInstanceOf(List.class, Json.parse(nestedArrays(Json.MAX_DEPTH)));
+	}
+
+	@Test
+	void refusesOneLevelDeeperThanIsAllowed() {
+		JsonParseException thrown = assertThrows(JsonParseException.class,
+				() -> Json.parse(nestedObjects(Json.MAX_DEPTH + 1)));
+
+		assertTrue(thrown.getMessage().contains("nest at most"), thrown.getMessage());
+	}
+
+	/**
+	 * The finding itself, in the shape a damaged file would actually take: thousands of opening
+	 * brackets and nothing else. Before the bound this exhausted the stack, and a
+	 * {@code StackOverflowError} is an {@link Error} - it passes straight through the
+	 * {@code catch (JsonParseException)} that DECISIONS.md ADR-055's "a damaged file yields the
+	 * shipped defaults" promise is made of. That {@code assertThrows} names {@code JsonParseException}
+	 * is the whole assertion: it fails if an {@code Error} comes out instead, which is the old
+	 * behaviour exactly.
+	 */
+	@Test
+	void aFileOfNothingButOpeningBracketsIsAParseErrorRatherThanAStackOverflow() {
+		assertThrows(JsonParseException.class, () -> Json.parse("[".repeat(100_000)));
+		assertThrows(JsonParseException.class, () -> Json.parse("{\"a\": ".repeat(100_000)));
+	}
+
+	/** Depth is nesting, not length: a flat array of many values is not deep, and stays legal. */
+	@Test
+	void aLongFlatArrayIsNotDeepNesting() throws JsonParseException {
+		List<?> array =
+				assertInstanceOf(List.class, Json.parse("[" + "1,".repeat(9_999) + "1]"));
+
+		assertEquals(10_000, array.size());
+	}
+
+	/** Nor is it cumulative across siblings: two shallow branches side by side stay shallow. */
+	@Test
+	void siblingsDoNotAccumulateDepth() throws JsonParseException {
+		String branch = nestedObjects(Json.MAX_DEPTH - 1);
+
+		assertInstanceOf(Map.class, Json.parse("{\"a\": " + branch + ", \"b\": " + branch + "}"));
+	}
+
+	/** {@code {"a": {"a": ... 1 ... }}} nested to the given depth. Depth 1 is {@code {"a": 1}}. */
+	private static String nestedObjects(int depth) {
+		return "{\"a\": ".repeat(depth) + "1" + "}".repeat(depth);
+	}
+
+	/** {@code [[ ... 1 ... ]]} nested to the given depth. Depth 1 is {@code [1]}. */
+	private static String nestedArrays(int depth) {
+		return "[".repeat(depth) + "1" + "]".repeat(depth);
 	}
 }

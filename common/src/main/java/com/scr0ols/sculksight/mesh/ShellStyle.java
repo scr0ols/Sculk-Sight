@@ -129,10 +129,26 @@ public record ShellStyle(int colour, float depthTestedAlpha, float seeThroughAlp
 	 * {@code ColorModulator}, which is a member of the same {@code DynamicTransforms} block every
 	 * pass already binds (R15.4), so this costs nothing beyond a different uniform value per draw.
 	 *
+	 * <p><b>Requires a positive {@link #encodedAlpha()}, and a caller must not reach here without
+	 * one.</b> The whole scheme is "one encoded alpha, every other value reached by dividing by
+	 * it", so a zero encoded alpha has no factor at all: no multiplier turns an invisible mesh into
+	 * a visible one. {@link SculkSightConfig#MIN_SHELL_OPACITY_PERCENT} is 0 and deliberately so,
+	 * which means a permitted setting produces exactly that state, and OPEN-QUESTIONS.md section 23
+	 * is where the collision between the two was argued out. It was decided <i>above</i> this type:
+	 * {@code ShellRenderer.onRender} returns before {@code draw} when the fill is off, so the
+	 * keypress still solves, still uploads and still reports, and simply draws nothing.
+	 *
+	 * <p>The guard below therefore stays as it is rather than being softened to return 0 or 1 for
+	 * a zero denominator. It is right about its own arithmetic, and after section 23's fix it is
+	 * unreachable from the render path - which makes it what it was always meant to be, an
+	 * assertion that a mesh is never drawn at an alpha it cannot be modulated from.
+	 *
 	 * @param seeThrough true for the no-depth-test pass of ADR-021, false for the depth-tested one
 	 * @param cameraInside true when the camera's block position is a member of the detection set,
 	 *        in which case ADR-029's correction applies because the ray crosses one layer instead
 	 *        of two
+	 * @throws IllegalStateException if {@link #encodedAlpha()} is zero, which is a caller that
+	 *         skipped the check described above rather than a bad configuration
 	 */
 	public float faceModulation(boolean seeThrough, boolean cameraInside) {
 		return modulation(seeThrough ? seeThroughAlpha : depthTestedAlpha, depthTestedAlpha, cameraInside);

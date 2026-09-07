@@ -33,7 +33,19 @@ public record SculkSightConfig(int shellOpacityPercent) {
 	/** ADR-022's depth-tested alpha of 0.25, as the percentage this record stores. */
 	public static final int DEFAULT_SHELL_OPACITY_PERCENT = 25;
 
-	/** Fully transparent. Permitted: a player may turn the fill off and keep the mod loaded. */
+	/**
+	 * Fully transparent. Permitted: a player may turn the fill off and keep the mod loaded.
+	 *
+	 * <p><b>That promise is kept by the renderer rather than by this constant</b>, and it is worth
+	 * saying where. At zero the style's encoded alpha is zero, and ADR-022's modulation scheme
+	 * reaches every other alpha by dividing by it - so the drawing code cannot represent this
+	 * setting at all, and threw once per frame at it. {@code OPEN-QUESTIONS.md} section 23 is the
+	 * finding and ADR-022's 2026-09-07 addendum the decision: {@code ShellRenderer.onRender}
+	 * returns before its draw when the fill is off, so the toggle key still solves, still uploads
+	 * and still reports "solved N positions", and simply draws nothing. Raising this constant to 1
+	 * was the alternative considered, and it was rejected precisely because it would have withdrawn
+	 * the sentence above.
+	 */
 	public static final int MIN_SHELL_OPACITY_PERCENT = 0;
 
 	/** Fully opaque, the ceiling alpha itself has. */
@@ -61,6 +73,37 @@ public record SculkSightConfig(int shellOpacityPercent) {
 
 	/** The nearest permitted percentage to the given one. Used when repairing a read value. */
 	public static int clampShellOpacityPercent(int percent) {
+		return Math.max(MIN_SHELL_OPACITY_PERCENT, Math.min(MAX_SHELL_OPACITY_PERCENT, percent));
+	}
+
+	/**
+	 * The nearest permitted percentage to the given one, <b>before</b> it is narrowed to an
+	 * {@code int}. Used when repairing a value read out of a JSON document, where every number is
+	 * a {@code double} ({@link Json}).
+	 *
+	 * <p><b>This overload exists because clamping after the narrowing is not the same operation.</b>
+	 * {@code Math.round(double)} returns a {@code long}, so casting its result to {@code int} wraps:
+	 * {@code (int) Math.round(1.0E300)} is -1, and clamping <i>that</i> moves it to zero rather than
+	 * to one hundred - a player who hand-edited the file to an absurd opacity would get a fully
+	 * transparent shell, the opposite of what they asked for. Bounding the {@code double} first
+	 * leaves the cast unable to lose anything, because the value it narrows is already inside a
+	 * range an {@code int} represents exactly. {@code OPEN-QUESTIONS.md} section 22.2 is the
+	 * finding this answers.
+	 *
+	 * <p>A {@code NaN} is moved to the minimum rather than left as one: {@code Math.max} and
+	 * {@code Math.min} both propagate it, so it is caught here instead of reaching a cast that
+	 * would quietly make it zero regardless. Nothing this project parses produces one - {@link Json}
+	 * has no {@code NaN} literal - but this method takes a {@code double} and says what it does
+	 * with every one of them.
+	 *
+	 * @return a value in {@link #MIN_SHELL_OPACITY_PERCENT}..{@link #MAX_SHELL_OPACITY_PERCENT},
+	 *         never infinite and never {@code NaN}
+	 */
+	public static double clampShellOpacityPercent(double percent) {
+		if (Double.isNaN(percent)) {
+			return MIN_SHELL_OPACITY_PERCENT;
+		}
+
 		return Math.max(MIN_SHELL_OPACITY_PERCENT, Math.min(MAX_SHELL_OPACITY_PERCENT, percent));
 	}
 

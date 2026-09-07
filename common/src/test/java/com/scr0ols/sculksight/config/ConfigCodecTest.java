@@ -70,6 +70,39 @@ class ConfigCodecTest {
 		assertTrue(repairs.getFirst().contains("rounded"), repairs.getFirst());
 	}
 
+	/**
+	 * OPEN-QUESTIONS.md section 22.2. Each of these is a number a player could type into the file
+	 * by hand and each used to come back as 0 - a fully transparent shell for someone who asked for
+	 * the densest one there is. {@code Json} accepts them by character shape and {@code Double}
+	 * maps the last two to positive infinity, so the round gave {@code Long.MAX_VALUE}, the cast to
+	 * {@code int} wrapped it to -1, and the clamp that ran afterward moved that to the minimum.
+	 */
+	@ParameterizedTest
+	@ValueSource(strings = {"2147483648", "1e300", "1e400"})
+	void aValueTooLargeForAnIntIsStillTheMaximumAndNotTheMinimum(String value)
+			throws JsonParseException {
+
+		SculkSightConfig config =
+				ConfigCodec.read("{\"shellOpacityPercent\": " + value + "}", repairs::add);
+
+		assertEquals(SculkSightConfig.MAX_SHELL_OPACITY_PERCENT, config.shellOpacityPercent(),
+				"an absurdly high opacity is the most opaque shell, not the least");
+		assertEquals(1, repairs.size());
+		assertTrue(repairs.getFirst().contains("moved to"), repairs.getFirst());
+	}
+
+	/** The same defect at the other end: a hugely negative value belongs at the minimum. */
+	@ParameterizedTest
+	@ValueSource(strings = {"-2147483649", "-1e300", "-1e400"})
+	void aValueTooSmallForAnIntIsStillTheMinimum(String value) throws JsonParseException {
+		SculkSightConfig config =
+				ConfigCodec.read("{\"shellOpacityPercent\": " + value + "}", repairs::add);
+
+		assertEquals(SculkSightConfig.MIN_SHELL_OPACITY_PERCENT, config.shellOpacityPercent());
+		assertEquals(1, repairs.size());
+		assertTrue(repairs.getFirst().contains("moved to"), repairs.getFirst());
+	}
+
 	@ParameterizedTest
 	@ValueSource(strings = {
 			"{\"shellOpacityPercent\": \"25\"}",

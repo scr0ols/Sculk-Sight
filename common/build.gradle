@@ -35,6 +35,17 @@ dependencies {
 tasks.named('test', Test) {
 	useJUnitPlatform()
 
+	// src/client/java is a sibling source directory rather than a sourceSet of this module (see the
+	// artifacts block below), so nothing here compiles it and Gradle has no idea any test reads it.
+	// ShellRendererStyleCaptureTest does: it guards a property of ShellRenderer's source text that
+	// no test on this classpath can reach any other way (OPEN-QUESTIONS.md section 22.1, and the
+	// test's own javadoc for why it is written that way). Without this declaration the test task
+	// stays UP-TO-DATE when that file is the only thing edited, which is precisely the edit the
+	// guard exists to catch.
+	inputs.dir(file('src/client/java'))
+			.withPropertyName('clientSourcesReadByTests')
+			.withPathSensitivity(PathSensitivity.RELATIVE)
+
 	testLogging {
 		events "passed", "skipped", "failed"
 	}
