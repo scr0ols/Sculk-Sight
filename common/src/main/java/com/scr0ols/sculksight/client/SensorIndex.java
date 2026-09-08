@@ -2,12 +2,16 @@ package com.scr0ols.sculksight.client;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Predicate;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.gameevent.GameEventListener;
+
+import com.scr0ols.sculksight.verify.IndexReconciliation;
+import com.scr0ols.sculksight.verify.WorldPosition;
 
 /**
  * Modes B and C's sensor enumeration surface. `DECISIONS.md` ADR-038, `RESEARCH-LOG.md` R10.
@@ -36,12 +40,15 @@ import net.minecraft.world.level.gameevent.GameEventListener;
  * this project has no research-log entry for what that bound is in 26.2 (CONVENTIONS.md
  * section 6) - so the ordering guarantee is taken instead of guessing one.
  *
- * <p><b>What this leaves resting on R11.</b> ADR-038's own "R11 dependency" paragraph already
- * accepts that whether a live block-change fires this class's load/unload callbacks reliably on
- * every path - chunk-packet arrival as well as live placement and breaking - is unconfirmed; R10
- * point 10 read only Fabric's own event signatures for that half of the question. Nothing here
- * narrows that risk further or works around it; the "Revisit if" clause ADR-038 already carries
- * is this class's fallback plan too, not a new one.
+ * <p><b>What this leaves resting on R11 - and where that stopped being true for NeoForge.</b>
+ * ADR-038's own "R11 dependency" paragraph already accepts that whether a live block-change fires
+ * this class's load/unload callbacks reliably on every path - chunk-packet arrival as well as live
+ * placement and breaking - is unconfirmed; R10 point 10 read only Fabric's own event signatures
+ * for that half of the question. On NeoForge the answer turned out to be "no" outright, not merely
+ * unconfirmed: it has no live block-entity add/remove event at all ({@code SculkSightNeoForge}'s
+ * own javadoc), so {@link #onBlockEntityLoad}/{@link #onBlockEntityUnload} are never called there.
+ * {@link #reconcile} is the fix for that loader - see its own javadoc for the report it closes -
+ * not a new instance of this same unconfirmed risk.
  *
  * <p><b>Threading: no synchronisation, on the working assumption that every callback fires on
  * the client thread.</b> R10 point 4 places the live block-change path (the one the load/unload
@@ -141,6 +148,54 @@ public final class SensorIndex {
 	 */
 	public static void onLevelChanged() {
 		SENSORS.clear();
+	}
+
+	/**
+	 * Reconciles this index against an independently observed ground truth for one bounded
+	 * region: every entry {@code truth} has is written in - added, or overwriting whatever
+	 * radius was indexed before - and every entry this index already had for a position
+	 * {@code inRegion} accepts, that {@code truth} does not confirm, is removed.
+	 *
+	 * <p>The counterpart to {@link #onBlockEntityLoad}/{@link #onBlockEntityUnload} for a loader
+	 * with no live signal to call them from. NeoForge has neither ({@code SculkSightNeoForge}'s
+	 * own javadoc, and this class's own "R11 dependency" paragraph above), so a sensor placed or
+	 * broken while its containing chunk stays loaded is invisible to those two callbacks there -
+	 * confirmed as the cause of the 2026-09-08 captain report: a detection box built and tested
+	 * in one continuous session, without its chunk ever reloading, read "not detected" no matter
+	 * where the player stood, because the sensor never entered the index in the first place.
+	 * Calling this repeatedly for the same region, with {@code truth} rebuilt fresh each time from
+	 * whatever is actually there right now, catches both directions: a newly-placed sensor was
+	 * absent from a previous {@code truth} and is added; a broken one was present before and is
+	 * now missing, so {@code inRegion} lets its stale entry be removed without this index ever
+	 * being told it went away.
+	 *
+	 * <p>{@code inRegion} must describe exactly the positions {@code truth} could have reported
+	 * on - neither smaller, which would leave a sensor {@code truth} did not cover mistaken for
+	 * stale and deleted, nor larger, which would delete a real sensor outside where {@code truth}
+	 * looked for having no ground-truth entry when the truth is that nobody checked there.
+	 *
+	 * <p>The diff-and-merge itself is {@link IndexReconciliation#apply}, tested there on ordinary
+	 * maps with no Minecraft type in sight; everything this method itself does is the conversion
+	 * to and from {@link WorldPosition} that lets it use that arithmetic, which is why it carries
+	 * no test of its own - the same split {@link #onChunkUnload} already draws between a tested
+	 * geometric rule and an untested real-chunk caller.
+	 */
+	public static void reconcile(Map<BlockPos, Integer> truth, Predicate<BlockPos> inRegion) {
+		Map<WorldPosition, Integer> current = new HashMap<>();
+		SENSORS.forEach((pos, radius) -> current.put(toWorldPosition(pos), radius));
+
+		Map<WorldPosition, Integer> truthByWorldPosition = new HashMap<>();
+		truth.forEach((pos, radius) -> truthByWorldPosition.put(toWorldPosition(pos), radius));
+
+		Map<WorldPosition, Integer> reconciled = IndexReconciliation.apply(current, truthByWorldPosition,
+				pos -> inRegion.test(new BlockPos(pos.x(), pos.y(), pos.z())));
+
+		SENSORS.clear();
+		reconciled.forEach((pos, radius) -> SENSORS.put(new BlockPos(pos.x(), pos.y(), pos.z()), radius));
+	}
+
+	private static WorldPosition toWorldPosition(BlockPos pos) {
+		return new WorldPosition(pos.getX(), pos.getY(), pos.getZ());
 	}
 
 	/**
