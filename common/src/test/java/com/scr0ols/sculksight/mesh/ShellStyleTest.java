@@ -69,7 +69,7 @@ class ShellStyleTest {
 	@ParameterizedTest
 	@EnumSource(DetectorType.class)
 	void detectorPaletteUsesTheApprovedColourAndConfiguredAlpha(DetectorType detector) {
-		ShellStyle style = ShellStyle.forDetector(new SculkSightConfig(60), detector);
+		ShellStyle style = ShellStyle.fromConfig(new SculkSightConfig(60)).withColour(detector.colour());
 
 		assertEquals(detector.colour(), style.colour());
 		assertEquals(0.60F, style.depthTestedAlpha(), 1.0E-6F);
@@ -79,8 +79,8 @@ class ShellStyleTest {
 	@Test
 	void detectorPalettePreservesFaceShading() {
 		ShellStyle amber = ShellStyle.v0();
-		ShellStyle calibrated = ShellStyle.forDetector(SculkSightConfig.defaults(),
-				DetectorType.CALIBRATED_SENSOR);
+		ShellStyle calibrated = ShellStyle.fromConfig(SculkSightConfig.defaults())
+				.withColour(DetectorType.CALIBRATED_SENSOR.colour());
 
 		assertEquals(0x99CCFF, calibrated.colour());
 		for (Face face : Face.values()) {
