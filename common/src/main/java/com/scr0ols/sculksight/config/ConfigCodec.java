@@ -20,10 +20,28 @@ import java.util.function.Consumer;
  * permitted value is used, and the repair is reported to the caller's {@code repairs} consumer so
  * that it is logged rather than silently applied. An unknown key is left alone entirely, so a file
  * written by a later version, or carrying a player's own note, still loads.
+ *
+ * <p><b>{@link #KEY_RENDER_POLICY} is the one exception to "wrong type throws".</b> It has exactly
+ * two legal values and nothing between or beyond them for a player to have meant, unlike a number
+ * whose intended magnitude a typo could plausibly be guessing at. So a missing key, a value of the
+ * wrong type, and a string that is neither {@link #VALUE_RENDER_POLICY_UNION} nor
+ * {@link #VALUE_RENDER_POLICY_PER_SENSOR} - including one from a hypothetical later version this
+ * schema does not yet know - are all repaired the same way, to {@link SculkSightConfig#DEFAULT_RENDER_POLICY},
+ * rather than any of them throwing. A malformed or unrecognised policy is closer to "not set" than
+ * to "a string where a number belongs", and this field carries no rendering effect yet for a fail
+ * to be costly against.
  */
 public final class ConfigCodec {
 
 	static final String KEY_SHELL_OPACITY_PERCENT = "shellOpacityPercent";
+
+	static final String KEY_RENDER_POLICY = "renderPolicy";
+
+	/** {@link RenderPolicy#UNION}, as the string this schema writes and reads. */
+	static final String VALUE_RENDER_POLICY_UNION = "union";
+
+	/** {@link RenderPolicy#PER_SENSOR}, as the string this schema writes and reads. */
+	static final String VALUE_RENDER_POLICY_PER_SENSOR = "per_sensor";
 
 	private ConfigCodec() {
 	}
@@ -33,8 +51,16 @@ public final class ConfigCodec {
 		Map<String, Object> object = new LinkedHashMap<>();
 
 		object.put(KEY_SHELL_OPACITY_PERCENT, Integer.valueOf(config.shellOpacityPercent()));
+		object.put(KEY_RENDER_POLICY, writeRenderPolicy(config.renderPolicy()));
 
 		return Json.write(object);
+	}
+
+	private static String writeRenderPolicy(RenderPolicy policy) {
+		return switch (policy) {
+			case UNION -> VALUE_RENDER_POLICY_UNION;
+			case PER_SENSOR -> VALUE_RENDER_POLICY_PER_SENSOR;
+		};
 	}
 
 	/**
@@ -42,8 +68,9 @@ public final class ConfigCodec {
 	 *
 	 * @param repairs told, one message at a time, about every value this method had to substitute
 	 *        or move into range. Nothing is reported when the file is exactly what was written.
-	 * @throws JsonParseException if the text is not a JSON object, or a known key carries a value
-	 *         of the wrong type
+	 * @throws JsonParseException if the text is not a JSON object, or {@link #KEY_SHELL_OPACITY_PERCENT}
+	 *         carries a value of the wrong type - {@link #KEY_RENDER_POLICY} never throws; see this
+	 *         class's javadoc
 	 */
 	public static SculkSightConfig read(String text, Consumer<String> repairs)
 			throws JsonParseException {
@@ -54,8 +81,9 @@ public final class ConfigCodec {
 		}
 
 		int percent = readPercent(object, repairs);
+		RenderPolicy policy = readRenderPolicy(object, repairs);
 
-		return new SculkSightConfig(percent);
+		return new SculkSightConfig(percent, policy);
 	}
 
 	private static int readPercent(Map<?, ?> object, Consumer<String> repairs)
@@ -100,6 +128,49 @@ public final class ConfigCodec {
 		}
 
 		return percent;
+	}
+
+	/**
+	 * {@link #KEY_RENDER_POLICY}'s repair rule: missing, wrong-typed, and unrecognised all fail
+	 * closed to {@link SculkSightConfig#DEFAULT_RENDER_POLICY} rather than throwing - see this
+	 * class's javadoc for why this key alone works this way.
+	 */
+	private static RenderPolicy readRenderPolicy(Map<?, ?> object, Consumer<String> repairs) {
+		RenderPolicy fallback = SculkSightConfig.DEFAULT_RENDER_POLICY;
+
+		if (!object.containsKey(KEY_RENDER_POLICY)) {
+			repairs.accept(KEY_RENDER_POLICY + " is missing; using the default, "
+					+ writeRenderPolicy(fallback));
+			return fallback;
+		}
+
+		Object raw = object.get(KEY_RENDER_POLICY);
+
+		if (!(raw instanceof String string)) {
+			repairs.accept(KEY_RENDER_POLICY + " must be a string, not " + describe(raw)
+					+ "; using the default, " + writeRenderPolicy(fallback));
+			return fallback;
+		}
+
+		RenderPolicy parsed = parseRenderPolicy(string);
+
+		if (parsed == null) {
+			repairs.accept(KEY_RENDER_POLICY + " must be \"" + VALUE_RENDER_POLICY_UNION + "\" or \""
+					+ VALUE_RENDER_POLICY_PER_SENSOR + "\", not \"" + string + "\"; using the default, "
+					+ writeRenderPolicy(fallback));
+			return fallback;
+		}
+
+		return parsed;
+	}
+
+	/** The policy a stored string names, or {@code null} if it names none of them. */
+	private static RenderPolicy parseRenderPolicy(String value) {
+		return switch (value) {
+			case VALUE_RENDER_POLICY_UNION -> RenderPolicy.UNION;
+			case VALUE_RENDER_POLICY_PER_SENSOR -> RenderPolicy.PER_SENSOR;
+			default -> null;
+		};
 	}
 
 	/** What a wrong-typed value is, in the words a player would recognise from their own file. */

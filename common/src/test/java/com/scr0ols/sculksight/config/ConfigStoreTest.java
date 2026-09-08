@@ -37,7 +37,7 @@ class ConfigStoreTest {
 
 	@Test
 	void aSettingSurvivesBeingWrittenAndReadBack(@TempDir Path directory) {
-		store(directory).set(new SculkSightConfig(71));
+		store(directory).set(new SculkSightConfig(71, SculkSightConfig.DEFAULT_RENDER_POLICY));
 
 		ConfigStore reopened = store(directory);
 		reopened.load();
@@ -51,7 +51,7 @@ class ConfigStoreTest {
 		Path nested = directory.resolve("config").resolve("deeper");
 
 		new ConfigStore(nested.resolve(ConfigStore.FILE_NAME), problems::add)
-				.set(new SculkSightConfig(40));
+				.set(new SculkSightConfig(40, SculkSightConfig.DEFAULT_RENDER_POLICY));
 
 		assertTrue(Files.exists(nested.resolve(ConfigStore.FILE_NAME)));
 		assertEquals(List.of(), problems);
@@ -59,7 +59,7 @@ class ConfigStoreTest {
 
 	@Test
 	void savingLeavesNoTemporaryFileBehind(@TempDir Path directory) throws IOException {
-		store(directory).set(new SculkSightConfig(40));
+		store(directory).set(new SculkSightConfig(40, SculkSightConfig.DEFAULT_RENDER_POLICY));
 
 		try (Stream<Path> entries = Files.list(directory)) {
 			assertEquals(List.of(ConfigStore.FILE_NAME),
@@ -100,7 +100,7 @@ class ConfigStoreTest {
 		blockTheDestination(directory);
 
 		ConfigStore store = store(directory);
-		store.set(new SculkSightConfig(40));
+		store.set(new SculkSightConfig(40, SculkSightConfig.DEFAULT_RENDER_POLICY));
 
 		assertEquals(1, problems.size(), problems.toString());
 		assertTrue(problems.getFirst().contains("could not write"), problems.getFirst());
@@ -153,7 +153,7 @@ class ConfigStoreTest {
 	@Test
 	void aRepairedValueIsReportedAndThenPersistedOnTheNextSave(@TempDir Path directory)
 			throws IOException {
-		write(directory, "{\"shellOpacityPercent\": 400}");
+		write(directory, "{\"shellOpacityPercent\": 400, \"renderPolicy\": \"union\"}");
 
 		ConfigStore store = store(directory);
 		store.load();
@@ -163,7 +163,7 @@ class ConfigStoreTest {
 
 		store.save();
 
-		assertEquals("{\n\t\"shellOpacityPercent\": 100\n}\n",
+		assertEquals("{\n\t\"shellOpacityPercent\": 100,\n\t\"renderPolicy\": \"union\"\n}\n",
 				Files.readString(directory.resolve(ConfigStore.FILE_NAME), StandardCharsets.UTF_8));
 	}
 
