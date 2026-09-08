@@ -9,10 +9,11 @@ plugins {
 }
 
 // This module's own name in the built jar and the IDE, independent of the Gradle subproject
-// name (which defaults to the directory name, "fabric"). Restores the naming this project used
-// before the common extraction, when this was the whole build's root project.
+// name (which defaults to the directory name, "fabric"). Prefixed with the loader name so the
+// Fabric and NeoForge jars never collide when both are copied into one release folder - see
+// neoforge/build.gradle's identical block for the other side of this convention.
 base {
-	archivesName = project.mod_id
+	archivesName = "fabric-${project.mod_id}"
 }
 
 repositories {

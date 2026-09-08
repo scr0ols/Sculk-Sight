@@ -4,8 +4,11 @@ plugins {
 	id 'maven-publish'
 }
 
+// Prefixed with the loader name (rather than suffixed) so the Fabric and NeoForge jars share
+// one naming convention and never collide when both are copied into one release folder - see
+// fabric/build.gradle's identical block for the other side of this convention.
 base {
-	archivesName = "${project.mod_id}-neoforge"
+	archivesName = "neoforge-${project.mod_id}"
 }
 
 java {
