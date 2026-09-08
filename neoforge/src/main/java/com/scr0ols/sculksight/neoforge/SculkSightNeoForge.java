@@ -1,7 +1,12 @@
 package com.scr0ols.sculksight.neoforge;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
 
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -26,8 +31,10 @@ import com.scr0ols.sculksight.client.ShellRenderer;
 import com.scr0ols.sculksight.config.ClientConfig;
 import com.scr0ols.sculksight.config.ConfigScreens;
 import com.scr0ols.sculksight.verify.DetectionVerificationCommand;
+import com.scr0ols.sculksight.verify.IndexSweep;
 import com.scr0ols.sculksight.verify.IndexVerificationCommand;
 import com.scr0ols.sculksight.verify.VerificationCommand;
+import com.scr0ols.sculksight.verify.WorldPosition;
 
 /**
  * The NeoForge entrypoint, and - since DECISIONS.md ADR-043's follow-up split - the NeoForge
@@ -70,11 +77,16 @@ import com.scr0ols.sculksight.verify.VerificationCommand;
  * Fabric's {@code ClientBlockEntityEvents}. {@link SensorIndex} is therefore populated here from
  * {@link ChunkEvent.Load}/{@link ChunkEvent.Unload} alone, the same per-chunk sweep
  * {@code SensorIndex.onChunkLoad} already performs on Fabric's own chunk-load callback and the
- * same mechanism `IndexSweep`'s ground truth already proves safe independently. What this leaves
- * unreplicated is finer than R11 already accepts as unconfirmed on Fabric: a sensor placed or
- * broken without its containing chunk reloading is not caught here at all, where on Fabric it is
- * at least attempted through {@code BLOCK_ENTITY_LOAD}/{@code UNLOAD}. `ARCHITECTURE.md` §8
- * carries this as a new, NeoForge-specific limitation next to R11's existing one.
+ * same mechanism `IndexSweep`'s ground truth already proves safe independently. What this left
+ * unreplicated was finer than R11 already accepts as unconfirmed on Fabric: a sensor placed or
+ * broken without its containing chunk reloading was not caught here at all, where on Fabric it is
+ * at least attempted through {@code BLOCK_ENTITY_LOAD}/{@code UNLOAD} - and was confirmed, by the
+ * 2026-09-08 captain report, to actually happen rather than stay theoretical: a detection box
+ * built and tested in one continuous session read "not detected" no matter where the player
+ * stood, because the sensor never entered the index in the first place. {@link #resyncSensorIndexNearPlayer}
+ * closes that gap now, periodically, for a bounded region around the player - see its own javadoc.
+ * `ARCHITECTURE.md` §8 still carries the underlying API gap as a NeoForge-specific note next to
+ * R11's existing one; it is the periodic workaround, not the gap itself, that is new here.
  *
  * <p><b>Level-change handling fires on both {@link LevelEvent.Load} and {@link LevelEvent.Unload}</b>,
  * both filtered to {@link ClientLevel}, rather than on one event the way Fabric's single
@@ -86,6 +98,28 @@ import com.scr0ols.sculksight.verify.VerificationCommand;
 @Mod(value = SculkSight.MOD_ID, dist = Dist.CLIENT)
 @EventBusSubscriber(modid = SculkSight.MOD_ID, value = Dist.CLIENT)
 public final class SculkSightNeoForge {
+
+	/**
+	 * How often {@link #resyncSensorIndexNearPlayer} re-derives the sensor index near the player,
+	 * in ticks. Every tick would work too - {@link IndexSweep#sweep} costs one map lookup per
+	 * chunk in range plus one {@code instanceof} per block entity found there, nothing like the
+	 * "N sensors, N raycasts" {@code DetectionIndicator} itself budgets per tick - but there is no
+	 * reason to pay even that every tick for a gap that only needs closing within about a second
+	 * of it opening: a placed or broken sensor is invisible until this next runs, not detected
+	 * wrongly forever the way the 2026-09-08 report this fixes describes.
+	 */
+	private static final int SENSOR_INDEX_RESYNC_INTERVAL_TICKS = 20;
+
+	/**
+	 * How far {@link #resyncSensorIndexNearPlayer} looks around the player, in chunks. Vanilla's
+	 * two sculk sensor variants top out at listener radius 16; a player standing at the edge of
+	 * that range can be up to one more chunk away from the sensor itself, so 2 chunks of margin on
+	 * every side of the player's own chunk - a 5x5 chunk square - covers the whole reachable area
+	 * with room to spare.
+	 */
+	private static final int SENSOR_INDEX_RESYNC_RADIUS_CHUNKS = 2;
+
+	private static int sensorIndexResyncCountdown;
 
 	/**
 	 * @param container injected by FancyModLoader, which allows exactly four constructor argument
@@ -129,6 +163,7 @@ public final class SculkSightNeoForge {
 	static void onEndTick(ClientTickEvent.Post event) {
 		ShellRenderer.onEndTick(Minecraft.getInstance());
 		DetectionIndicator.onEndTick(Minecraft.getInstance());
+		resyncSensorIndexNearPlayer();
 	}
 
 	/**
@@ -188,6 +223,49 @@ public final class SculkSightNeoForge {
 		if (event.getLevel() instanceof ClientLevel) {
 			SensorIndex.onChunkUnload(event.getChunk());
 		}
+	}
+
+	/**
+	 * Closes the gap {@link SensorIndex}'s own "R11 dependency" paragraph documents for this
+	 * loader specifically: NeoForge has no live block-entity add/remove event (this class's own
+	 * javadoc, "What NeoForge does not offer" above), so a sensor placed or broken while its chunk
+	 * stays loaded never reaches {@link SensorIndex#onBlockEntityLoad}/
+	 * {@link SensorIndex#onBlockEntityUnload} here the way it does on Fabric - confirmed as the
+	 * cause of the 2026-09-08 captain report: a detection box built and tested in one continuous
+	 * session, its chunk never reloading in between, read "not detected" no matter where the
+	 * player stood, because the sensor never entered the index at all.
+	 *
+	 * <p>Re-derives ground truth for a small, bounded region around the player with
+	 * {@link IndexSweep#sweep} - the same independent sweep {@code /sculksight-verify-index}
+	 * already uses, not a new mechanism - and applies it through {@link SensorIndex#reconcile}.
+	 * Bounded to {@link #SENSOR_INDEX_RESYNC_RADIUS_CHUNKS} rather than every loaded chunk, so
+	 * ADR-038's "no search-radius constant" rule still governs the index's own general bookkeeping;
+	 * this is corrective maintenance for one loader's missing signal, not a replacement for
+	 * {@link #onChunkLoad}/{@link #onChunkUnload} above, which still run and still matter for
+	 * chunks the player has not been near recently.
+	 */
+	private static void resyncSensorIndexNearPlayer() {
+		if (--sensorIndexResyncCountdown > 0) {
+			return;
+		}
+
+		sensorIndexResyncCountdown = SENSOR_INDEX_RESYNC_INTERVAL_TICKS;
+
+		Minecraft client = Minecraft.getInstance();
+		ClientLevel level = client.level;
+		LocalPlayer player = client.player;
+
+		if (level == null || player == null) {
+			return;
+		}
+
+		BlockPos center = player.blockPosition();
+		Map<WorldPosition, Integer> swept = IndexSweep.sweep(level, center, SENSOR_INDEX_RESYNC_RADIUS_CHUNKS);
+		Map<BlockPos, Integer> truth = new HashMap<>();
+
+		swept.forEach((pos, radius) -> truth.put(new BlockPos(pos.x(), pos.y(), pos.z()), radius));
+
+		SensorIndex.reconcile(truth, pos -> IndexSweep.withinSweep(pos, center, SENSOR_INDEX_RESYNC_RADIUS_CHUNKS));
 	}
 
 	// ---------------------------------------------------------------- dev-only verify commands
