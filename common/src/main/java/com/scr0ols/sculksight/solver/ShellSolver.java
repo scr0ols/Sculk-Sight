@@ -1,5 +1,9 @@
 package com.scr0ols.sculksight.solver;
 
+import com.scr0ols.sculksight.timing.DelayBand;
+import com.scr0ols.sculksight.timing.DelayBandMap;
+import com.scr0ols.sculksight.timing.DelayQuantizer;
+
 /**
  * Produces the detection set for one sensor: the positions from which a vibration can actually
  * reach it. Specified in ARCHITECTURE.md section 4.2.
@@ -69,6 +73,7 @@ public final class ShellSolver {
 
 		DetectionSet accepted = new DetectionSet(radius);
 		DetectionSet occludedOut = new DetectionSet(radius);
+		DelayBandMap delayBands = new DelayBandMap(radius);
 		final int radiusSqr = radius * radius;
 
 		for (int dx = -radius; dx <= radius; dx++) {
@@ -81,6 +86,8 @@ public final class ShellSolver {
 					if (!filter.keep(dx, dy, dz)) {
 						continue;
 					}
+					DelayBand band = DelayBand.fromTicks(
+							DelayQuantizer.ticksForDistance(Math.sqrt(dx * dx + dy * dy + dz * dz)));
 
 					// The candidate position is the vibration source and the sensor is the
 					// destination. The six-ray rule nudges only the source, so this order is
@@ -91,13 +98,15 @@ public final class ShellSolver {
 
 					if (occluded) {
 						occludedOut.add(dx, dy, dz);
+						delayBands.assign(dx, dy, dz, DelayBand.OCCLUDED);
 					} else {
 						accepted.add(dx, dy, dz);
+						delayBands.assign(dx, dy, dz, band);
 					}
 				}
 			}
 		}
 
-		return new ShellSolution(accepted, occludedOut);
+		return new ShellSolution(accepted, occludedOut, delayBands);
 	}
 }

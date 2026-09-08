@@ -157,6 +157,7 @@ public final class SculkSightNeoForge {
 	@SubscribeEvent
 	static void registerShellRendererKey(RegisterKeyMappingsEvent event) {
 		event.register(ShellRenderer.TOGGLE_KEY);
+		event.register(ShellRenderer.TOGGLE_DELAY_HEATMAP_KEY);
 	}
 
 	@SubscribeEvent

@@ -1,5 +1,7 @@
 package com.scr0ols.sculksight.solver;
 
+import com.scr0ols.sculksight.timing.DelayBandMap;
+
 /**
  * The result of one solve, split into the two ways a candidate can fail to end up in the
  * detection set. Specified in ARCHITECTURE.md section 3.1, produced by
@@ -31,16 +33,23 @@ public final class ShellSolution {
 
 	private final DetectionSet accepted;
 	private final DetectionSet occludedOut;
+	private final DelayBandMap delayBands;
 
 	public ShellSolution(DetectionSet accepted, DetectionSet occludedOut) {
+		this(accepted, occludedOut, new DelayBandMap(accepted.radius()));
+	}
+
+	public ShellSolution(DetectionSet accepted, DetectionSet occludedOut, DelayBandMap delayBands) {
 		if (accepted.radius() != occludedOut.radius()) {
 			throw new IllegalArgumentException(
 					"accepted and occludedOut must share a radius: " + accepted.radius()
 							+ " vs " + occludedOut.radius());
 		}
+		if (delayBands == null) throw new NullPointerException("delayBands");
 
 		this.accepted = accepted;
 		this.occludedOut = occludedOut;
+		this.delayBands = delayBands;
 	}
 
 	/** Positions in the detection set: in range and not occluded. This is the shell the renderer draws. */
@@ -56,6 +65,9 @@ public final class ShellSolution {
 	public int radius() {
 		return accepted.radius();
 	}
+
+	/** Delay ownership for a source cell; occluded and out-of-range cells have explicit bands. */
+	public DelayBandMap delayBands() { return delayBands; }
 
 	/**
 	 * True for an offset that is neither accepted nor occluded-out - i.e. failed the range test,

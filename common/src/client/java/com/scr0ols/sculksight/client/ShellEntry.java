@@ -3,6 +3,7 @@ package com.scr0ols.sculksight.client;
 import org.jspecify.annotations.Nullable;
 
 import com.scr0ols.sculksight.solver.DetectionSet;
+import com.scr0ols.sculksight.solver.ShellSolution;
 
 /**
  * One sensor's cached shell. ARCHITECTURE.md section 3.3, ADR-016.
@@ -47,6 +48,8 @@ final class ShellEntry implements AutoCloseable {
 	private long revision = 1L;
 
 	private volatile @Nullable DetectionSet set;
+
+	private volatile @Nullable ShellSolution solution;
 
 	private @Nullable ShellBuffer buffer;
 
@@ -99,6 +102,21 @@ final class ShellEntry implements AutoCloseable {
 		set = solved;
 	}
 
+	@Nullable ShellSolution solution() { return solution; }
+
+	void setSolution(ShellSolution solved) {
+		solution = solved;
+		set = solved.accepted();
+	}
+
+	void clearBuffer() {
+		if (buffer != null) {
+			buffer.close();
+			buffer = null;
+		}
+		stats = null;
+	}
+
 	@Nullable ShellBuffer buffer() {
 		return buffer;
 	}
@@ -137,6 +155,7 @@ final class ShellEntry implements AutoCloseable {
 		}
 
 		set = null;
+		solution = null;
 		stats = null;
 	}
 }

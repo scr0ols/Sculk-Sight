@@ -102,6 +102,7 @@ public class SculkSightClient implements ClientModInitializer {
 	 */
 	private static void registerShellRenderer() {
 		KeyMappingHelper.registerKeyMapping(ShellRenderer.TOGGLE_KEY);
+		KeyMappingHelper.registerKeyMapping(ShellRenderer.TOGGLE_DELAY_HEATMAP_KEY);
 
 		ClientTickEvents.END_CLIENT_TICK.register(ShellRenderer::onEndTick);
 

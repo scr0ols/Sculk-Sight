@@ -78,6 +78,11 @@ public final class ShellMeshBuilder {
 	 */
 	public static @Nullable MeshData build(DetectionSet set, VertexFormat format, ShellStyle style,
 			ByteBufferBuilder storage) {
+		return build(set, format, style, storage, (dx, dy, dz, face) -> style.colour());
+	}
+
+	public static @Nullable MeshData build(DetectionSet set, VertexFormat format, ShellStyle style,
+			ByteBufferBuilder storage, ShellColourProvider colours) {
 		int faces = countBoundaryFaces(set);
 
 		if (faces == 0) {
@@ -92,9 +97,10 @@ public final class ShellMeshBuilder {
 		BoundaryFaceExtractor.extract(set, (dx, dy, dz, face) -> {
 			ShellQuad.corners(dx, dy, dz, face, corners);
 
-			int red = style.red(face);
-			int green = style.green(face);
-			int blue = style.blue(face);
+			int shaded = style.shadeColour(colours.colour(dx, dy, dz, face), face);
+			int red = shaded >> 16 & 0xFF;
+			int green = shaded >> 8 & 0xFF;
+			int blue = shaded & 0xFF;
 
 			for (int corner = 0; corner < VERTICES_PER_FACE; corner++) {
 				int base = corner * 3;

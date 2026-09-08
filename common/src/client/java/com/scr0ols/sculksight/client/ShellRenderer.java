@@ -36,6 +36,7 @@ import org.jspecify.annotations.Nullable;
 import com.scr0ols.sculksight.SculkSight;
 import com.scr0ols.sculksight.config.ClientConfig;
 import com.scr0ols.sculksight.mesh.ShellMeshBuilder;
+import com.scr0ols.sculksight.mesh.ShellColourProvider;
 import com.scr0ols.sculksight.mesh.ShellStyle;
 import com.scr0ols.sculksight.solver.DetectionSet;
 import com.scr0ols.sculksight.solver.ShellSolution;
@@ -116,6 +117,11 @@ public final class ShellRenderer {
 	public static final KeyMapping TOGGLE_KEY = new KeyMapping(
 			"key.sculksight.toggle_shell", InputConstants.KEY_K, KeyMapping.Category.MISC);
 
+	public static final KeyMapping TOGGLE_DELAY_HEATMAP_KEY = new KeyMapping(
+			"key.sculksight.toggle_delay_heatmap", InputConstants.KEY_H, KeyMapping.Category.MISC);
+
+	private static ShellDisplayMode displayMode = ShellDisplayMode.TYPE;
+
 	/**
 	 * The initial size of each solve's own {@code ByteBufferBuilder} (DECISIONS.md ADR-048).
 	 *
@@ -161,6 +167,16 @@ public final class ShellRenderer {
 		// tick the key is held down.
 		while (TOGGLE_KEY.consumeClick()) {
 			toggle(client);
+		}
+		while (TOGGLE_DELAY_HEATMAP_KEY.consumeClick()) {
+			displayMode = displayMode == ShellDisplayMode.TYPE
+				? ShellDisplayMode.DELAY_HEATMAP : ShellDisplayMode.TYPE;
+			if (entry != null && client.level != null) {
+				entry.clearBuffer();
+				runSolve(client.level, entry);
+			}
+			say(client, displayMode == ShellDisplayMode.DELAY_HEATMAP
+				? "delay heatmap on." : "delay heatmap off.");
 		}
 	}
 
@@ -332,10 +348,11 @@ public final class ShellRenderer {
 	 * solve was dispatched, by construction rather than by timing.
 	 */
 	private static void runSolve(ClientLevel level, ShellEntry target) {
-		long revision = target.revision();
+		long revision = target.nextRevision();
 		SensorKey sensor = target.sensor();
 		int radius = target.radius();
 		ShellStyle style = style(target.detector());
+		ShellDisplayMode mode = displayMode;
 
 		// ARCHITECTURE.md section 6.2's first phase, and the only phase still on the client thread.
 		// Timed since 2026-09-06 (DECISIONS.md ADR-031's addendum of that date): nothing measured
@@ -348,7 +365,7 @@ public final class ShellRenderer {
 		long snapshotNanos = TierTiming.since(snapshotStart);
 
 		WORKER.execute(
-				() -> solveAndEncode(target, revision, sensor, radius, snapshot, snapshotNanos, style));
+				() -> solveAndEncode(target, revision, sensor, radius, snapshot, snapshotNanos, style, mode));
 	}
 
 	/**
@@ -380,7 +397,7 @@ public final class ShellRenderer {
 	 *        instance the draw will modulate against - never re-read from the field here
 	 */
 	private static void solveAndEncode(ShellEntry target, long revision, SensorKey sensor, int radius,
-			VolumeSnapshot snapshot, long snapshotNanos, ShellStyle style) {
+			VolumeSnapshot snapshot, long snapshotNanos, ShellStyle style, ShellDisplayMode mode) {
 
 		// DECISIONS.md ADR-031 times from here to the end of the encode: tier 1 plus everything the
 		// producer does before the slot. Reported beside the client-thread figure and deliberately
@@ -402,13 +419,15 @@ public final class ShellRenderer {
 		// native-memory race, not merely a stale read.
 		ByteBufferBuilder storage = new ByteBufferBuilder(INITIAL_STORAGE_BYTES);
 
+		ShellColourProvider colours = (dx, dy, dz, face) -> mode.colour(target.detector(),
+				solution.delayBands().bandAt(dx, dy, dz));
 		MeshData faceMesh = ShellMeshBuilder.build(accepted, DefaultVertexFormat.POSITION_COLOR, style,
-				storage);
+				storage, colours);
 
 		long encodeNanos = TierTiming.since(encodeStart);
 
 		// Bookkeeping rather than budgeted work, so it sits outside the timed region above.
-		target.setSet(accepted);
+		target.setSolution(solution);
 
 		if (faceMesh == null) {
 			storage.close();

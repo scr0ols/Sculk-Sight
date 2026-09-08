@@ -93,6 +93,11 @@ public record ShellStyle(int colour, float depthTestedAlpha, float seeThroughAlp
 		return new ShellStyle(newColour, depthTestedAlpha, seeThroughAlpha, shadeByFace.clone());
 	}
 
+	int shadeColour(int colour, Face face) {
+		return shade(colour >> 16 & 0xFF, face) << 16
+				| shade(colour >> 8 & 0xFF, face) << 8 | shade(colour & 0xFF, face);
+	}
+
 	public ShellStyle {
 		if (shadeByFace.length != Face.values().length) {
 			throw new IllegalArgumentException(
