@@ -24,7 +24,7 @@ This mode answers “am I detected?” without drawing a shell. It only knows ab
 
 ### Settings
 
-Sculk Sight has an in-game settings screen with a **Shell opacity** slider. Settings are saved between sessions in `config/sculksight.json`.
+Sculk Sight has an in-game settings screen with a **Shell opacity** slider and a **Multi-sensor rendering** choice (Union or Per-sensor). The latter has no effect yet — it configures a v0.2 multi-sensor renderer that has not shipped. Settings are saved between sessions in `config/sculksight.json`.
 
 - On **NeoForge**, open the mod’s configuration from the Mods screen.
 - On **Fabric**, install [Mod Menu](https://modrinth.com/mod/modmenu) to open the configuration screen from its mod list. Mod Menu is optional; without it, edit `config/sculksight.json` manually.
