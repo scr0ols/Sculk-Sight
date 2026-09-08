@@ -38,6 +38,8 @@ final class ShellEntry implements AutoCloseable {
 
 	private final SensorKey sensor;
 
+	private final DetectorType detector;
+
 	private final int radius;
 
 	private final ShellUploadSlot<ShellSolveResult> slot = new ShellUploadSlot<>();
@@ -50,9 +52,10 @@ final class ShellEntry implements AutoCloseable {
 
 	private @Nullable ShellStats stats;
 
-	ShellEntry(SensorKey sensor, int radius) {
+	ShellEntry(SensorKey sensor, int radius, DetectorType detector) {
 		this.sensor = sensor;
 		this.radius = radius;
+		this.detector = detector;
 	}
 
 	SensorKey sensor() {
@@ -61,6 +64,10 @@ final class ShellEntry implements AutoCloseable {
 
 	int radius() {
 		return radius;
+	}
+
+	DetectorType detector() {
+		return detector;
 	}
 
 	long revision() {

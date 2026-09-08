@@ -9,6 +9,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
 import com.scr0ols.sculksight.config.SculkSightConfig;
+import com.scr0ols.sculksight.client.DetectorType;
 import com.scr0ols.sculksight.solver.Face;
 
 /** Tests for the v0.0 style constants of ADR-022, ADR-023 and ADR-029. */
@@ -63,6 +64,29 @@ class ShellStyleTest {
 		assertEquals(0xFF, style.red(Face.UP));
 		assertEquals(0xA3, style.green(Face.UP));
 		assertEquals(0x00, style.blue(Face.UP));
+	}
+
+	@ParameterizedTest
+	@EnumSource(DetectorType.class)
+	void detectorPaletteUsesTheApprovedColourAndConfiguredAlpha(DetectorType detector) {
+		ShellStyle style = ShellStyle.forDetector(new SculkSightConfig(60), detector);
+
+		assertEquals(detector.colour(), style.colour());
+		assertEquals(0.60F, style.depthTestedAlpha(), 1.0E-6F);
+		assertEquals(0.24F, style.seeThroughAlpha(), 1.0E-6F);
+	}
+
+	@Test
+	void detectorPalettePreservesFaceShading() {
+		ShellStyle amber = ShellStyle.v0();
+		ShellStyle calibrated = ShellStyle.forDetector(SculkSightConfig.defaults(),
+				DetectorType.CALIBRATED_SENSOR);
+
+		assertEquals(0x99CCFF, calibrated.colour());
+		for (Face face : Face.values()) {
+			assertEquals(amber.shadeByFace()[face.ordinal()], calibrated.shadeByFace()[face.ordinal()],
+					1.0E-6F);
+		}
 	}
 
 	/**

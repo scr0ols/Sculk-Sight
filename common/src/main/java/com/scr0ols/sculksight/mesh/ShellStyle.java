@@ -1,6 +1,7 @@
 package com.scr0ols.sculksight.mesh;
 
 import com.scr0ols.sculksight.config.SculkSightConfig;
+import com.scr0ols.sculksight.client.DetectorType;
 import com.scr0ols.sculksight.solver.Face;
 
 /**
@@ -86,6 +87,18 @@ public record ShellStyle(int colour, float depthTestedAlpha, float seeThroughAlp
 
 		return new ShellStyle(authored.colour(), config.depthTestedAlpha(), config.seeThroughAlpha(),
 				authored.shadeByFace());
+	}
+
+	/** The configured style with the detector-specific v0.2 palette colour. */
+	public static ShellStyle forDetector(SculkSightConfig config, DetectorType detector) {
+		ShellStyle configured = fromConfig(config);
+		return new ShellStyle(detector.colour(), configured.depthTestedAlpha(),
+				configured.seeThroughAlpha(), configured.shadeByFace());
+	}
+
+	/** Applies a detector palette colour without changing alpha or face shading. */
+	public ShellStyle withColour(int newColour) {
+		return new ShellStyle(newColour, depthTestedAlpha, seeThroughAlpha, shadeByFace.clone());
 	}
 
 	public ShellStyle {
