@@ -10,7 +10,7 @@ Licence: **GPL-3.0-or-later**. See [LICENSE](LICENSE).
 
 ### Mode A — detection shell
 
-Aim at a sculk sensor and press **K** (rebindable under **Options → Controls → Miscellaneous**). Sculk Sight calculates its effective detection area and draws it as a translucent amber shell.
+Aim at a sculk sensor, calibrated sculk sensor, or sculk shrieker and press **K** (rebindable under **Options → Controls → Miscellaneous**). Sculk Sight calculates its effective detection area and draws it as a translucent shell, coloured by the detector type: amber for a sculk sensor, light blue for a calibrated sculk sensor, and dark red for a shrieker.
 
 The shell reflects the sensor's radius and vibration-dampening blocks such as wool, so dampened positions are absent rather than merely hidden. It is rendered with both see-through and depth-tested passes to remain readable in terrain.
 
