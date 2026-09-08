@@ -196,9 +196,17 @@ public final class ShellRenderer {
 			return;
 		}
 
+		// Some GameEventListener.Provider block entities (the sculk catalyst) are not detectors;
+		// DetectorType.of's own doc explains why. This second gate is what keeps a shell from
+		// being drawn around one.
+		Optional<DetectorType> detector = DetectorType.of(level.getBlockState(pos).getBlock());
+		if (detector.isEmpty()) {
+			say(client, "the targeted block is not a detector.");
+			return;
+		}
+
 		int radius = provider.getListener().getListenerRadius();
-		DetectorType detector = DetectorType.of(level.getBlockState(pos).getBlock());
-		ShellEntry created = new ShellEntry(SensorKey.of(pos), radius, detector);
+		ShellEntry created = new ShellEntry(SensorKey.of(pos), radius, detector.orElseThrow());
 		entry = created;
 		runSolve(level, created);
 	}
