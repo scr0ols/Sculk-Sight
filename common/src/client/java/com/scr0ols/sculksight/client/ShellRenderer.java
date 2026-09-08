@@ -197,7 +197,8 @@ public final class ShellRenderer {
 		}
 
 		int radius = provider.getListener().getListenerRadius();
-		ShellEntry created = new ShellEntry(SensorKey.of(pos), radius);
+		DetectorType detector = DetectorType.of(level.getBlockState(pos).getBlock());
+		ShellEntry created = new ShellEntry(SensorKey.of(pos), radius, detector);
 		entry = created;
 		runSolve(level, created);
 	}
@@ -243,6 +244,10 @@ public final class ShellRenderer {
 		}
 
 		return current;
+	}
+
+	private static ShellStyle style(DetectorType detector) {
+		return style().withColour(detector.colour());
 	}
 
 	/**
@@ -322,7 +327,7 @@ public final class ShellRenderer {
 		long revision = target.revision();
 		SensorKey sensor = target.sensor();
 		int radius = target.radius();
-		ShellStyle style = style();
+		ShellStyle style = style(target.detector());
 
 		// ARCHITECTURE.md section 6.2's first phase, and the only phase still on the client thread.
 		// Timed since 2026-09-06 (DECISIONS.md ADR-031's addendum of that date): nothing measured
@@ -610,9 +615,10 @@ public final class ShellRenderer {
 		// The mesh carries the depth-tested alpha and the see-through value is reached by
 		// modulating, since the fragment shader multiplies the vertex colour by ColorModulator and
 		// ColorModulator is a member of the same DynamicTransforms block both passes bind (R15.4).
+		ShellStyle detectorStyle = style(current.detector());
 		GpuBufferSlice[] uniforms = RenderSystem.getDynamicUniforms().writeTransforms(
-				transform(modelView, style().faceModulation(true, inside)),
-				transform(modelView, style().faceModulation(false, inside)));
+				transform(modelView, detectorStyle.faceModulation(true, inside)),
+				transform(modelView, detectorStyle.faceModulation(false, inside)));
 
 		// Target selection copied from net.minecraft.client.renderer.rendertype.PreparedRenderType,
 		// which is how every immediate-mode vanilla draw resolves it: the main target, unless

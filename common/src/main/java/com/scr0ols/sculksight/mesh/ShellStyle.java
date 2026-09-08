@@ -88,6 +88,11 @@ public record ShellStyle(int colour, float depthTestedAlpha, float seeThroughAlp
 				authored.shadeByFace());
 	}
 
+	/** Applies a detector palette colour without changing alpha or face shading. */
+	public ShellStyle withColour(int newColour) {
+		return new ShellStyle(newColour, depthTestedAlpha, seeThroughAlpha, shadeByFace.clone());
+	}
+
 	public ShellStyle {
 		if (shadeByFace.length != Face.values().length) {
 			throw new IllegalArgumentException(
