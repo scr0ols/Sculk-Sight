@@ -12,22 +12,23 @@ import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 import net.minecraft.network.chat.Component;
 
 /**
- * The dev-only differential verification command: {@code /sculksight-verify <scene> [samples]}.
+ * Mode C's differential verification command:
+ * {@code /sculksight-verify-detection <scene> [samples] [seed]}.
  *
- * <p><b>A thin Brigadier shim over {@link VerificationCommandCore}</b>, since DECISIONS.md
- * ADR-043's follow-up split moved everything else - the solve, the probe, the report - into
- * {@code common}, generic over a plain {@code Minecraft} client and a feedback callback rather
- * than tied to {@link FabricClientCommandSource}. This class's own job is exactly two things
- * {@link FabricClientCommandSource} supplies that {@code common} cannot: Fabric's own client
- * command tree, and where its feedback actually goes.
+ * <p><b>A thin Brigadier shim over {@link DetectionVerificationCommandCore}</b>, the same split
+ * {@link VerificationCommand}'s own javadoc explains for mode A's command.
  *
- * <p><b>Registered only in a development environment</b>, per ADR-019 - the gate is a real
- * check rather than an intention, so this command cannot exist in a shipped jar. See
- * {@code SculkSightClient} for where that gate is applied.
+ * <p><b>Registered only in a development environment</b>, per ADR-019, through the same gate and
+ * the same shape {@code /sculksight-verify} uses. See {@code SculkSightClient}.
+ *
+ * <p><b>Separate command rather than an argument on the existing one.</b> Mode A's command and its
+ * recorded runs are this project's evidence that the shell is correct, and its argument shape is
+ * quoted in the archive's evidence tables. A new mode taking a slot in it would change the shape
+ * of a command whose past invocations are part of the record, for no benefit over a second name.
  */
-public final class VerificationCommand {
+public final class DetectionVerificationCommand {
 
-	private VerificationCommand() {
+	private DetectionVerificationCommand() {
 	}
 
 	public static void register() {
@@ -36,7 +37,7 @@ public final class VerificationCommand {
 
 	private static void registerCommand(CommandDispatcher<FabricClientCommandSource> dispatcher) {
 		dispatcher.register(
-				ClientCommands.literal("sculksight-verify")
+				ClientCommands.literal("sculksight-verify-detection")
 						.then(ClientCommands.argument("scene", StringArgumentType.word())
 								.executes(context -> run(context.getSource(),
 										StringArgumentType.getString(context, "scene"), 200, null))
@@ -52,7 +53,7 @@ public final class VerificationCommand {
 	}
 
 	private static int run(FabricClientCommandSource source, String scene, int samples, Long seedOverride) {
-		return VerificationCommandCore.run(source.getClient(),
+		return DetectionVerificationCommandCore.run(source.getClient(),
 				message -> source.sendFeedback(Component.literal(message)),
 				scene, samples, seedOverride);
 	}

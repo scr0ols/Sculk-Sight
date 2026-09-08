@@ -1,0 +1,92 @@
+// common/ holds layers 1-3 of ARCHITECTURE.md section 2.1 (solver, mesh encoder, client
+// runtime): no loader API anywhere, per ADR-018, but layers 2-3 do need real Minecraft classes
+// (com.mojang.blaze3d.vertex, client types). This project deliberately does not use Architectury
+// (ADR-005), which is the usual way a multi-loader mod gets that classpath for free, so this
+// module has to get it another way.
+//
+// The `neoForge { neoFormVersion = ... }` block below, with no `neoForge.version` set, resolves
+// a Mojang-mapped Minecraft classpath (NeoForm - a recompilable, unobfuscated Minecraft, the same
+// mapping situation ADR-011 already put this project in) with no NeoForge loader attached at all.
+// This is not a NeoForge-flavoured module in disguise: nothing here can call a NeoForge API,
+// because none is on the classpath. It is the precedent this project's DECISIONS.md addendum to
+// ADR-013 cites: jaredlll08/MultiLoader-Template (github.com/jaredlll08/MultiLoader-Template,
+// branch 26.1.1) uses exactly this mechanism for its own common module, for the same reason.
+plugins {
+	id 'java-library'
+	id 'net.neoforged.moddev'
+}
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(Integer.parseInt(project.java_version))
+	}
+}
+
+neoForge {
+	neoFormVersion = project.neo_form_version
+}
+
+dependencies {
+	testImplementation platform("org.junit:junit-bom:${project.junit_version}")
+	testImplementation "org.junit.jupiter:junit-jupiter"
+	testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+}
+
+tasks.named('test', Test) {
+	useJUnitPlatform()
+
+	// src/client/java is a sibling source directory rather than a sourceSet of this module (see the
+	// artifacts block below), so nothing here compiles it and Gradle has no idea any test reads it.
+	// ShellRendererStyleCaptureTest does: it guards a property of ShellRenderer's source text that
+	// no test on this classpath can reach any other way (OPEN-QUESTIONS.md section 22.1, and the
+	// test's own javadoc for why it is written that way). Without this declaration the test task
+	// stays UP-TO-DATE when that file is the only thing edited, which is precisely the edit the
+	// guard exists to catch.
+	inputs.dir(file('src/client/java'))
+			.withPropertyName('clientSourcesReadByTests')
+			.withPathSensitivity(PathSensitivity.RELATIVE)
+
+	testLogging {
+		events "passed", "skipped", "failed"
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.release = Integer.parseInt(project.java_version)
+}
+
+// Exposes this module's own source files - not compiled bytecode - as an outgoing artifact for
+// fabric/ and neoforge/ to compile directly into themselves. A compiled common.jar cannot be a
+// dependency of either loader module: Fabric Loom's Minecraft artifact and ModDevGradle's NeoForm
+// artifact are two different binary jars even though 26.2's Mojang mappings (ADR-011) give them
+// identical class and method names, so common's classes have to be recompiled per loader rather
+// than linked as a shared binary. See fabric/build.gradle and neoforge/build.gradle for the
+// consuming half of this wiring.
+configurations {
+	commonJava {
+		canBeResolved = false
+		canBeConsumed = true
+	}
+
+	commonClientJava {
+		canBeResolved = false
+		canBeConsumed = true
+	}
+}
+
+artifacts {
+	commonJava sourceSets.main.java.sourceDirectories.singleFile
+
+	// src/client/java is a second, sibling source directory - not a Gradle sourceSet compiled by
+	// this module's own compileJava. Its classes need net.minecraft.client and com.mojang.blaze3d
+	// types, and this module's own classpath (this file's own top comment) has no client/server
+	// split the way Fabric Loom's does: a NeoForm-only classpath is the whole of vanilla, but
+	// still only the real, unwidened Mojang modifiers, with neither loader's own access
+	// transformer applied, because neither loader is attached. That surfaced concretely,
+	// mechanically, not as a guess: RenderPipelines.DEBUG_FILLED_SNIPPET compiles under Fabric
+	// Loom's classpath (it always has) but "has private access" under this bare classpath, and
+	// exposing the directory as a source artifact - the same mechanism the main sourceDirectories
+	// above already use - lets each real loader recompile it under its own real classpath instead
+	// of asking this module to compile it under neither.
+	commonClientJava file('src/client/java')
+}

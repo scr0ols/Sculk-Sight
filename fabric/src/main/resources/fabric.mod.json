@@ -8,13 +8,28 @@
 		"scr0ols"
 	],
 	"contact": {
-		"sources": "https://github.com/scr0ols/Sculk-Sight"
+		"homepage": "https://github.com/scr0ols/Sculk-Sight",
+		"sources": "https://github.com/scr0ols/Sculk-Sight",
+        "issues": "https://github.com/scr0ols/Sculk-Sight/issues",
+        "modrinth": "https://www.youtube.com/watch?v=YkADj0TPrJA&list=RDYkADj0TPrJA&start_radio=1",
+        "curseforge": "https://www.youtube.com/watch?v=YkADj0TPrJA&list=RDYkADj0TPrJA&start_radio=1"
+    },
+	"icon": {
+		"16": "assets/sculksight/icon_16.png",
+		"32": "assets/sculksight/icon_32.png",
+		"64": "assets/sculksight/icon_64.png",
+		"128": "assets/sculksight/icon_128.png",
+		"256": "assets/sculksight/icon_256.png",
+		"512": "assets/sculksight/icon_512.png"
 	},
 	"license": "GPL-3.0-or-later",
 	"environment": "client",
 	"entrypoints": {
 		"client": [
 			"com.scr0ols.sculksight.client.SculkSightClient"
+		],
+		"modmenu": [
+			"com.scr0ols.sculksight.config.ModMenuIntegration"
 		]
 	},
 	"mixins": [
@@ -27,6 +42,16 @@
 		"fabricloader": ">=0.19.3",
 		"minecraft": "~26.2",
 		"java": ">=25",
-		"fabric-api": "*"
+		"fabric-api": "*",
+		"cloth-config": ">=26.2.155"
+	},
+	"recommends": {
+		"modmenu": "*"
+	},
+	"custom": {
+		"sculksight:notes": {
+			"cloth-config": "The bound is the same statement NeoForge's neoforge.mods.toml makes as [26.2.155,), and the reasoning is repeated here rather than only there because a reader of one manifest should not have to open the other. DECISIONS.md ADR-056: 26.2.155 is the <release> in Cloth's own maven-metadata.xml at maven.shedaniel.me, read 2026-09-06; the mod version in cloth-config-fabric-26.2.155.jar's own fabric.mod.json is the identical string, checked in the artifact rather than inferred from the coordinate. Open above that release rather than pinned to it, because Cloth's major component tracks the Minecraft version it targets, so >=26.2.155 cannot admit a build for a different game version - which is the thing a bound here is for. It was '*' until 2026-09-07 while NeoForge already carried the bound, which OPEN-QUESTIONS.md section 22 recorded as the same dependency stated two different ways. JSON carries no comments, so this note lives under 'custom', which the Fabric metadata specification reserves for exactly this and the loader ignores.",
+			"parity": "See neoforge/src/main/templates/META-INF/neoforge.mods.toml for this mod's NeoForge-side metadata - the two are kept at parity by hand; there is no shared source for these fields."
+		}
 	}
 }

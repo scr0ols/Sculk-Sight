@@ -1,14 +1,36 @@
 plugins {
 	// Fabric Loom is the whole Fabric build toolchain in one plugin. It downloads Minecraft,
 	// decompiles it (the genSources task), puts it on the compile classpath, applies mixins
-	// at build time, and generates the runClient / runServer launch configurations.
-	id 'net.fabricmc.fabric-loom' version "${loom_version}"
+	// at build time, and generates the runClient / runServer launch configurations. Version is
+	// declared once, at the root build.gradle, so this and neoforge/'s own plugin cannot drift
+	// onto different builds independently of each other.
+	id 'net.fabricmc.fabric-loom'
 	id 'maven-publish'
+}
+
+// This module's own name in the built jar and the IDE, independent of the Gradle subproject
+// name (which defaults to the directory name, "fabric"). Prefixed with the loader name so the
+// Fabric and NeoForge jars never collide when both are copied into one release folder - see
+// neoforge/build.gradle's identical block for the other side of this convention.
+base {
+	archivesName = "fabric-${project.mod_id}"
 }
 
 repositories {
 	// Only for other mods. Loom adds Mojang's and Fabric's own repositories automatically,
 	// so Minecraft and Fabric API need nothing declared here.
+
+	// Cloth Config (PLAN.md section 4). shedaniel publishes nowhere else.
+	maven {
+		name = "shedaniel"
+		url = uri("https://maven.shedaniel.me/")
+	}
+
+	// Mod Menu, compile-time only - see gradle.properties for why it is a soft dependency.
+	maven {
+		name = "TerraformersMC"
+		url = uri("https://maven.terraformersmc.com/releases/")
+	}
 }
 
 loom {
@@ -28,7 +50,44 @@ loom {
 	}
 }
 
+// common/'s own sources - layers 1-3 of ARCHITECTURE.md section 2.1 (solver, mesh encoder,
+// client runtime) - compiled directly into this module's own source sets, rather than
+// depended on as a jar. See common/build.gradle's own comment for why a compiled common.jar
+// cannot be shared between Fabric Loom's Minecraft artifact and NeoForge's NeoForm one: only the
+// source can be, so it is recompiled here under this module's own Minecraft classpath.
+//
+// Two configurations, not one, matching common/'s own split into src/main/java (no client-only
+// types, wired into this module's "main" source set below) and src/client/java (client-only
+// types, wired into the "client" source set splitEnvironmentSourceSets() creates above).
+// Feeding commonClientJava into "main" instead would fail: "main"'s classpath has no
+// net.minecraft.client or com.mojang.blaze3d types under Loom's own split, the same split this
+// project's own directory layout already assumes.
+configurations {
+	commonJava {
+		canBeResolved = true
+		canBeConsumed = false
+	}
+
+	commonClientJava {
+		canBeResolved = true
+		canBeConsumed = false
+	}
+}
+
+tasks.named('compileJava', JavaCompile) {
+	dependsOn(configurations.commonJava)
+	source(configurations.commonJava)
+}
+
+tasks.named('compileClientJava', JavaCompile) {
+	dependsOn(configurations.commonClientJava)
+	source(configurations.commonClientJava)
+}
+
 dependencies {
+	commonJava project(path: ':common', configuration: 'commonJava')
+	commonClientJava project(path: ':common', configuration: 'commonClientJava')
+
 	// Versions live in gradle.properties, not here.
 	//
 	// Note what is absent: there is no `mappings` line. Minecraft 26.1 was the first
@@ -58,13 +117,31 @@ dependencies {
 	// appears in .gradle/loom-cache/remapped_mods: nothing is being remapped.
 	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
 
-	// JUnit, test scope only. The solver and the verification harness are the two things
-	// under test; neither names a Minecraft class, so these run as plain JVM tests with no
-	// game classes loaded.
+	// Cloth Config, for the v0.1 configuration screen (PLAN.md section 4). Declared on the client
+	// source set because only client code names it, the same reason commonClientJava is wired to
+	// compileClientJava above; `implementation` rather than `modImplementation` for the reason the
+	// Fabric API comment above already gives - 26.2 is unobfuscated and Loom registers no `mod*`
+	// configurations at all.
 	//
-	// The BOM (bill of materials) is imported with platform(...) so that the individual
-	// JUnit artifacts below carry no version of their own and cannot drift apart from each
-	// other. Only the BOM version is written down, in gradle.properties.
+	// Fabric API is excluded from its transitive graph deliberately: this module already declares
+	// the version it wants a few lines up, and letting Cloth's own POM pull a second one in is the
+	// classic way a build ends up resolving a Fabric API this project never chose.
+	clientImplementation("me.shedaniel.cloth:cloth-config-fabric:${project.cloth_config_version}") {
+		exclude(group: "net.fabricmc.fabric-api")
+	}
+
+	// Mod Menu, compile-time and dev-runtime only. ModMenuIntegration implements one of its
+	// interfaces, so the class has to be on the compile classpath; nothing else in this mod names
+	// it, and fabric.mod.json lists it under "recommends" rather than "depends", so a player
+	// without it gets the whole mod minus the route to the screen. runtimeOnly puts it in the dev
+	// client so the screen can actually be opened while working on it.
+	clientCompileOnly "com.terraformersmc:modmenu:${project.mod_menu_version}"
+	clientRuntimeOnly "com.terraformersmc:modmenu:${project.mod_menu_version}"
+
+	// JUnit, test scope only. Every test in this project now lives in common/'s own test source
+	// set, including TierTimingTest since the ADR-043 follow-up split moved TierTiming itself
+	// there; this module keeps the dependency only so a future Fabric-only test has somewhere
+	// to land.
 	testImplementation platform("org.junit:junit-bom:${project.junit_version}")
 	testImplementation "org.junit.jupiter:junit-jupiter"
 
@@ -99,7 +176,7 @@ processResources {
 tasks.withType(JavaCompile).configureEach {
 	// Minecraft 26.2 is compiled for Java 25 and will not load classes built for a newer
 	// release, nor link against a project built for an older one.
-	it.options.release = 25
+	it.options.release = Integer.parseInt(project.java_version)
 }
 
 java {
@@ -107,7 +184,7 @@ java {
 	// JAVA_HOME. Without this, a machine defaulting to an older JDK fails at compile time
 	// with a confusing "invalid source release" error.
 	toolchain {
-		languageVersion = JavaLanguageVersion.of(25)
+		languageVersion = JavaLanguageVersion.of(Integer.parseInt(project.java_version))
 	}
 
 	// Loom attaches sourcesJar to a RemapSourcesJar task and to `build` when it is present.
@@ -115,14 +192,24 @@ java {
 	withSourcesJar()
 }
 
+// Must come after withSourcesJar() above, which is what registers the sourcesJar task in the
+// first place - tasks.named() needs the task to already be registered, unlike tasks.register().
+tasks.named('sourcesJar', Jar) {
+	dependsOn(configurations.commonJava, configurations.commonClientJava)
+	from(configurations.commonJava)
+	from(configurations.commonClientJava)
+}
+
 jar {
 	// The GPL requires the licence text to travel with the distributed work, so the
 	// LICENSE file is packaged into the jar. It lives at the repository root rather than
 	// in this module, because it covers the whole project and not just the Fabric side.
+	// rootProject now resolves to the multi-module root at repo/ (the common extraction moved
+	// this module out from under its own former root), so the path lost its "../".
 	def projectName = project.name
 	inputs.property "projectName", projectName
 
-	from(rootProject.file("../LICENSE")) {
+	from(rootProject.file("LICENSE")) {
 		rename { "LICENSE_$projectName" }
 	}
 }
