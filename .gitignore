@@ -32,9 +32,20 @@ bin/
 
 run/
 
+# Minecraft development runtime and captured diagnostics
+
+*.log
+logs/
+crash-reports/
+runs/
+
+# Sculk Sight development state
+
+sculksight-timings.txt
+sculksight.json
+sculksight.json.tmp
+
 # java
 
-hs_err_*.log
-replay_*.log
 *.hprof
 *.jfr
