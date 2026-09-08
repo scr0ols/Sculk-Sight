@@ -1,4 +1,4 @@
-# Sculk Sight
+# Sculk Sight 
 
 Sculk Sight is a client-side Minecraft mod that makes sculk-sensor detection easier to understand. It can draw the effective area from which a vibration can reach a sensor and tell you when your current position can be detected by a nearby sensor.
 
