@@ -1,5 +1,7 @@
 package com.scr0ols.sculksight.client;
 
+import java.util.Optional;
+
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 
@@ -20,13 +22,16 @@ public enum DetectorType {
 	}
 
 	/** Classifies the three detector blocks supported by the v0.2 palette. */
-	public static DetectorType of(Block block) {
+	public static Optional<DetectorType> of(Block block) {
 		if (block == Blocks.CALIBRATED_SCULK_SENSOR) {
-			return CALIBRATED_SENSOR;
+			return Optional.of(CALIBRATED_SENSOR);
 		}
 		if (block == Blocks.SCULK_SHRIEKER) {
-			return SHRIEKER;
+			return Optional.of(SHRIEKER);
 		}
-		return NORMAL_SENSOR;
+		if (block == Blocks.SCULK_SENSOR) {
+			return Optional.of(NORMAL_SENSOR);
+		}
+		return Optional.empty();
 	}
 }

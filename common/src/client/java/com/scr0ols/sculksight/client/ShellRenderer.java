@@ -196,9 +196,14 @@ public final class ShellRenderer {
 			return;
 		}
 
+		Optional<DetectorType> detector = DetectorType.of(level.getBlockState(pos).getBlock());
+		if (detector.isEmpty()) {
+			say(client, "the targeted block is not a detector.");
+			return;
+		}
+
 		int radius = provider.getListener().getListenerRadius();
-		DetectorType detector = DetectorType.of(level.getBlockState(pos).getBlock());
-		ShellEntry created = new ShellEntry(SensorKey.of(pos), radius, detector);
+		ShellEntry created = new ShellEntry(SensorKey.of(pos), radius, detector.orElseThrow());
 		entry = created;
 		runSolve(level, created);
 	}
