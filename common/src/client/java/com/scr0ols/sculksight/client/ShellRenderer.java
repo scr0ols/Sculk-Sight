@@ -533,6 +533,12 @@ public final class ShellRenderer {
 
 		try (Gizmos.TemporaryCollection ignored = levelRenderer.collectPerFrameRenderThreadGizmos()) {
 			for (int index = 0; index < overlay.size(); index++) {
+				// Occluded cells render no label at all rather than a distinct colour, per the
+				// captain's ruling that a wool-tagged occluder should read as unreachable instead of
+				// merely differently coloured. This is the same architectural gap documented on
+				// ShellRendererStyleCaptureTest: the class only compiles under fabric/neoforge, which
+				// have no test source sets, so this blank-on-occlusion behaviour is covered by the
+				// surrounding unit/build checks and this note, not by a render or visual test.
 				if (overlay.isSensorOccluded(index)) {
 					continue;
 				}
