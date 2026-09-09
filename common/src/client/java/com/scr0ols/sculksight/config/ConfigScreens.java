@@ -143,17 +143,22 @@ public final class ConfigScreens {
 	private static void save(int shellOpacityPercent, RenderPolicy renderPolicy,
 			List<SensorDraft> pendingSensors) {
 		List<TrackedSensor> sensors = new ArrayList<>();
-		for (int index = 0; index < pendingSensors.size(); index++) {
-			TrackedSensor original = ClientConfig.get().trackedSensors().get(index);
-			String name = pendingSensors.get(index).name.get().strip();
+		for (TrackedSensor live : ClientConfig.get().trackedSensors()) {
+			SensorDraft draft = findDraft(pendingSensors, live);
+			if (draft == null) {
+				// Tracked (e.g. via the activate keybind) after this screen opened, so no widget
+				// for it exists here - carry it through unedited instead of discarding it.
+				sensors.add(live);
+				continue;
+			}
+			String name = draft.name.get().strip();
 			if (name.isEmpty()) {
-				name = original.name();
+				name = live.name();
 			}
 			try {
-				sensors.add(new TrackedSensor(original.x(), original.y(), original.z(), name,
-						pendingSensors.get(index).enabled.get()));
+				sensors.add(new TrackedSensor(live.x(), live.y(), live.z(), name, draft.enabled.get()));
 			} catch (IllegalArgumentException tooLong) {
-				sensors.add(original);
+				sensors.add(live);
 			}
 		}
 		ClientConfig.set(ClientConfig.get()
@@ -164,11 +169,26 @@ public final class ConfigScreens {
 		ShellRenderer.onConfigChanged();
 	}
 
+	private static SensorDraft findDraft(List<SensorDraft> pendingSensors, TrackedSensor live) {
+		for (SensorDraft draft : pendingSensors) {
+			if (draft.x == live.x() && draft.y == live.y() && draft.z == live.z()) {
+				return draft;
+			}
+		}
+		return null;
+	}
+
 	private static final class SensorDraft {
+		private final int x;
+		private final int y;
+		private final int z;
 		private final AtomicReference<String> name;
 		private final AtomicBoolean enabled;
 
 		private SensorDraft(TrackedSensor sensor) {
+			x = sensor.x();
+			y = sensor.y();
+			z = sensor.z();
 			name = new AtomicReference<>(sensor.name());
 			enabled = new AtomicBoolean(sensor.enabled());
 		}
