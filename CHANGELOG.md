@@ -89,6 +89,16 @@ No code changed for this release. The itemised entries below are left under `[Un
 
 ### Fixed
 
+- **Union rendering discarded detector colours.** The merged world-position set now retains the
+  contributing detector type and the mesh encoder chooses normal `#FFA300`, calibrated
+  `#99CCFF`, or shrieker `#8B0025` per boundary face. A plain JVM regression test covers a mixed
+  three-detector union, including overlap handling.
+
+- **Tracked renders had no removal control.** Each tracked-sensor row now has a clearly labelled
+  remove control; saving it removes that position from persisted configuration and
+  `ShellRenderer.onConfigChanged()` clears the rendered state. The existing add flow, toggles, and
+  bounded list remain unchanged.
+
 - **A position directly above wool could remain in the shell even though vanilla would suppress a
   step vibration there.** Vanilla's `VibrationSystem.User.isValidVibration` separately rejects a
   movement event when its `affectedState` is tagged `DAMPENS_VIBRATIONS`; entity movement posts

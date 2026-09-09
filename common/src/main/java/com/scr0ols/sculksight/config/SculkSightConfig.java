@@ -183,4 +183,22 @@ public record SculkSightConfig(int shellOpacityPercent, RenderPolicy renderPolic
 		updated.add(sensor);
 		return withTrackedSensors(updated);
 	}
+
+	/** Removes a tracked position, preserving the list order of all remaining sensors. */
+	public SculkSightConfig untrack(int x, int y, int z) {
+		List<TrackedSensor> updated = new ArrayList<>();
+		boolean removed = false;
+		for (TrackedSensor sensor : trackedSensors) {
+			if (samePosition(sensor, x, y, z)) {
+				removed = true;
+			} else {
+				updated.add(sensor);
+			}
+		}
+		return removed ? withTrackedSensors(updated) : this;
+	}
+
+	private static boolean samePosition(TrackedSensor sensor, int x, int y, int z) {
+		return sensor.x() == x && sensor.y() == y && sensor.z() == z;
+	}
 }

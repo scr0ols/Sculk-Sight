@@ -1,5 +1,8 @@
 package com.scr0ols.sculksight.mesh;
 
+import java.util.EnumMap;
+import java.util.Map;
+
 import com.mojang.blaze3d.PrimitiveTopology;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.ByteBufferBuilder;
@@ -11,6 +14,7 @@ import org.jspecify.annotations.Nullable;
 import com.scr0ols.sculksight.solver.BoundaryFaceExtractor;
 import com.scr0ols.sculksight.solver.DetectionSet;
 import com.scr0ols.sculksight.solver.WorldDetectionSet;
+import com.scr0ols.sculksight.client.DetectorType;
 
 /**
  * The mesh encoder. ARCHITECTURE.md section 4.3.
@@ -139,13 +143,18 @@ public final class ShellMeshBuilder {
 
 		int alpha = style.encodedAlpha();
 		float[] corners = new float[ShellQuad.FLOATS];
+		Map<DetectorType, ShellStyle> detectorStyles = new EnumMap<>(DetectorType.class);
+		for (DetectorType detector : DetectorType.values()) {
+			detectorStyles.put(detector, style.withColour(detector.colour()));
+		}
 		BufferBuilder buffer = new BufferBuilder(storage, TOPOLOGY, format);
-		set.extractBoundaryFaces((x, y, z, face) -> {
+		set.extractBoundaryFaces((x, y, z, face, detector) -> {
 			ShellQuad.corners(x - originX, y - originY, z - originZ, face, corners);
+			ShellStyle detectorStyle = detectorStyles.get(detector);
 			for (int corner = 0; corner < VERTICES_PER_FACE; corner++) {
 				int base = corner * 3;
 				buffer.addVertex(corners[base], corners[base + 1], corners[base + 2])
-						.setColor(style.red(face), style.green(face), style.blue(face), alpha);
+						.setColor(detectorStyle.red(face), detectorStyle.green(face), detectorStyle.blue(face), alpha);
 			}
 		});
 		return buffer.buildOrThrow();

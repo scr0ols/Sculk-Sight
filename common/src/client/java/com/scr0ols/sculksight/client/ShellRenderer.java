@@ -507,7 +507,8 @@ public final class ShellRenderer {
 					solve.sensor().x(), solve.sensor().y(), solve.sensor().z(), solve.radius());
 			solutions.add(solution);
 			solve.target().setSolution(solution);
-			union.add(solution.accepted(), solve.sensor().x(), solve.sensor().y(), solve.sensor().z());
+			union.add(solution.accepted(), solve.sensor().x(), solve.sensor().y(), solve.sensor().z(),
+					solve.target().detector());
 		}
 
 		long encodeNanos = TierTiming.since(encodeStart);

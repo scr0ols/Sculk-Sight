@@ -6,6 +6,7 @@ import java.lang.reflect.Method;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.jupiter.api.Test;
@@ -72,6 +73,27 @@ class ConfigScreensSaveTest {
 				"an edit made through the screen's own widget must still be applied on save");
 	}
 
+	@Test
+	void saveRemoveControlDeletesTheTrackedRenderFromConfiguration() throws Exception {
+		ClientPlatform.set(new TestEnvironment(tempDir));
+		ClientConfig.load();
+
+		TrackedSensor removed = new TrackedSensor(1, 2, 3, "Remove me", true);
+		TrackedSensor retained = new TrackedSensor(4, 5, 6, "Keep me", true);
+		ClientConfig.set(new SculkSightConfig(SculkSightConfig.DEFAULT_SHELL_OPACITY_PERCENT,
+				RenderPolicy.UNION, List.of(removed, retained)));
+
+		Object removedDraft = newSensorDraft(removed);
+		setDraftRemove(removedDraft, true);
+		List<Object> pendingSensors = new ArrayList<>();
+		pendingSensors.add(removedDraft);
+		pendingSensors.add(newSensorDraft(retained));
+
+		invokeSave(SculkSightConfig.DEFAULT_SHELL_OPACITY_PERCENT, RenderPolicy.UNION, pendingSensors);
+
+		assertEquals(List.of(retained), ClientConfig.get().trackedSensors());
+	}
+
 	private static Object newSensorDraft(TrackedSensor sensor) throws ReflectiveOperationException {
 		Class<?> draftClass = Class.forName("com.scr0ols.sculksight.config.ConfigScreens$SensorDraft");
 		Constructor<?> constructor = draftClass.getDeclaredConstructor(TrackedSensor.class);
@@ -84,6 +106,13 @@ class ConfigScreensSaveTest {
 		Field nameField = draft.getClass().getDeclaredField("name");
 		nameField.setAccessible(true);
 		((AtomicReference<String>) nameField.get(draft)).set(name);
+	}
+
+	@SuppressWarnings("unchecked")
+	private static void setDraftRemove(Object draft, boolean remove) throws ReflectiveOperationException {
+		Field removeField = draft.getClass().getDeclaredField("remove");
+		removeField.setAccessible(true);
+		((AtomicBoolean) removeField.get(draft)).set(remove);
 	}
 
 	private static void invokeSave(int shellOpacityPercent, RenderPolicy renderPolicy,

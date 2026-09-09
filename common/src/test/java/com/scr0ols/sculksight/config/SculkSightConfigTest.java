@@ -47,6 +47,19 @@ class SculkSightConfigTest {
 		assertEquals("Sensor 0, 0, 0", config.trackedSensors().getFirst().name());
 	}
 
+	@Test
+	void untrackingRemovesOnlyTheRequestedPosition() {
+		TrackedSensor first = TrackedSensor.selected(1, 2, 3);
+		TrackedSensor second = TrackedSensor.selected(4, 5, 6);
+		SculkSightConfig config = new SculkSightConfig(25, RenderPolicy.UNION, List.of(first, second));
+
+		SculkSightConfig updated = config.untrack(1, 2, 3);
+
+		assertEquals(List.of(second), updated.trackedSensors());
+		assertEquals(List.of(first, second), config.trackedSensors());
+		assertSame(updated, updated.untrack(99, 99, 99));
+	}
+
 	@ParameterizedTest
 	@CsvSource({"0, 0.00, 0.00", "10, 0.10, 0.04", "25, 0.25, 0.10", "50, 0.50, 0.20",
 			"100, 1.00, 0.40"})

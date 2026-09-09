@@ -99,6 +99,11 @@ public final class ConfigScreens {
 					draft.enabled.get())
 					.setSaveConsumer(draft.enabled::set)
 					.build());
+			category.add(entries.startBooleanToggle(
+					Component.translatable("sculksight.config.tracked_sensors.remove"), false)
+					.setTooltip(Component.translatable("sculksight.config.tracked_sensors.remove.tooltip"))
+					.setSaveConsumer(draft.remove::set)
+					.build());
 		}
 		category.setExpanded(true);
 		return category.build();
@@ -151,6 +156,9 @@ public final class ConfigScreens {
 				sensors.add(live);
 				continue;
 			}
+			if (draft.remove.get()) {
+				continue;
+			}
 			String name = draft.name.get().strip();
 			if (name.isEmpty()) {
 				name = live.name();
@@ -184,6 +192,7 @@ public final class ConfigScreens {
 		private final int z;
 		private final AtomicReference<String> name;
 		private final AtomicBoolean enabled;
+		private final AtomicBoolean remove = new AtomicBoolean();
 
 		private SensorDraft(TrackedSensor sensor) {
 			x = sensor.x();
