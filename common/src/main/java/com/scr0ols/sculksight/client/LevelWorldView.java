@@ -1,5 +1,6 @@
 package com.scr0ols.sculksight.client;
 
+import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.ClipBlockStateContext;
 import net.minecraft.world.phys.HitResult;
@@ -17,7 +18,8 @@ import com.scr0ols.sculksight.solver.WorldView;
  *
  * <p>The mod-owned predicate in {@link VibrationOcclusion} preserves vanilla's occlusion tag
  * and adds the 16 registered wool-carpet blocks, because wool carpets are intentionally treated
- * as vibration occluders by this mod.
+ * as vibration occluders by this mod. The separate source-below check uses vanilla's
+ * {@code DAMPENS_VIBRATIONS} tag, which includes both wool and wool carpets.
  *
  * <p>Takes a {@link BlockGetter} rather than a {@code ClientLevel} because
  * {@code isBlockInLine} is a {@code default} method declared on {@code BlockGetter} (R4
@@ -30,6 +32,11 @@ public final class LevelWorldView implements WorldView {
 
 	public LevelWorldView(BlockGetter level) {
 		this.level = level;
+	}
+
+	@Override
+	public boolean dampensVibrationsBelow(int sourceX, int sourceY, int sourceZ) {
+		return VibrationOcclusion.isDampener(level.getBlockState(new BlockPos(sourceX, sourceY - 1, sourceZ)));
 	}
 
 	@Override

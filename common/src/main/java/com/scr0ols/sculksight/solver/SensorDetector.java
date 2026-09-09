@@ -25,7 +25,7 @@ public final class SensorDetector {
 	/**
 	 * True if a vibration originating at {@code (x, y, z)} could reach the sensor at
 	 * {@code (sensorX, sensorY, sensorZ)} with the given radius: in range (R2, inclusive) and
-	 * not occluded (R4, the six-ray rule).
+	 * not occluded ({@link OcclusionTest#isOccluded}).
 	 *
 	 * <p>The range test runs first and touches no world state, exactly as
 	 * {@link ShellSolver#solveDetailed} orders its own two tests and for the same reason: it is

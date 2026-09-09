@@ -16,6 +16,17 @@ package com.scr0ols.sculksight.solver;
 public interface WorldView {
 
 	/**
+	 * Whether the block directly below an event source dampens its vibration.
+	 *
+	 * <p>Vanilla checks the event's affected block separately from its six-ray line-of-sight
+	 * occlusion test. The default keeps the JVM-only world seam source-compatible with the
+	 * existing scripted test worlds; real level adapters override it.
+	 */
+	default boolean dampensVibrationsBelow(int sourceX, int sourceY, int sourceZ) {
+		return false;
+	}
+
+	/**
 	 * True if any block whose state matches the vibration-occlusion predicate lies on the
 	 * segment from (fromX, fromY, fromZ) to (toX, toY, toZ).
 	 *

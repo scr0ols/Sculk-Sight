@@ -48,7 +48,7 @@ public final class ShellSolution {
 		return accepted;
 	}
 
-	/** Positions that passed the range test but were excluded by the six-ray occlusion rule (R4). */
+	/** Positions that passed the range test but were excluded by {@link OcclusionTest#isOccluded}. */
 	public DetectionSet occludedOut() {
 		return occludedOut;
 	}
