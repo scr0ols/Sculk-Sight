@@ -1,6 +1,8 @@
 package com.scr0ols.sculksight.config;
 
+import java.util.Locale;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -21,9 +23,12 @@ import com.scr0ols.sculksight.client.ShellRenderer;
  * Nothing about the stored format, the file, the defaults or the validation is Cloth's - which is
  * what makes the mod's settings survive Cloth being absent, replaced, or dropped at v0.2.
  *
- * <p><b>One entry, deliberately.</b> `VISUAL-SPEC.md`'s 2026-09-06 status line closed the last
- * questions blocking v0.1, and of their answers only ADR-022's opacity is a setting - see
- * {@link SculkSightConfig} for the other three and why none of them is here.
+ * <p><b>Two entries.</b> `VISUAL-SPEC.md`'s 2026-09-06 status line closed the last questions
+ * blocking v0.1, and of their answers only ADR-022's opacity was a setting; {@link RenderPolicy}
+ * joined it at v0.2 (ADR-034's M1) - see {@link SculkSightConfig} for the other v0.1 answers and
+ * why none of them is here. The policy entry has no rendering effect yet: the multi-sensor
+ * selection and renderer that would read it are separate, later work, so choosing per-sensor here
+ * changes nothing on screen until that work lands.
  *
  * <p><b>Loader-independent, and in {@code common}'s client source set for that reason.</b> Cloth
  * ships a separate artifact per loader, but the {@code me.shedaniel.clothconfig2.api} types this
@@ -52,16 +57,18 @@ public final class ConfigScreens {
 		// than a field: two screens open at once is not a state this mod should have opinions
 		// about, and a local one cannot be left behind by a cancelled screen.
 		AtomicInteger pendingOpacity = new AtomicInteger(config.shellOpacityPercent());
+		AtomicReference<RenderPolicy> pendingRenderPolicy = new AtomicReference<>(config.renderPolicy());
 
 		ConfigBuilder builder = ConfigBuilder.create()
 				.setParentScreen(parent)
 				.setTitle(Component.translatable("sculksight.config.title"))
-				.setSavingRunnable(() -> save(pendingOpacity.get()));
+				.setSavingRunnable(() -> save(pendingOpacity.get(), pendingRenderPolicy.get()));
 
 		ConfigCategory appearance =
 				builder.getOrCreateCategory(Component.translatable("sculksight.config.category.appearance"));
 
 		appearance.addEntry(opacitySlider(builder.entryBuilder(), config, pendingOpacity));
+		appearance.addEntry(renderPolicySelector(builder.entryBuilder(), config, pendingRenderPolicy));
 
 		return builder.build();
 	}
@@ -81,6 +88,20 @@ public final class ConfigScreens {
 				.build();
 	}
 
+	private static AbstractConfigListEntry<RenderPolicy> renderPolicySelector(
+			ConfigEntryBuilder entries, SculkSightConfig config, AtomicReference<RenderPolicy> pending) {
+		return entries.startEnumSelector(
+						Component.translatable("sculksight.config.render_policy"),
+						RenderPolicy.class,
+						config.renderPolicy())
+				.setDefaultValue(SculkSightConfig.DEFAULT_RENDER_POLICY)
+				.setEnumNameProvider(policy -> Component.translatable(
+						"sculksight.config.render_policy." + policy.name().toLowerCase(Locale.ROOT)))
+				.setTooltip(Component.translatable("sculksight.config.render_policy.tooltip"))
+				.setSaveConsumer(pending::set)
+				.build();
+	}
+
 	/**
 	 * Writes the new settings and tells the renderer to forget what it drew at the old ones.
 	 *
@@ -88,8 +109,10 @@ public final class ConfigScreens {
 	 * thread (R13 point 4) - the condition {@link ShellRenderer#onConfigChanged()} needs in order
 	 * to close the cached shell's GPU resources.
 	 */
-	private static void save(int shellOpacityPercent) {
-		ClientConfig.set(ClientConfig.get().withShellOpacityPercent(shellOpacityPercent));
+	private static void save(int shellOpacityPercent, RenderPolicy renderPolicy) {
+		ClientConfig.set(ClientConfig.get()
+				.withShellOpacityPercent(shellOpacityPercent)
+				.withRenderPolicy(renderPolicy));
 
 		ShellRenderer.onConfigChanged();
 	}

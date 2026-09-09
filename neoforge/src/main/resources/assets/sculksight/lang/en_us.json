@@ -7,5 +7,9 @@
 	"sculksight.config.category.appearance": "Appearance",
 	"sculksight.config.shell_opacity": "Shell opacity",
 	"sculksight.config.shell_opacity.value": "%s%%",
-	"sculksight.config.shell_opacity.tooltip": "How solid the detection shell looks. The see-through pass follows this at a fixed proportion, so one slider moves both."
+	"sculksight.config.shell_opacity.tooltip": "How solid the detection shell looks. The see-through pass follows this at a fixed proportion, so one slider moves both.",
+	"sculksight.config.render_policy": "Multi-sensor rendering",
+	"sculksight.config.render_policy.union": "Union",
+	"sculksight.config.render_policy.per_sensor": "Per-sensor",
+	"sculksight.config.render_policy.tooltip": "How multiple selected sensors' shells will be drawn: one merged shape (Union), or one differently-coloured shell per sensor (Per-sensor). Has no effect yet."
 }

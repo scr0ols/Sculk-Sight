@@ -26,11 +26,14 @@ neoForge {
 	neoFormVersion = project.neo_form_version
 }
 
-sourceSets {
-	test {
-		compileClasspath += sourceSets.main.compileClasspath
-		runtimeClasspath += sourceSets.main.runtimeClasspath
-	}
+// ModDevGradle wires the NeoForm Minecraft classpath into main's own compileClasspath and
+// runtimeClasspath via modDevCompileDependencies/modDevRuntimeDependencies, not via implementation
+// or compileOnly, so Gradle's usual testImplementation-extends-implementation wiring never carries
+// it to the test source set. Tests exercising real Minecraft types (BlockPos, Vec3, ...) need it
+// extended in explicitly.
+configurations {
+	testCompileOnly.extendsFrom(modDevCompileDependencies)
+	testRuntimeOnly.extendsFrom(modDevRuntimeDependencies)
 }
 
 dependencies {
