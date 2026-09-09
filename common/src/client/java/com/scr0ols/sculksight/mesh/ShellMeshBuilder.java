@@ -10,6 +10,7 @@ import org.jspecify.annotations.Nullable;
 
 import com.scr0ols.sculksight.solver.BoundaryFaceExtractor;
 import com.scr0ols.sculksight.solver.DetectionSet;
+import com.scr0ols.sculksight.solver.WorldDetectionSet;
 
 /**
  * The mesh encoder. ARCHITECTURE.md section 4.3.
@@ -125,6 +126,34 @@ public final class ShellMeshBuilder {
 	public static int countBoundaryFaces(DetectionSet set) {
 		int[] count = new int[1];
 		BoundaryFaceExtractor.extract(set, (dx, dy, dz, face) -> count[0]++);
+		return count[0];
+	}
+
+	/** Builds a union mesh, translating world coordinates into the supplied sensor-relative origin. */
+	public static @Nullable MeshData build(WorldDetectionSet set, int originX, int originY, int originZ,
+			VertexFormat format, ShellStyle style, ByteBufferBuilder storage) {
+		int faces = countBoundaryFaces(set);
+		if (faces == 0) {
+			return null;
+		}
+
+		int alpha = style.encodedAlpha();
+		float[] corners = new float[ShellQuad.FLOATS];
+		BufferBuilder buffer = new BufferBuilder(storage, TOPOLOGY, format);
+		set.extractBoundaryFaces((x, y, z, face) -> {
+			ShellQuad.corners(x - originX, y - originY, z - originZ, face, corners);
+			for (int corner = 0; corner < VERTICES_PER_FACE; corner++) {
+				int base = corner * 3;
+				buffer.addVertex(corners[base], corners[base + 1], corners[base + 2])
+						.setColor(style.red(face), style.green(face), style.blue(face), alpha);
+			}
+		});
+		return buffer.buildOrThrow();
+	}
+
+	public static int countBoundaryFaces(WorldDetectionSet set) {
+		int[] count = new int[1];
+		set.extractBoundaryFaces((x, y, z, face) -> count[0]++);
 		return count[0];
 	}
 }

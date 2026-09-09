@@ -1,5 +1,6 @@
 {
-	"key.sculksight.toggle_shell": "Toggle detection shell",
+	"key.sculksight.activate_sensor": "Track looked-at sensor",
+	"key.sculksight.toggle_rendering": "Toggle sensor rendering",
 	"key.sculksight.toggle_delay_heatmap": "Toggle delay overlay",
 	"key.sculksight.toggle_detection": "Toggle detection indicator",
 
@@ -11,5 +12,8 @@
 	"sculksight.config.render_policy": "Multi-sensor rendering",
 	"sculksight.config.render_policy.union": "Union",
 	"sculksight.config.render_policy.per_sensor": "Per-sensor",
-	"sculksight.config.render_policy.tooltip": "How multiple selected sensors' shells will be drawn: one merged shape (Union), or one differently-coloured shell per sensor (Per-sensor). Has no effect yet."
+	"sculksight.config.render_policy.tooltip": "Draw selected sensors as one merged shape (Union), or one coloured shell per sensor (Per-sensor).",
+	"sculksight.config.tracked_sensors": "Tracked sensors",
+	"sculksight.config.tracked_sensors.name": "Name (%s, %s, %s)",
+	"sculksight.config.tracked_sensors.enabled": "Enabled: %s"
 }

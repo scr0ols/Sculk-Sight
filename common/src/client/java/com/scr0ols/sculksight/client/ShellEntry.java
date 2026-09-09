@@ -4,6 +4,7 @@ import org.jspecify.annotations.Nullable;
 
 import com.scr0ols.sculksight.solver.DetectionSet;
 import com.scr0ols.sculksight.solver.ShellSolution;
+import com.scr0ols.sculksight.solver.WorldDetectionSet;
 
 /**
  * One sensor's cached shell. ARCHITECTURE.md section 3.3, ADR-016.
@@ -52,6 +53,8 @@ final class ShellEntry implements AutoCloseable {
 	private long revision = 1L;
 
 	private volatile @Nullable DetectionSet set;
+
+	private volatile @Nullable WorldDetectionSet worldSet;
 
 	private volatile @Nullable DelayOverlay delayOverlay;
 
@@ -104,7 +107,18 @@ final class ShellEntry implements AutoCloseable {
 	 */
 	void setSolution(ShellSolution solved) {
 		delayOverlay = DelayOverlay.from(sensor, solved);
+		worldSet = null;
 		set = solved.accepted();
+	}
+
+	void setWorldSolution(WorldDetectionSet solved) {
+		worldSet = solved;
+		set = null;
+		delayOverlay = null;
+	}
+
+	@Nullable WorldDetectionSet worldSet() {
+		return worldSet;
 	}
 
 	@Nullable DelayOverlay delayOverlay() {
@@ -149,6 +163,7 @@ final class ShellEntry implements AutoCloseable {
 		}
 
 		set = null;
+		worldSet = null;
 		delayOverlay = null;
 		stats = null;
 	}

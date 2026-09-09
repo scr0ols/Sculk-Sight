@@ -1,6 +1,8 @@
 package com.scr0ols.sculksight.config;
 
 import java.util.Objects;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Every player-settable value this mod has, as one immutable record.
@@ -32,13 +34,17 @@ import java.util.Objects;
  * computes one cannot hide. Repairing a hand-edited file is a separate, deliberate act with its
  * own report - see {@link ConfigCodec#read}.
  */
-public record SculkSightConfig(int shellOpacityPercent, RenderPolicy renderPolicy) {
+public record SculkSightConfig(int shellOpacityPercent, RenderPolicy renderPolicy,
+		List<TrackedSensor> trackedSensors) {
 
 	/** ADR-022's depth-tested alpha of 0.25, as the percentage this record stores. */
 	public static final int DEFAULT_SHELL_OPACITY_PERCENT = 25;
 
 	/** ADR-051's fixed default: union, not per-sensor. */
 	public static final RenderPolicy DEFAULT_RENDER_POLICY = RenderPolicy.UNION;
+
+	/** Safety bound for selection, solving, and the union mesh. */
+	public static final int MAX_TRACKED_SENSORS = 8;
 
 	/**
 	 * Fully transparent. Permitted: a player may turn the fill off and keep the mod loaded.
@@ -66,7 +72,12 @@ public record SculkSightConfig(int shellOpacityPercent, RenderPolicy renderPolic
 
 	/** The authored configuration: what ADR-022 and ADR-023 decided, with nothing overridden. */
 	public static SculkSightConfig defaults() {
-		return new SculkSightConfig(DEFAULT_SHELL_OPACITY_PERCENT, DEFAULT_RENDER_POLICY);
+		return new SculkSightConfig(DEFAULT_SHELL_OPACITY_PERCENT, DEFAULT_RENDER_POLICY, List.of());
+	}
+
+	/** Compatibility constructor for callers that only set the appearance. */
+	public SculkSightConfig(int shellOpacityPercent, RenderPolicy renderPolicy) {
+		this(shellOpacityPercent, renderPolicy, List.of());
 	}
 
 	public SculkSightConfig {
@@ -78,6 +89,22 @@ public record SculkSightConfig(int shellOpacityPercent, RenderPolicy renderPolic
 		}
 
 		Objects.requireNonNull(renderPolicy, "renderPolicy");
+		Objects.requireNonNull(trackedSensors, "trackedSensors");
+		List<TrackedSensor> normalised = new ArrayList<>();
+		for (TrackedSensor sensor : trackedSensors) {
+			if (sensor == null) {
+				throw new NullPointerException("trackedSensors contains null");
+			}
+			boolean duplicate = normalised.stream().anyMatch(existing -> samePosition(existing, sensor));
+			if (!duplicate && normalised.size() < MAX_TRACKED_SENSORS) {
+				normalised.add(sensor);
+			}
+		}
+		trackedSensors = List.copyOf(normalised);
+	}
+
+	private static boolean samePosition(TrackedSensor first, TrackedSensor second) {
+		return first.x() == second.x() && first.y() == second.y() && first.z() == second.z();
 	}
 
 	/** The nearest permitted percentage to the given one. Used when repairing a read value. */
@@ -128,11 +155,30 @@ public record SculkSightConfig(int shellOpacityPercent, RenderPolicy renderPolic
 
 	/** A copy with a different opacity, since a record component cannot be assigned in place. */
 	public SculkSightConfig withShellOpacityPercent(int percent) {
-		return new SculkSightConfig(percent, renderPolicy);
+		return new SculkSightConfig(percent, renderPolicy, trackedSensors);
 	}
 
 	/** A copy with a different render policy, since a record component cannot be assigned in place. */
 	public SculkSightConfig withRenderPolicy(RenderPolicy policy) {
-		return new SculkSightConfig(shellOpacityPercent, policy);
+		return new SculkSightConfig(shellOpacityPercent, policy, trackedSensors);
+	}
+
+	public SculkSightConfig withTrackedSensors(List<TrackedSensor> sensors) {
+		return new SculkSightConfig(shellOpacityPercent, renderPolicy, sensors);
+	}
+
+	/** Adds a position once, preserving an existing name and toggle state on repeat selection. */
+	public SculkSightConfig track(TrackedSensor sensor) {
+		for (TrackedSensor existing : trackedSensors) {
+			if (samePosition(existing, sensor)) {
+				return this;
+			}
+		}
+		if (trackedSensors.size() >= MAX_TRACKED_SENSORS) {
+			return this;
+		}
+		List<TrackedSensor> updated = new ArrayList<>(trackedSensors);
+		updated.add(sensor);
+		return withTrackedSensors(updated);
 	}
 }

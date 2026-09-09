@@ -1,9 +1,12 @@
 package com.scr0ols.sculksight.config;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -29,6 +32,19 @@ class SculkSightConfigTest {
 	void theDefaultRenderPolicyIsUnion() {
 		assertEquals(RenderPolicy.UNION, SculkSightConfig.defaults().renderPolicy());
 		assertEquals(RenderPolicy.UNION, SculkSightConfig.DEFAULT_RENDER_POLICY);
+	}
+
+	@Test
+	void selectionIsDeduplicatedAndBounded() {
+		SculkSightConfig config = SculkSightConfig.defaults();
+		for (int index = 0; index < SculkSightConfig.MAX_TRACKED_SENSORS + 2; index++) {
+			config = config.track(TrackedSensor.selected(index, 0, 0));
+		}
+		SculkSightConfig duplicate = config.track(TrackedSensor.selected(0, 0, 0));
+
+		assertEquals(SculkSightConfig.MAX_TRACKED_SENSORS, config.trackedSensors().size());
+		assertSame(config, duplicate);
+		assertEquals("Sensor 0, 0, 0", config.trackedSensors().getFirst().name());
 	}
 
 	@ParameterizedTest

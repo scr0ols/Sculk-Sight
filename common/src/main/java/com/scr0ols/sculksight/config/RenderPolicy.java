@@ -3,11 +3,9 @@ package com.scr0ols.sculksight.config;
 /**
  * How the mod draws a bounded, capped set of selected sensors' detection shells at once.
  *
- * <p><b>This is settings plumbing only.</b> Neither value has a rendering effect yet: the
- * multi-sensor selection mechanism and the renderer that would read this policy are separate,
- * later work (ADR-034's M2). Today's renderer shows at most one aimed sensor and never consults
- * this enum. What exists now is the choice itself, so it persists correctly ahead of the code
- * that will act on it.
+ * <p>The renderer reads this policy after solving each enabled tracked sensor. Union translates
+ * each accepted set into world coordinates and removes overlapping members and internal faces;
+ * per-sensor retains one detector-coloured shell for each selected sensor.
  *
  * <p><b>Union is the default, and stays the default.</b> `DECISIONS.md` ADR-051 fixed this from
  * the pipeline's own crossed-layer arithmetic: one union shell across both of ADR-021's passes
