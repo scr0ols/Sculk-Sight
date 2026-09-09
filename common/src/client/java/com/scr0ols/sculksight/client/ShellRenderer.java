@@ -20,7 +20,12 @@ import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.DynamicUniforms;
+import net.minecraft.client.renderer.LevelRenderer;
+import net.minecraft.client.renderer.culling.Frustum;
+import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.core.BlockPos;
+import net.minecraft.gizmos.Gizmos;
+import net.minecraft.gizmos.TextGizmo;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -116,6 +121,18 @@ public final class ShellRenderer {
 	public static final KeyMapping TOGGLE_KEY = new KeyMapping(
 			"key.sculksight.toggle_shell", InputConstants.KEY_K, KeyMapping.Category.MISC);
 
+	/** H toggles numeric delay labels on the shell selected by {@link #TOGGLE_KEY}. */
+	public static final KeyMapping TOGGLE_DELAY_HEATMAP_KEY = new KeyMapping(
+			"key.sculksight.toggle_delay_heatmap", InputConstants.KEY_H, KeyMapping.Category.MISC);
+
+	private static final int DELAY_TEXT_COLOUR = 0xFFFFFFFF;
+	private static final int OCCLUDED_DELAY_TEXT_COLOUR = 0xFFB05AC8;
+	private static final float DELAY_TEXT_SCALE = 0.32F;
+	private static final TextGizmo.Style DELAY_TEXT_STYLE = TextGizmo.Style
+			.forColorAndCentered(DELAY_TEXT_COLOUR).withScale(DELAY_TEXT_SCALE);
+	private static final TextGizmo.Style OCCLUDED_DELAY_TEXT_STYLE = TextGizmo.Style
+			.forColorAndCentered(OCCLUDED_DELAY_TEXT_COLOUR).withScale(DELAY_TEXT_SCALE);
+
 	/**
 	 * The initial size of each solve's own {@code ByteBufferBuilder} (DECISIONS.md ADR-048).
 	 *
@@ -128,6 +145,8 @@ public final class ShellRenderer {
 	private static final int INITIAL_STORAGE_BYTES = 65536;
 
 	private static @Nullable ShellEntry entry;
+
+	private static boolean delayHeatmap;
 
 	/**
 	 * ARCHITECTURE.md section 6.2's worker executor, DECISIONS.md ADR-046. Constructed here and
@@ -162,6 +181,20 @@ public final class ShellRenderer {
 		while (TOGGLE_KEY.consumeClick()) {
 			toggle(client);
 		}
+
+		while (TOGGLE_DELAY_HEATMAP_KEY.consumeClick()) {
+			toggleDelayHeatmap(client);
+		}
+	}
+
+	private static void toggleDelayHeatmap(Minecraft client) {
+		if (entry == null) {
+			say(client, "select a shell first.");
+			return;
+		}
+
+		delayHeatmap = !delayHeatmap;
+		say(client, delayHeatmap ? "delay overlay on." : "delay overlay off.");
 	}
 
 	private static void toggle(Minecraft client) {
@@ -204,6 +237,8 @@ public final class ShellRenderer {
 	}
 
 	private static void clear() {
+		delayHeatmap = false;
+
 		if (entry != null) {
 			// entry.close() closes the slot (ARCHITECTURE.md section 6.4), which drains and closes
 			// whatever ShellSolveResult is pending - the mesh and its per-solve builder together
@@ -399,8 +434,10 @@ public final class ShellRenderer {
 
 		long encodeNanos = TierTiming.since(encodeStart);
 
-		// Bookkeeping rather than budgeted work, so it sits outside the timed region above.
-		target.setSet(accepted);
+		// Bookkeeping rather than budgeted work, so it sits outside the timed region above. The
+		// overlay cache is built from both solver sets here, once, and published with the accepted
+		// set used by the shell's camera-inside test.
+		target.setSolution(solution);
 
 		if (faceMesh == null) {
 			storage.close();
@@ -463,6 +500,45 @@ public final class ShellRenderer {
 				lastFlushNanos = now;
 			} else if (now - lastFlushNanos >= TierTiming.FLUSH_INTERVAL_NANOS) {
 				flushFrames();
+			}
+		}
+	}
+
+	/**
+	 * Emits the numeric overlay into vanilla's per-frame gizmo collector.
+	 *
+	 * <p>This is called from the loader's gizmo-adjacent render hook. The normal gizmo path is
+	 * intentionally used: it billboards the glyphs and depth-tests them against the terrain, so the
+	 * player's view is the visibility rule without a second set of CPU raycasts. The collection
+	 * scope is opened here as well so the method is safe on loaders whose hook is adjacent to, rather
+	 * than nested inside, vanilla's own collector scope.
+	 */
+	public static void onRenderDelayOverlay(LevelRenderer levelRenderer, CameraRenderState camera) {
+		if (!delayHeatmap || entry == null || levelRenderer == null || camera == null || !camera.initialized) {
+			return;
+		}
+
+		DelayOverlay overlay = entry.delayOverlay();
+
+		if (overlay == null) {
+			return;
+		}
+
+		Frustum frustum = camera.cullFrustum;
+
+		try (Gizmos.TemporaryCollection ignored = levelRenderer.collectPerFrameRenderThreadGizmos()) {
+			for (int index = 0; index < overlay.size(); index++) {
+				Vec3 anchor = overlay.anchor(index);
+
+				// A point frustum test avoids constructing an AABB for every label. Labels outside the
+				// current view cannot contribute fragments, while all in-view labels remain uncapped.
+				if (frustum != null && !frustum.pointInFrustum(anchor.x, anchor.y, anchor.z)) {
+					continue;
+				}
+
+				TextGizmo.Style style = overlay.isSensorOccluded(index)
+						? OCCLUDED_DELAY_TEXT_STYLE : DELAY_TEXT_STYLE;
+				Gizmos.billboardText(overlay.text(index), anchor, style);
 			}
 		}
 	}

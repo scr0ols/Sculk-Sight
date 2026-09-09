@@ -16,6 +16,8 @@ The shell reflects the sensor's radius and vibration-dampening blocks such as wo
 
 Only one detection shell is active at a time. Press **K** again to clear it. If the world changes inside the displayed area, clear and re-enable the shell to calculate it again.
 
+With a shell active, press **H** to show the travel delay in ticks at every in-range block position, including air. Labels use the player's current view for visibility; sensor-occluded positions remain labelled in purple so they are distinguishable from positions the sensor can detect.
+
 ### Mode C — detection indicator
 
 Press **J** (also rebindable) to toggle the detection indicator. While enabled, it checks the loaded sculk sensors around you and sends a client-side chat message whenever your detected/not-detected state changes.
@@ -49,7 +51,7 @@ Sculk Sight is **client-side only**. Do not install it on a server.
 3. Download the matching v0.1.0 jar from [Releases](https://github.com/scr0ols/Sculk-Sight/releases) and place it in your instance's `mods` directory:
    - `fabric-sculksight-0.1.0+26.2.jar` for Fabric.
    - `neoforge-sculksight-0.1.0+26.2.jar` for NeoForge.
-4. Launch the game. Aim at a sculk sensor and use **K** for the shell, or press **J** for the detection indicator.
+4. Launch the game. Aim at a sculk sensor and use **K** for the shell, then **H** for its delay labels, or press **J** for the detection indicator.
 
 ## Build from source
 

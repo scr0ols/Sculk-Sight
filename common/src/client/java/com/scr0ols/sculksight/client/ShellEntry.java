@@ -3,6 +3,7 @@ package com.scr0ols.sculksight.client;
 import org.jspecify.annotations.Nullable;
 
 import com.scr0ols.sculksight.solver.DetectionSet;
+import com.scr0ols.sculksight.solver.ShellSolution;
 
 /**
  * One sensor's cached shell. ARCHITECTURE.md section 3.3, ADR-016.
@@ -33,6 +34,10 @@ import com.scr0ols.sculksight.solver.DetectionSet;
  * returns and nothing mutates it afterward - the same single-writer argument ADR-017's
  * {@code AtomicReference} rests on, applied to a field that needs visibility but no closing
  * discipline.
+ *
+ * <p>{@code delayOverlay} is published alongside {@code set} from the same solve. It contains the
+ * accepted and sensor-occluded positions, their block-centre anchors, and their preformatted delay
+ * text, so the render thread only submits immutable cached values to vanilla's gizmo collector.
  */
 final class ShellEntry implements AutoCloseable {
 
@@ -47,6 +52,8 @@ final class ShellEntry implements AutoCloseable {
 	private long revision = 1L;
 
 	private volatile @Nullable DetectionSet set;
+
+	private volatile @Nullable DelayOverlay delayOverlay;
 
 	private @Nullable ShellBuffer buffer;
 
@@ -95,8 +102,13 @@ final class ShellEntry implements AutoCloseable {
 	 * the shell the solve found, and the alternative would leave the previous solve's set answering
 	 * questions about the current one during the frames between the two.
 	 */
-	void setSet(DetectionSet solved) {
-		set = solved;
+	void setSolution(ShellSolution solved) {
+		delayOverlay = DelayOverlay.from(sensor, solved);
+		set = solved.accepted();
+	}
+
+	@Nullable DelayOverlay delayOverlay() {
+		return delayOverlay;
 	}
 
 	@Nullable ShellBuffer buffer() {
@@ -137,6 +149,7 @@ final class ShellEntry implements AutoCloseable {
 		}
 
 		set = null;
+		delayOverlay = null;
 		stats = null;
 	}
 }
