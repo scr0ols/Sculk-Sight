@@ -126,12 +126,9 @@ public final class ShellRenderer {
 			"key.sculksight.toggle_delay_heatmap", InputConstants.KEY_H, KeyMapping.Category.MISC);
 
 	private static final int DELAY_TEXT_COLOUR = 0xFFFFFFFF;
-	private static final int OCCLUDED_DELAY_TEXT_COLOUR = 0xFFB05AC8;
 	private static final float DELAY_TEXT_SCALE = 0.32F;
 	private static final TextGizmo.Style DELAY_TEXT_STYLE = TextGizmo.Style
 			.forColorAndCentered(DELAY_TEXT_COLOUR).withScale(DELAY_TEXT_SCALE);
-	private static final TextGizmo.Style OCCLUDED_DELAY_TEXT_STYLE = TextGizmo.Style
-			.forColorAndCentered(OCCLUDED_DELAY_TEXT_COLOUR).withScale(DELAY_TEXT_SCALE);
 
 	/**
 	 * The initial size of each solve's own {@code ByteBufferBuilder} (DECISIONS.md ADR-048).
@@ -536,6 +533,10 @@ public final class ShellRenderer {
 
 		try (Gizmos.TemporaryCollection ignored = levelRenderer.collectPerFrameRenderThreadGizmos()) {
 			for (int index = 0; index < overlay.size(); index++) {
+				if (overlay.isSensorOccluded(index)) {
+					continue;
+				}
+
 				Vec3 anchor = overlay.anchor(index);
 
 				// A point frustum test avoids constructing an AABB for every label. Labels outside the
@@ -544,9 +545,7 @@ public final class ShellRenderer {
 					continue;
 				}
 
-				TextGizmo.Style style = overlay.isSensorOccluded(index)
-						? OCCLUDED_DELAY_TEXT_STYLE : DELAY_TEXT_STYLE;
-				Gizmos.billboardText(overlay.text(index), anchor, style);
+				Gizmos.billboardText(overlay.text(index), anchor, DELAY_TEXT_STYLE);
 			}
 		}
 	}
