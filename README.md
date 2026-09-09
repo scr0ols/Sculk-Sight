@@ -14,7 +14,7 @@ Aim at a sculk sensor, calibrated sculk sensor, or sculk shrieker and press **K*
 
 The shell reflects the sensor's radius and vibration-dampening blocks such as wool and wool carpet, so dampened positions are absent rather than merely hidden. It is rendered with both see-through and depth-tested passes to remain readable in terrain.
 
-Only one detection shell is active at a time. Press **K** again to clear it. If the world changes inside the displayed area, clear and re-enable the shell to calculate it again.
+Press **K** on another sensor to track it too, up to eight at once. Each tracked sensor's name and enabled toggle live in the settings screen below, not on the keybind; there is no in-game way to untrack one yet.
 
 With sensor rendering active, press **H** to show the travel delay in ticks for the first enabled tracked sensor. Labels use the player's current view for visibility; sensor-occluded positions show no label, since the sensor cannot detect a vibration there.
 

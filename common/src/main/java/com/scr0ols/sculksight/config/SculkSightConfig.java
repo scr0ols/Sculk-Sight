@@ -7,7 +7,7 @@ import java.util.List;
 /**
  * Every player-settable value this mod has, as one immutable record.
  *
- * <p><b>Two entries.</b> `VISUAL-SPEC.md`'s 2026-09-06 status line closed the last four questions
+ * <p><b>Three entries.</b> `VISUAL-SPEC.md`'s 2026-09-06 status line closed the last four questions
  * that blocked v0.1, and of the answers only Q2's is a setting: ADR-049 makes the render-distance
  * fade an implementation constant rather than a config entry, ADR-050 makes shader-pack support a
  * documentation sentence, and ADR-052 ships no edge treatment at v0.1 at all. What is left from
@@ -15,7 +15,9 @@ import java.util.List;
  * slider will move". {@link #renderPolicy} joined it at v0.2 (ADR-034's M1): ADR-051 fixed union
  * as the multi-sensor default back at v0.1 and identified this as the seam the setting would
  * eventually live in, once a bounded multi-sensor selection existed for the policy to govern -
- * see {@link RenderPolicy} for what this field does and, just as importantly, does not yet do.
+ * see {@link RenderPolicy} for what this field does. {@link #trackedSensors} is that selection: a
+ * bounded, {@link #MAX_TRACKED_SENSORS}-deep list of the positions the player has chosen to track,
+ * each with its own name and enabled toggle - see {@link TrackedSensor}.
  *
  * <p><b>One slider, two alphas.</b> ADR-021 draws the shell in two passes and ADR-022 gives them
  * different alphas, 0.25 depth-tested and 0.10 see-through; every document that mentions the

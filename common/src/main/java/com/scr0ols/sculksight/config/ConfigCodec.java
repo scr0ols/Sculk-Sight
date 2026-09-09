@@ -30,8 +30,7 @@ import java.util.function.Consumer;
  * {@link #VALUE_RENDER_POLICY_PER_SENSOR} - including one from a hypothetical later version this
  * schema does not yet know - are all repaired the same way, to {@link SculkSightConfig#DEFAULT_RENDER_POLICY},
  * rather than any of them throwing. A malformed or unrecognised policy is closer to "not set" than
- * to "a string where a number belongs", and this field carries no rendering effect yet for a fail
- * to be costly against.
+ * to "a string where a number belongs".
  */
 public final class ConfigCodec {
 

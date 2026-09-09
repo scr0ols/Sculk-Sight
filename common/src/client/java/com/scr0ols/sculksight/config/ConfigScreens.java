@@ -30,9 +30,9 @@ import com.scr0ols.sculksight.client.ShellRenderer;
  * <p><b>Appearance and tracked sensors.</b> `VISUAL-SPEC.md`'s 2026-09-06 status line closed the last questions
  * blocking v0.1, and of their answers only ADR-022's opacity was a setting; {@link RenderPolicy}
  * joined it at v0.2 (ADR-034's M1) - see {@link SculkSightConfig} for the other v0.1 answers and
- * why none of them is here. The policy entry has no rendering effect yet: the multi-sensor
- * selection and renderer read it here, and each tracked sensor has an independent name and enabled
- * toggle.
+ * why none of them is here. The policy entry now drives the renderer: {@code ShellRenderer} reads
+ * it to decide whether the tracked sensors below are drawn as one merged union shell or as
+ * separate per-sensor shells, and each tracked sensor has an independent name and enabled toggle.
  *
  * <p><b>Loader-independent, and in {@code common}'s client source set for that reason.</b> Cloth
  * ships a separate artifact per loader, but the {@code me.shedaniel.clothconfig2.api} types this

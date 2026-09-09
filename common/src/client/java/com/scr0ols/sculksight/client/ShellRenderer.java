@@ -61,10 +61,12 @@ import com.scr0ols.sculksight.solver.WorldDetectionSet;
  * <p>This class is the whole of ARCHITECTURE.md section 7 outside the solver - it resolves the
  * aimed sensor and its radius (step 1), owns the cache entry (step 2), runs the solve and the
  * encode (step 3), offers into the hand-off slot (step 4), consumes it on the render thread and
- * uploads (step 5), and draws every frame (step 6). Steps 7 and 8 - a block change inside the cube,
- * and dropping the entry when the sensor goes away - are section 5's invalidation rules, whose
- * notification channel is R11 and is still unanswered. So v0.0 re-solves when the player presses
- * the key again and makes no claim to notice changes on its own.
+ * uploads (step 5), and draws every frame (step 6). Step 7 - a block change inside the cube - is
+ * section 5's invalidation rule, whose notification channel is R11 and is still unanswered: an
+ * already-tracked sensor's shell is only refreshed by {@link #onConfigChanged}, which a settings
+ * screen save triggers regardless of what changed, not by anything that notices the change itself.
+ * Step 8, dropping the entry when the sensor goes away, is answered by polling instead: {@link
+ * #syncEntries} runs every tick and drops an entry whose block is no longer a detector.
  *
  * <p><b>Two draws from one buffer.</b> The faces are drawn see-through and then depth-tested
  * (ADR-021). ADR-028 briefly added two more for a black crease-edge outline; ADR-030 superseded it
