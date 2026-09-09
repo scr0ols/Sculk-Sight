@@ -73,10 +73,6 @@ final class ShellEntry implements AutoCloseable {
 		return detector;
 	}
 
-	long revision() {
-		return revision;
-	}
-
 	/** Bumps the revision and returns the new value, for the solve that is about to be scheduled. */
 	long nextRevision() {
 		return ++revision;
@@ -89,20 +85,6 @@ final class ShellEntry implements AutoCloseable {
 	@Nullable DetectionSet set() {
 		return set;
 	}
-
-	/**
-	 * Records the set a solve produced, so that the per-frame inside test of ADR-029 has something
-	 * to ask.
-	 *
-	 * <p>Set at solve time rather than at upload time, and that is deliberate: the set describes
-	 * the shell the solve found, and the alternative would leave the previous solve's set answering
-	 * questions about the current one during the frames between the two.
-	 */
-	void setSet(DetectionSet solved) {
-		set = solved;
-	}
-
-	@Nullable ShellSolution solution() { return solution; }
 
 	void setSolution(ShellSolution solved) {
 		solution = solved;

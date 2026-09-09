@@ -1,5 +1,7 @@
 package com.scr0ols.sculksight.timing;
 
+import java.util.Arrays;
+
 /** Source-cell ownership of delay bands for one sensor-relative solve. */
 public final class DelayBandMap {
 	private final int radius;
@@ -10,6 +12,7 @@ public final class DelayBandMap {
 		this.radius = radius;
 		int cells = 2 * radius + 1;
 		bands = new byte[cells * cells * cells];
+		Arrays.fill(bands, (byte) DelayBand.OUT_OF_RANGE.ordinal());
 	}
 
 	public DelayBand bandAt(int dx, int dy, int dz) {

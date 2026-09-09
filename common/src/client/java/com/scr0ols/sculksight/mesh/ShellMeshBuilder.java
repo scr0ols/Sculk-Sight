@@ -77,11 +77,6 @@ public final class ShellMeshBuilder {
 	 *         improve on, and the caller has to handle the case either way.
 	 */
 	public static @Nullable MeshData build(DetectionSet set, VertexFormat format, ShellStyle style,
-			ByteBufferBuilder storage) {
-		return build(set, format, style, storage, (dx, dy, dz, face) -> style.colour());
-	}
-
-	public static @Nullable MeshData build(DetectionSet set, VertexFormat format, ShellStyle style,
 			ByteBufferBuilder storage, ShellColourProvider colours) {
 		int faces = countBoundaryFaces(set);
 
