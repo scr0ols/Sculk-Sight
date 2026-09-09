@@ -20,9 +20,9 @@ public interface WorldView {
 	 * segment from (fromX, fromY, fromZ) to (toX, toY, toZ).
 	 *
 	 * <p>Implementations back this with {@code BlockGetter#isBlockInLine(ClipBlockStateContext)},
-	 * passing the predicate {@code state -> state.is(BlockTags.OCCLUDES_VIBRATION_SIGNALS)} and
-	 * treating a {@code HitResult} of type {@code BLOCK} as true (R3, R4). The tag is never
-	 * named in this module (ARCHITECTURE.md section 2.3).
+	 * passing the mod's vibration-occlusion predicate and treating a {@code HitResult} of type
+	 * {@code BLOCK} as true (R3, R4). The solver does not know which blocks satisfy that
+	 * predicate.
 	 *
 	 * <p>Coordinates are {@code double} rather than integers because the endpoints are block
 	 * centres, possibly nudged (R4), so they are genuinely continuous even though the solver's
