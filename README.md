@@ -16,7 +16,7 @@ The shell reflects the sensor's radius and vibration-dampening blocks such as wo
 
 Only one detection shell is active at a time. Press **K** again to clear it. If the world changes inside the displayed area, clear and re-enable the shell to calculate it again.
 
-With a shell active, press **H** to show the travel delay in ticks at every in-range block position, including air. Labels use the player's current view for visibility; sensor-occluded positions remain labelled in purple so they are distinguishable from positions the sensor can detect.
+With a shell active, press **H** to show the travel delay in ticks at every in-range block position, including air. Labels use the player's current view for visibility; sensor-occluded positions show no label, since the sensor cannot detect a vibration there.
 
 ### Mode C — detection indicator
 

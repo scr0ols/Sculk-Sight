@@ -11,9 +11,10 @@ import com.scr0ols.sculksight.timing.DelayModel;
  * Immutable, sensor-relative data for one delay-label solve.
  *
  * <p>The solver's two sets are deliberately kept separate in the parallel {@code occluded}
- * array. A label is needed for both sets, while the colour tells the player whether the sensor
- * itself can hear that position. Delays and world anchors are built once when the worker publishes
- * the solve, rather than recomputed while the render thread submits text every frame.
+ * array. Occluded entries remain available to the render path so it can suppress their labels,
+ * while accepted entries are submitted as ordinary numeric labels. Delays and world anchors are
+ * built once when the worker publishes the solve, rather than recomputed while the render thread
+ * submits text every frame.
  */
 final class DelayOverlay {
 
