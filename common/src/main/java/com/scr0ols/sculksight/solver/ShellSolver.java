@@ -42,7 +42,7 @@ public final class ShellSolver {
 	/**
 	 * Sweeps the bounding cube of the given radius, keeps positions passing the inclusive
 	 * squared-distance test (R2) and the filter, and splits those into accepted and
-	 * occluded-out depending on the six-ray rule (R4).
+	 * occluded-out depending on {@link OcclusionTest#isOccluded}.
 	 *
 	 * <p><b>The range test is inclusive, on integers, and that is not a design choice.</b> It
 	 * is what {@code EuclideanGameEventListenerRegistry#getPostableListenerPosition} compares,

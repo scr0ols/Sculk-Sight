@@ -1,7 +1,8 @@
 package com.scr0ols.sculksight.solver;
 
 /**
- * The six-ray occlusion rule, reproduced from vanilla.
+ * Vanilla's vibration-occlusion decision, reproduced from two separate vanilla rules: the
+ * source-below dampening check and the six-ray line-of-sight rule.
  *
  * <p>This class is the most correctness-critical code in the mod, and it is also the piece
  * unit tests can genuinely validate: ARCHITECTURE.md section 2.2 draws the {@link WorldView}
@@ -29,7 +30,9 @@ public final class OcclusionTest {
 	}
 
 	/**
-	 * Reproduces {@code VibrationSystem.Listener#isOccluded} (R4).
+	 * True if either vanilla rule would suppress the vibration: the source-below dampening
+	 * check ({@code VibrationSystem.User#isValidVibration}) or, failing that, the six-ray
+	 * line-of-sight rule reproduced from {@code VibrationSystem.Listener#isOccluded} (R4).
 	 *
 	 * <p><b>The two endpoints are not interchangeable.</b> {@code from} is the vibration
 	 * source - the candidate position being tested - and {@code to} is the sensor. Only the
@@ -37,10 +40,11 @@ public final class OcclusionTest {
 	 * vanilla would never produce. The parameter names say which is which and the solver
 	 * passes them accordingly.
 	 *
-	 * <p>The rule: snap both endpoints to their block centres, then for each of the six
-	 * {@link Face} directions cast one ray from the nudged source to the un-nudged
-	 * destination centre. Return false at the first ray that reaches the destination without
-	 * meeting an occluder; return true only if all six are blocked.
+	 * <p>The six-ray rule, run when the source-below check does not already return true: snap
+	 * both endpoints to their block centres, then for each of the six {@link Face} directions
+	 * cast one ray from the nudged source to the un-nudged destination centre. Return false at
+	 * the first ray that reaches the destination without meeting an occluder; return true only
+	 * if all six are blocked.
 	 *
 	 * <p>The centre snapping collapses to {@code + 0.5} and that is exact rather than a
 	 * shortcut. R4 records vanilla snapping each endpoint to {@code Mth.floor(c) + 0.5}; the
