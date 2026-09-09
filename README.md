@@ -16,6 +16,8 @@ The shell reflects the sensor's radius and vibration-dampening blocks such as wo
 
 Only one detection shell is active at a time. Press **K** again to clear it. If the world changes inside the displayed area, clear and re-enable the shell to calculate it again.
 
+Press **H** to swap the shell to a delay heatmap, colouring each cell by how many ticks a vibration from it takes to reach the sensor instead of by detector type, with separate colours for occluded and out-of-range cells. Press **H** again to restore the detector-type colours.
+
 ### Mode C — detection indicator
 
 Press **J** (also rebindable) to toggle the detection indicator. While enabled, it checks the loaded sculk sensors around you and sends a client-side chat message whenever your detected/not-detected state changes.

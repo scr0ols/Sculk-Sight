@@ -7,6 +7,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import com.scr0ols.sculksight.timing.DelayBand;
+import com.scr0ols.sculksight.timing.DelayBandMap;
+
 /**
  * Tests for {@link ShellSolver}.
  *
@@ -164,6 +167,48 @@ class ShellSolverTest {
 
 		assertEquals(atOrigin.size(), farAway.size());
 		assertTrue(farAway.contains(6, 0, 0));
+	}
+
+	@Test
+	@DisplayName("delay bands follow the real distance-to-ticks thresholds for a radius-8 sensor")
+	void delayBandsMatchDistanceThresholdsAtRadiusEight() {
+		ShellSolution solution = ShellSolver.solveDetailed(RecordingWorld.allClear(),
+				SENSOR_X, SENSOR_Y, SENSOR_Z, 8);
+		DelayBandMap bands = solution.delayBands();
+
+		// Axis-aligned offsets give exact integer centre-to-centre distances, so the expected
+		// band follows straight from the existing 1-2 / 3-4 / 5-8 thresholds.
+		assertEquals(DelayBand.ONE_TO_TWO, bands.bandAt(1, 0, 0));
+		assertEquals(DelayBand.ONE_TO_TWO, bands.bandAt(2, 0, 0));
+		assertEquals(DelayBand.THREE_TO_FOUR, bands.bandAt(3, 0, 0));
+		assertEquals(DelayBand.THREE_TO_FOUR, bands.bandAt(4, 0, 0));
+		assertEquals(DelayBand.FIVE_TO_EIGHT, bands.bandAt(5, 0, 0));
+		// The farthest reachable cell at radius 8: distSqr == 64 == radiusSqr, so it is in range
+		// (R2) and still floors to 8 ticks - a radius-8 sensor can never reach NINE_TO_SIXTEEN or
+		// SEVENTEEN_PLUS.
+		assertEquals(DelayBand.FIVE_TO_EIGHT, bands.bandAt(8, 0, 0));
+
+		// A cell inside the bounding cube but outside the sphere never reaches the assignment
+		// loop at all; it must read back as OUT_OF_RANGE from the map's own explicit default
+		// rather than by ordinal coincidence.
+		assertEquals(DelayBand.OUT_OF_RANGE, bands.bandAt(8, 8, 8));
+		// A cell outside the bounding cube entirely is OUT_OF_RANGE too.
+		assertEquals(DelayBand.OUT_OF_RANGE, bands.bandAt(9, 0, 0));
+	}
+
+	@Test
+	@DisplayName("an occluded source cell is banded OCCLUDED rather than by its distance")
+	void occludedCellsAreBandedOccludedNotByDistance() {
+		WorldView halfBlocked = (fromX, fromY, fromZ, toX, toY, toZ) ->
+				Math.floor(fromX) - SENSOR_X < 0;
+
+		ShellSolution solution = ShellSolver.solveDetailed(halfBlocked, SENSOR_X, SENSOR_Y, SENSOR_Z, 8);
+
+		// (-3, 0, 0) sits at distance 3 - THREE_TO_FOUR territory by distance alone - but every
+		// ray from a negative-dx source is blocked, so it must read OCCLUDED instead.
+		assertEquals(DelayBand.OCCLUDED, solution.delayBands().bandAt(-3, 0, 0));
+		// The positive side is untouched by the occlusion fake and keeps its distance band.
+		assertEquals(DelayBand.THREE_TO_FOUR, solution.delayBands().bandAt(3, 0, 0));
 	}
 
 	private static DetectionSet solveOpenAir(int radius) {
