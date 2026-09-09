@@ -12,7 +12,7 @@ Licence: **GPL-3.0-or-later**. See [LICENSE](LICENSE).
 
 Aim at a sculk sensor, calibrated sculk sensor, or sculk shrieker and press **K** (rebindable under **Options → Controls → Miscellaneous**). Sculk Sight calculates its effective detection area and draws it as a translucent shell, coloured by the detector type: amber for a sculk sensor, light blue for a calibrated sculk sensor, and dark red for a shrieker.
 
-The shell reflects the sensor's radius and vibration-dampening blocks such as wool, so dampened positions are absent rather than merely hidden. It is rendered with both see-through and depth-tested passes to remain readable in terrain.
+The shell reflects the sensor's radius and vibration-dampening blocks such as wool and wool carpet, so dampened positions are absent rather than merely hidden. It is rendered with both see-through and depth-tested passes to remain readable in terrain.
 
 Only one detection shell is active at a time. Press **K** again to clear it. If the world changes inside the displayed area, clear and re-enable the shell to calculate it again.
 
