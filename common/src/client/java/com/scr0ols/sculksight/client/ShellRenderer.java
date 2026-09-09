@@ -172,7 +172,6 @@ public final class ShellRenderer {
 			displayMode = displayMode == ShellDisplayMode.TYPE
 				? ShellDisplayMode.DELAY_HEATMAP : ShellDisplayMode.TYPE;
 			if (entry != null && client.level != null) {
-				entry.clearBuffer();
 				runSolve(client.level, entry);
 			}
 			say(client, displayMode == ShellDisplayMode.DELAY_HEATMAP

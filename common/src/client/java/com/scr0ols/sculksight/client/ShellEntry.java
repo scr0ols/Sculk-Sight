@@ -49,8 +49,6 @@ final class ShellEntry implements AutoCloseable {
 
 	private volatile @Nullable DetectionSet set;
 
-	private volatile @Nullable ShellSolution solution;
-
 	private @Nullable ShellBuffer buffer;
 
 	private @Nullable ShellStats stats;
@@ -87,16 +85,7 @@ final class ShellEntry implements AutoCloseable {
 	}
 
 	void setSolution(ShellSolution solved) {
-		solution = solved;
 		set = solved.accepted();
-	}
-
-	void clearBuffer() {
-		if (buffer != null) {
-			buffer.close();
-			buffer = null;
-		}
-		stats = null;
 	}
 
 	@Nullable ShellBuffer buffer() {
@@ -137,7 +126,6 @@ final class ShellEntry implements AutoCloseable {
 		}
 
 		set = null;
-		solution = null;
 		stats = null;
 	}
 }
