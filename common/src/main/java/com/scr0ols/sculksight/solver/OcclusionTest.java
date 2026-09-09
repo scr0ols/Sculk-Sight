@@ -54,6 +54,12 @@ public final class OcclusionTest {
 	public static boolean isOccluded(WorldView world,
 			int fromX, int fromY, int fromZ,
 			int toX, int toY, int toZ) {
+		// VibrationSystem.User.isValidVibration rejects a movement event when its affected
+		// block (the block directly below the source) dampens vibrations. This is an event
+		// validity check, separate from the six-ray occludes_vibration_signals test below.
+		if (world.dampensVibrationsBelow(fromX, fromY, fromZ)) {
+			return true;
+		}
 
 		final double sourceX = fromX + 0.5;
 		final double sourceY = fromY + 0.5;

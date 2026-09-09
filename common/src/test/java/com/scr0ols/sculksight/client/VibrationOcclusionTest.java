@@ -25,6 +25,14 @@ class VibrationOcclusionTest {
 	}
 
 	@Test
+	void woolAndCarpetsAreDampenersForSourceBelowRule() {
+		Blocks.WOOL.asList().forEach(wool ->
+				assertTrue(VibrationOcclusion.isDampener(wool.defaultBlockState()), wool.toString()));
+		Blocks.CARPET.asList().forEach(carpet ->
+				assertTrue(VibrationOcclusion.isDampener(carpet.defaultBlockState()), carpet.toString()));
+	}
+
+	@Test
 	void unrelatedBlocksAreNotAddedToThePredicate() {
 		assertFalse(VibrationOcclusion.isOccluder(Blocks.STONE.defaultBlockState()));
 		assertFalse(VibrationOcclusion.isOccluder(Blocks.MOSS_BLOCK.defaultBlockState()));

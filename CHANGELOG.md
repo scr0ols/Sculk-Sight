@@ -88,6 +88,16 @@ No code changed for this release. The itemised entries below are left under `[Un
 
 ### Fixed
 
+- **A position directly above wool could remain in the shell even though vanilla would suppress a
+  step vibration there.** Vanilla's `VibrationSystem.User.isValidVibration` separately rejects a
+  movement event when its `affectedState` is tagged `DAMPENS_VIBRATIONS`; entity movement posts
+  the event at the entity position and supplies the block below it as that state. The solver now
+  applies this source-below rule before its separate six-ray `OCCLUDES_VIBRATION_SIGNALS` check,
+  so the candidate is placed in `occludedOut`. In Minecraft 26.2 the dampening tag contains both
+  `#minecraft:wool` and `#minecraft:wool_carpets`, so this rule intentionally applies to carpets
+  too, consistently with the mod's existing carpet-occluder product decision. A bounded JVM
+  regression test fails before the change and passes after it; no live client test was attempted.
+
 - **The renderer's first live frame crashed the client, and the cause was a resource-lifetime bug in the mesh encoder.** `ShellMeshBuilder.build` allocated its own `ByteBufferBuilder` and closed it in a `try`-with-resources before returning — but the returned `MeshData` is read later, on the render thread, by which point the builder that produced it had already been closed. `ByteBufferBuilder.close()` invalidates every `Result` it ever produced: it frees the native pointer and bumps an internal generation counter that every `Result.byteBuffer()` call checks. So the very first shell built a valid mesh, and the render thread's later read of it threw `IllegalStateException: Buffer is no longer valid`, crashing the client with a `ReportedException`. `MeshData.close()` — which `ShellUploadSlot`'s existing close discipline already calls at exactly the right points — does not free that memory; only the parent `ByteBufferBuilder`'s own `close()` does. `ShellMeshBuilder.build` now takes the `ByteBufferBuilder` as a parameter the caller owns, and `ShellRenderer` holds one long-lived, growable instance closed only when the client stops. This matches how vanilla's own `SectionCompiler` works: it receives its `ByteBufferBuilder`s from a pool it does not own, rather than allocating and closing its own per compile.
 
 - **Speckling where the shell lies flat against a block face.** The shell's surfaces sit exactly on block boundaries, so a shell face flush against the underside of a wool block was at precisely the same depth as that block and the two fought over which one to draw, pixel by pixel. The shell's depth-tested pass now asks to be treated as very slightly nearer than whatever it is flush with, which is the same remedy the game uses for its own outlines. The see-through pass never needed it, since it does not compare depth at all.
