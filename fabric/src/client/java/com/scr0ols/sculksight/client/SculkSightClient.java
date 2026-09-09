@@ -102,8 +102,15 @@ public class SculkSightClient implements ClientModInitializer {
 	 */
 	private static void registerShellRenderer() {
 		KeyMappingHelper.registerKeyMapping(ShellRenderer.TOGGLE_KEY);
+		KeyMappingHelper.registerKeyMapping(ShellRenderer.TOGGLE_DELAY_HEATMAP_KEY);
 
 		ClientTickEvents.END_CLIENT_TICK.register(ShellRenderer::onEndTick);
+
+		// Vanilla finalises the per-frame gizmo collector immediately before the gizmo feature
+		// submission. This is the world-text path used by the numeric delay overlay.
+		LevelRenderEvents.BEFORE_GIZMOS.register(
+				context -> ShellRenderer.onRenderDelayOverlay(context.levelRenderer(),
+						context.levelState().cameraRenderState));
 
 		// LevelRenderContext is a Fabric-only type; ShellRenderer.onRender takes the vanilla
 		// camera position it carries, not the context itself, so it needs no Fabric import at all.
