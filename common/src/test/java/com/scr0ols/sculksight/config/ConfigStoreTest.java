@@ -47,6 +47,18 @@ class ConfigStoreTest {
 	}
 
 	@Test
+	void trackedSensorNamesAndTogglesSurviveBeingWrittenAndReadBack(@TempDir Path directory) {
+		List<TrackedSensor> sensors = List.of(new TrackedSensor(4, 5, 6, "hallway", false));
+		store(directory).set(new SculkSightConfig(71, RenderPolicy.PER_SENSOR, sensors));
+
+		ConfigStore reopened = store(directory);
+		reopened.load();
+
+		assertEquals(sensors, reopened.get().trackedSensors());
+		assertEquals(List.of(), problems);
+	}
+
+	@Test
 	void savingCreatesTheDirectoryAboveTheFile(@TempDir Path directory) {
 		Path nested = directory.resolve("config").resolve("deeper");
 

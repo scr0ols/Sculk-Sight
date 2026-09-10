@@ -1,6 +1,8 @@
 package com.scr0ols.sculksight.config;
 
 import java.util.LinkedHashMap;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 
@@ -28,14 +30,15 @@ import java.util.function.Consumer;
  * {@link #VALUE_RENDER_POLICY_PER_SENSOR} - including one from a hypothetical later version this
  * schema does not yet know - are all repaired the same way, to {@link SculkSightConfig#DEFAULT_RENDER_POLICY},
  * rather than any of them throwing. A malformed or unrecognised policy is closer to "not set" than
- * to "a string where a number belongs", and this field carries no rendering effect yet for a fail
- * to be costly against.
+ * to "a string where a number belongs".
  */
 public final class ConfigCodec {
 
 	static final String KEY_SHELL_OPACITY_PERCENT = "shellOpacityPercent";
 
 	static final String KEY_RENDER_POLICY = "renderPolicy";
+
+	static final String KEY_TRACKED_SENSORS = "trackedSensors";
 
 	/** {@link RenderPolicy#UNION}, as the string this schema writes and reads. */
 	static final String VALUE_RENDER_POLICY_UNION = "union";
@@ -52,6 +55,19 @@ public final class ConfigCodec {
 
 		object.put(KEY_SHELL_OPACITY_PERCENT, Integer.valueOf(config.shellOpacityPercent()));
 		object.put(KEY_RENDER_POLICY, writeRenderPolicy(config.renderPolicy()));
+		if (!config.trackedSensors().isEmpty()) {
+			List<Map<String, Object>> sensors = new ArrayList<>();
+			for (TrackedSensor sensor : config.trackedSensors()) {
+				Map<String, Object> encoded = new LinkedHashMap<>();
+				encoded.put("x", sensor.x());
+				encoded.put("y", sensor.y());
+				encoded.put("z", sensor.z());
+				encoded.put("name", sensor.name());
+				encoded.put("enabled", sensor.enabled());
+				sensors.add(encoded);
+			}
+			object.put(KEY_TRACKED_SENSORS, sensors);
+		}
 
 		return Json.write(object);
 	}
@@ -82,8 +98,59 @@ public final class ConfigCodec {
 
 		int percent = readPercent(object, repairs);
 		RenderPolicy policy = readRenderPolicy(object, repairs);
+		List<TrackedSensor> sensors = readTrackedSensors(object, repairs);
 
-		return new SculkSightConfig(percent, policy);
+		return new SculkSightConfig(percent, policy, sensors);
+	}
+
+	private static List<TrackedSensor> readTrackedSensors(Map<?, ?> object, Consumer<String> repairs) {
+		if (!object.containsKey(KEY_TRACKED_SENSORS)) {
+			return List.of();
+		}
+		Object raw = object.get(KEY_TRACKED_SENSORS);
+		if (!(raw instanceof Iterable<?> values)) {
+			repairs.accept(KEY_TRACKED_SENSORS + " must be an array, not " + describe(raw)
+					+ "; using an empty list");
+			return List.of();
+		}
+
+		List<TrackedSensor> sensors = new ArrayList<>();
+		for (Object value : values) {
+			if (!(value instanceof Map<?, ?> entry)) {
+				repairs.accept(KEY_TRACKED_SENSORS + " contains a non-object entry; skipping it");
+				continue;
+			}
+			try {
+				int x = coordinate(entry, "x");
+				int y = coordinate(entry, "y");
+				int z = coordinate(entry, "z");
+				Object rawName = entry.get("name");
+				String name = rawName instanceof String string && !string.strip().isEmpty()
+						? string : TrackedSensor.defaultName(x, y, z);
+				boolean enabled = !(entry.containsKey("enabled")) || Boolean.TRUE.equals(entry.get("enabled"));
+				sensors.add(new TrackedSensor(x, y, z, name, enabled));
+			} catch (RuntimeException malformed) {
+				repairs.accept(KEY_TRACKED_SENSORS + " contains an invalid entry; skipping it");
+			}
+		}
+		if (sensors.size() > SculkSightConfig.MAX_TRACKED_SENSORS) {
+			repairs.accept(KEY_TRACKED_SENSORS + " exceeds the limit of "
+					+ SculkSightConfig.MAX_TRACKED_SENSORS + "; extra entries were skipped");
+		}
+		return sensors;
+	}
+
+	private static int coordinate(Map<?, ?> entry, String key) {
+		Object value = entry.get(key);
+		if (!(value instanceof Number number)) {
+			throw new IllegalArgumentException(key + " is not a number");
+		}
+		double numeric = number.doubleValue();
+		if (!Double.isFinite(numeric) || numeric != Math.rint(numeric)
+				|| numeric < Integer.MIN_VALUE || numeric > Integer.MAX_VALUE) {
+			throw new IllegalArgumentException(key + " is not an integer coordinate");
+		}
+		return (int) numeric;
 	}
 
 	private static int readPercent(Map<?, ?> object, Consumer<String> repairs)

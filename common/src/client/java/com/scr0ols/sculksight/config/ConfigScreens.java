@@ -1,6 +1,9 @@
 package com.scr0ols.sculksight.config;
 
 import java.util.Locale;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -11,6 +14,7 @@ import me.shedaniel.clothconfig2.api.AbstractConfigListEntry;
 import me.shedaniel.clothconfig2.api.ConfigBuilder;
 import me.shedaniel.clothconfig2.api.ConfigCategory;
 import me.shedaniel.clothconfig2.api.ConfigEntryBuilder;
+import me.shedaniel.clothconfig2.impl.builders.SubCategoryBuilder;
 
 import com.scr0ols.sculksight.client.ShellRenderer;
 
@@ -23,12 +27,12 @@ import com.scr0ols.sculksight.client.ShellRenderer;
  * Nothing about the stored format, the file, the defaults or the validation is Cloth's - which is
  * what makes the mod's settings survive Cloth being absent, replaced, or dropped at v0.2.
  *
- * <p><b>Two entries.</b> `VISUAL-SPEC.md`'s 2026-09-06 status line closed the last questions
+ * <p><b>Appearance and tracked sensors.</b> `VISUAL-SPEC.md`'s 2026-09-06 status line closed the last questions
  * blocking v0.1, and of their answers only ADR-022's opacity was a setting; {@link RenderPolicy}
  * joined it at v0.2 (ADR-034's M1) - see {@link SculkSightConfig} for the other v0.1 answers and
- * why none of them is here. The policy entry has no rendering effect yet: the multi-sensor
- * selection and renderer that would read it are separate, later work, so choosing per-sensor here
- * changes nothing on screen until that work lands.
+ * why none of them is here. The policy entry now drives the renderer: {@code ShellRenderer} reads
+ * it to decide whether the tracked sensors below are drawn as one merged union shell or as
+ * separate per-sensor shells, and each tracked sensor has an independent name and enabled toggle.
  *
  * <p><b>Loader-independent, and in {@code common}'s client source set for that reason.</b> Cloth
  * ships a separate artifact per loader, but the {@code me.shedaniel.clothconfig2.api} types this
@@ -58,19 +62,51 @@ public final class ConfigScreens {
 		// about, and a local one cannot be left behind by a cancelled screen.
 		AtomicInteger pendingOpacity = new AtomicInteger(config.shellOpacityPercent());
 		AtomicReference<RenderPolicy> pendingRenderPolicy = new AtomicReference<>(config.renderPolicy());
+		List<SensorDraft> pendingSensors = new ArrayList<>();
+		for (TrackedSensor sensor : config.trackedSensors()) {
+			pendingSensors.add(new SensorDraft(sensor));
+		}
 
 		ConfigBuilder builder = ConfigBuilder.create()
 				.setParentScreen(parent)
 				.setTitle(Component.translatable("sculksight.config.title"))
-				.setSavingRunnable(() -> save(pendingOpacity.get(), pendingRenderPolicy.get()));
+					.setSavingRunnable(() -> save(pendingOpacity.get(), pendingRenderPolicy.get(), pendingSensors));
 
 		ConfigCategory appearance =
 				builder.getOrCreateCategory(Component.translatable("sculksight.config.category.appearance"));
 
 		appearance.addEntry(opacitySlider(builder.entryBuilder(), config, pendingOpacity));
 		appearance.addEntry(renderPolicySelector(builder.entryBuilder(), config, pendingRenderPolicy));
+		appearance.addEntry(trackedSensors(builder.entryBuilder(), config, pendingSensors));
 
 		return builder.build();
+	}
+
+	private static AbstractConfigListEntry<List<AbstractConfigListEntry>> trackedSensors(
+			ConfigEntryBuilder entries, SculkSightConfig config, List<SensorDraft> pending) {
+		SubCategoryBuilder category = entries.startSubCategory(
+				Component.translatable("sculksight.config.tracked_sensors"));
+		for (int index = 0; index < config.trackedSensors().size(); index++) {
+			TrackedSensor sensor = config.trackedSensors().get(index);
+			SensorDraft draft = pending.get(index);
+			category.add(entries.startStrField(
+					Component.translatable("sculksight.config.tracked_sensors.name", sensor.x(), sensor.y(), sensor.z()),
+					draft.name.get())
+					.setSaveConsumer(draft.name::set)
+					.build());
+			category.add(entries.startBooleanToggle(
+					Component.translatable("sculksight.config.tracked_sensors.enabled", sensor.name()),
+					draft.enabled.get())
+					.setSaveConsumer(draft.enabled::set)
+					.build());
+			category.add(entries.startBooleanToggle(
+					Component.translatable("sculksight.config.tracked_sensors.remove"), false)
+					.setTooltip(Component.translatable("sculksight.config.tracked_sensors.remove.tooltip"))
+					.setSaveConsumer(draft.remove::set)
+					.build());
+		}
+		category.setExpanded(true);
+		return category.build();
 	}
 
 	private static AbstractConfigListEntry<Integer> opacitySlider(
@@ -109,11 +145,61 @@ public final class ConfigScreens {
 	 * thread (R13 point 4) - the condition {@link ShellRenderer#onConfigChanged()} needs in order
 	 * to close the cached shell's GPU resources.
 	 */
-	private static void save(int shellOpacityPercent, RenderPolicy renderPolicy) {
+	private static void save(int shellOpacityPercent, RenderPolicy renderPolicy,
+			List<SensorDraft> pendingSensors) {
+		List<TrackedSensor> sensors = new ArrayList<>();
+		for (TrackedSensor live : ClientConfig.get().trackedSensors()) {
+			SensorDraft draft = findDraft(pendingSensors, live);
+			if (draft == null) {
+				// Tracked (e.g. via the activate keybind) after this screen opened, so no widget
+				// for it exists here - carry it through unedited instead of discarding it.
+				sensors.add(live);
+				continue;
+			}
+			if (draft.remove.get()) {
+				continue;
+			}
+			String name = draft.name.get().strip();
+			if (name.isEmpty()) {
+				name = live.name();
+			}
+			try {
+				sensors.add(new TrackedSensor(live.x(), live.y(), live.z(), name, draft.enabled.get()));
+			} catch (IllegalArgumentException tooLong) {
+				sensors.add(live);
+			}
+		}
 		ClientConfig.set(ClientConfig.get()
 				.withShellOpacityPercent(shellOpacityPercent)
-				.withRenderPolicy(renderPolicy));
+				.withRenderPolicy(renderPolicy)
+				.withTrackedSensors(sensors));
 
 		ShellRenderer.onConfigChanged();
+	}
+
+	private static SensorDraft findDraft(List<SensorDraft> pendingSensors, TrackedSensor live) {
+		for (SensorDraft draft : pendingSensors) {
+			if (draft.x == live.x() && draft.y == live.y() && draft.z == live.z()) {
+				return draft;
+			}
+		}
+		return null;
+	}
+
+	private static final class SensorDraft {
+		private final int x;
+		private final int y;
+		private final int z;
+		private final AtomicReference<String> name;
+		private final AtomicBoolean enabled;
+		private final AtomicBoolean remove = new AtomicBoolean();
+
+		private SensorDraft(TrackedSensor sensor) {
+			x = sensor.x();
+			y = sensor.y();
+			z = sensor.z();
+			name = new AtomicReference<>(sensor.name());
+			enabled = new AtomicBoolean(sensor.enabled());
+		}
 	}
 }

@@ -58,6 +58,7 @@ No code changed for this release. The itemised entries below are left under `[Un
 - 80 further unit tests, over the reader and writer, the schema, the file store against a temporary directory, and the arithmetic that turns one percentage into the two alphas the shell draws with, bringing the suite to 229. Two of them hold the configured shell at its default setting to exactly the appearance the mod shipped with before there was a setting at all, so the two cannot drift apart without the build failing.
 - **The shell's colour now depends on which detector was aimed at.** `DetectorType` classifies the targeted block into `NORMAL_SENSOR` (amber `#FFA300`, unchanged), `CALIBRATED_SENSOR` (`#99CCFF`) or `SHRIEKER` (`#8B0025`), and `ShellRenderer` applies that colour on top of the configured style, leaving alpha, face shading, blending and the camera-inside correction untouched. `ShellStyle.withColour` is the one mechanism both the render path and its tests go through.
 - **The active shell can show per-block travel delays.** Press **H** while a shell is selected with **K** to place the real tick count at every in-range block position, including air. Labels are depth-tested against the player's view, and sensor-occluded positions show no label at all, since the sensor cannot detect a vibration there.
+- **Mode A tracks up to eight sensors at once instead of only the one last aimed at.** **K** is renamed from "toggle shell" to "track looked-at sensor": it adds the aimed sensor to a bounded tracked-sensors list (`SculkSightConfig.MAX_TRACKED_SENSORS`) rather than replacing whatever was already shown, and says so in chat when the sensor is already tracked or the list is full. Each entry gets its own name and enabled toggle in the settings screen. `RenderPolicy` now has the rendering effect its v0.1 config entry was added ahead of: `UNION` (the default) solves every enabled tracked sensor and merges the results into one world-coordinate shell with overlapping members and internal faces removed, `PER_SENSOR` draws one detector-coloured shell per sensor instead. A new **G** keybind toggles all sensor rendering on or off without touching any per-sensor enabled toggle.
 
 ### Changed
 - **The timing report now says which thread each number came from, and it was wrong before.** When the solve moved to a background thread, the report kept adding the solve's cost to the frame's cost and comparing the total against a per-frame budget — so a solve that cost the frame a fifth of a millisecond was reported as sixteen. The report is now split by thread: the two phases that genuinely happen on the game's thread, the region copy and the buffer upload, are added together and compared against the budget, and the background thread's own cost is printed beside them and left out of that sum. The region copy is also timed at all for the first time; nothing had ever measured it, and it turns out to be about one percent of the budget.
@@ -88,6 +89,16 @@ No code changed for this release. The itemised entries below are left under `[Un
 
 ### Fixed
 
+- **Union rendering discarded detector colours.** The merged world-position set now retains the
+  contributing detector type and the mesh encoder chooses normal `#FFA300`, calibrated
+  `#99CCFF`, or shrieker `#8B0025` per boundary face. A plain JVM regression test covers a mixed
+  three-detector union, including overlap handling.
+
+- **Tracked renders had no removal control.** Each tracked-sensor row now has a clearly labelled
+  remove control; saving it removes that position from persisted configuration and
+  `ShellRenderer.onConfigChanged()` clears the rendered state. The existing add flow, toggles, and
+  bounded list remain unchanged.
+
 - **A position directly above wool could remain in the shell even though vanilla would suppress a
   step vibration there.** Vanilla's `VibrationSystem.User.isValidVibration` separately rejects a
   movement event when its `affectedState` is tagged `DAMPENS_VIBRATIONS`; entity movement posts
@@ -109,6 +120,8 @@ No code changed for this release. The itemised entries below are left under `[Un
 - **A shell rendered around a sculk catalyst — confirmed in game on Fabric — even though a catalyst does not belong to the sensor family.** `DetectorType.of` fell through to `NORMAL_SENSOR` for any block it did not otherwise recognise, and a catalyst's block entity satisfies `ShellRenderer`'s `GameEventListener.Provider` check for an unrelated reason: it reacts to nearby mob deaths by spawning sculk growth, not by emitting the vibration-frequency detections the sensor family reports. So aiming at one and pressing **K** drew a shell as if it were a plain sculk sensor. `DetectorType.of` now returns `Optional<DetectorType>`, empty for the catalyst and any other non-detector block, and `ShellRenderer` refuses to draw when it is empty.
 
 - **Wool carpet did not dampen a shell the way wool itself does — reported 2026-09-09 during v0.2 tick-overlay playtesting, even though carpet is made of wool.** `LevelWorldView` tested each candidate block against vanilla's `OCCLUDES_VIBRATION_SIGNALS` tag alone, and that tag does not carry wool carpet. Treating carpet as an occluder alongside wool is this mod's own product decision, not a vanilla behaviour it mirrors. The mod's own predicate, `VibrationOcclusion.isOccluder`, now also accepts any of the 16 registered wool-carpet blocks, checked against a `Set<Block>` built once rather than against a fresh list per call, since this predicate runs on the six-ray occlusion hot path once per traversed block. `VibrationOcclusionTest` covers every carpet colour and confirms unrelated blocks are unaffected.
+
+- **Saving the settings screen could silently drop a sensor tracked mid-session — found 2026-09-09 during v0.2 multi-sensor review, before any player hit it.** The activate keybind works whether or not the settings screen is open, since Minecraft does not gate keybind clicks on an open screen, but `ConfigScreens.save` rebuilt the persisted tracked-sensors list purely by walking the draft widgets that existed when the screen was opened. A sensor tracked through the keybind after that point has no draft, so save silently discarded it instead of erroring. `save` now walks the live tracked-sensors list instead and looks up each entry's draft by position, carrying through unedited any entry that has none. `ConfigScreensSaveTest` reproduces the mid-screen case against the real, compiled `ConfigScreens.save`.
 
 ### Notes on what the unit tests do and do not establish
 

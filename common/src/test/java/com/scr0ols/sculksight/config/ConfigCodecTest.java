@@ -24,7 +24,9 @@ class ConfigCodecTest {
 
 	@Test
 	void whatItWritesItReadsBackUnchanged() throws JsonParseException {
-		SculkSightConfig original = new SculkSightConfig(63, RenderPolicy.PER_SENSOR);
+		SculkSightConfig original = new SculkSightConfig(63, RenderPolicy.PER_SENSOR,
+				List.of(new TrackedSensor(1, 2, 3, "entrance", false),
+						new TrackedSensor(-4, 5, 6, "deep hall", true)));
 
 		assertEquals(original, ConfigCodec.read(ConfigCodec.write(original), repairs::add));
 		assertEquals(List.of(), repairs);
