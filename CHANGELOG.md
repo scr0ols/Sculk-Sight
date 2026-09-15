@@ -82,10 +82,12 @@ No code changed for this release. The itemised entries below are left under `[Un
 - **`VerificationSample` carries a `PredictedClass` instead of a `predictedInSet` boolean**, and `VerificationReport` gained `inSetSampled` / `occludedOutSampled` / `outOfRangeSampled` counts, printed in `summary()`.
 - **`/sculksight-verify <scene> [samples] [seed]`**: the seed is now an optional third argument, defaulting to the sensor's packed block position exactly as before when omitted, so a scene can be resampled at fresh positions without moving the sensor.
 - **The mod version is now `0.0.1+26.2`** rather than `0.0.1`, adopting the versioning scheme described under `[0.0.1]` above.
+- **The settings screen is now a hand-rolled vanilla screen instead of a Cloth Config one, and every tracked-sensor edit applies immediately.** Renaming, enabling/disabling or removing a tracked sensor used to be a checkbox or field parked in a draft until one distant Save button ran; a "remove" in particular did nothing visible until that save. Every one of those controls now writes straight to the settings file the instant it is clicked — there is no Save button on the tracked-sensors list at all, and none is needed. The opacity slider and the render-policy toggle apply the same way, on every drag or click rather than on save. Reaching the screen is unchanged: Mod Menu on Fabric, the mod list on NeoForge.
 
 ### Removed
 
 - **The GitHub Actions workflow that shipped with the template.** It assumes the Gradle build sits at the repository root, whereas this project's build sits at `fabric/`, so as shipped it would have been silently inert. CI belongs to the next phase; when it is set up it needs a `working-directory` or a `-p fabric` argument, and it must build every supported loader.
+- **The Cloth Config dependency**, on both loaders. The settings screen it drew is replaced by the hand-rolled one described under Changed above, so nothing in the mod names Cloth Config any more, and neither `fabric.mod.json` nor NeoForge's `neoforge.mods.toml` requires it to load. Mod Menu is unaffected: it never depended on Cloth Config and remains the way a Fabric player reaches the screen.
 
 ### Fixed
 
