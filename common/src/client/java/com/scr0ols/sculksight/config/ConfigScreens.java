@@ -77,36 +77,45 @@ public final class ConfigScreens {
 
 		appearance.addEntry(opacitySlider(builder.entryBuilder(), config, pendingOpacity));
 		appearance.addEntry(renderPolicySelector(builder.entryBuilder(), config, pendingRenderPolicy));
-		appearance.addEntry(trackedSensors(builder.entryBuilder(), config, pendingSensors));
+
+		ConfigCategory trackedSensors = builder.getOrCreateCategory(
+				Component.translatable("sculksight.config.category.tracked_sensors"));
+		trackedSensors.addEntry(builder.entryBuilder().startTextDescription(
+				Component.translatable("sculksight.config.tracked_sensors.description",
+						config.trackedSensors().size(), SculkSightConfig.MAX_TRACKED_SENSORS)).build());
+		for (int index = 0; index < config.trackedSensors().size(); index++) {
+			trackedSensors.addEntry(sensorCard(builder.entryBuilder(), config.trackedSensors().get(index),
+					pendingSensors.get(index)));
+		}
 
 		return builder.build();
 	}
 
-	private static AbstractConfigListEntry<List<AbstractConfigListEntry>> trackedSensors(
-			ConfigEntryBuilder entries, SculkSightConfig config, List<SensorDraft> pending) {
-		SubCategoryBuilder category = entries.startSubCategory(
-				Component.translatable("sculksight.config.tracked_sensors"));
-		for (int index = 0; index < config.trackedSensors().size(); index++) {
-			TrackedSensor sensor = config.trackedSensors().get(index);
-			SensorDraft draft = pending.get(index);
-			category.add(entries.startStrField(
-					Component.translatable("sculksight.config.tracked_sensors.name", sensor.x(), sensor.y(), sensor.z()),
-					draft.name.get())
-					.setSaveConsumer(draft.name::set)
-					.build());
-			category.add(entries.startBooleanToggle(
-					Component.translatable("sculksight.config.tracked_sensors.enabled", sensor.name()),
-					draft.enabled.get())
-					.setSaveConsumer(draft.enabled::set)
-					.build());
-			category.add(entries.startBooleanToggle(
-					Component.translatable("sculksight.config.tracked_sensors.remove"), false)
-					.setTooltip(Component.translatable("sculksight.config.tracked_sensors.remove.tooltip"))
-					.setSaveConsumer(draft.remove::set)
-					.build());
-		}
-		category.setExpanded(true);
-		return category.build();
+	/**
+	 * One sensor's complete editing unit. The card is expanded by default so all existing actions
+	 * remain visible and keyboard reachable; it is a grouping affordance, not a place for future
+	 * per-sensor settings. Keeping the identity in the card heading means the controls below it do
+	 * not repeat long coordinate labels three times, which is the source of the old list's clutter.
+	 */
+	private static AbstractConfigListEntry<List<AbstractConfigListEntry>> sensorCard(
+			ConfigEntryBuilder entries, TrackedSensor sensor, SensorDraft draft) {
+		SubCategoryBuilder card = entries.startSubCategory(Component.translatable(
+				"sculksight.config.tracked_sensors.card", sensor.name(), sensor.x(), sensor.y(), sensor.z()));
+		card.add(entries.startStrField(
+				Component.translatable("sculksight.config.tracked_sensors.name"), draft.name.get())
+				.setSaveConsumer(draft.name::set)
+				.build());
+		card.add(entries.startBooleanToggle(
+				Component.translatable("sculksight.config.tracked_sensors.enabled"), draft.enabled.get())
+				.setSaveConsumer(draft.enabled::set)
+				.build());
+		card.add(entries.startBooleanToggle(
+				Component.translatable("sculksight.config.tracked_sensors.remove"), false)
+				.setTooltip(Component.translatable("sculksight.config.tracked_sensors.remove.tooltip"))
+				.setSaveConsumer(draft.remove::set)
+				.build());
+		card.setExpanded(true);
+		return card.build();
 	}
 
 	private static AbstractConfigListEntry<Integer> opacitySlider(

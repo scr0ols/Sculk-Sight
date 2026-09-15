@@ -13,9 +13,11 @@
 	"sculksight.config.render_policy.union": "Union",
 	"sculksight.config.render_policy.per_sensor": "Per-sensor",
 	"sculksight.config.render_policy.tooltip": "Draw selected sensors as one merged shape (Union), or one coloured shell per sensor (Per-sensor).",
-	"sculksight.config.tracked_sensors": "Tracked sensors",
-	"sculksight.config.tracked_sensors.name": "Name (%s, %s, %s)",
-	"sculksight.config.tracked_sensors.enabled": "Enabled: %s",
-	"sculksight.config.tracked_sensors.remove": "Remove tracked render",
+	"sculksight.config.category.tracked_sensors": "Tracked sensors",
+	"sculksight.config.tracked_sensors.description": "Tracked sensors (%s/%s). Each sensor keeps its name, enabled state, and removal action together.",
+	"sculksight.config.tracked_sensors.card": "%s (%s, %s, %s)",
+	"sculksight.config.tracked_sensors.name": "Sensor name",
+	"sculksight.config.tracked_sensors.enabled": "Enabled",
+	"sculksight.config.tracked_sensors.remove": "Remove sensor",
 	"sculksight.config.tracked_sensors.remove.tooltip": "Remove this sensor from the tracked-render list when you save."
 }
