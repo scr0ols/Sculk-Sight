@@ -8,12 +8,13 @@ import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.server.IntegratedServer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.level.block.entity.SculkSensorBlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.gameevent.GameEventListener;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 
 import com.scr0ols.sculksight.SculkSight;
+import com.scr0ols.sculksight.client.DetectorType;
 import com.scr0ols.sculksight.client.LevelWorldView;
 import com.scr0ols.sculksight.solver.ShellSolution;
 import com.scr0ols.sculksight.solver.ShellSolver;
@@ -22,7 +23,8 @@ import com.scr0ols.sculksight.solver.ShellSolver;
  * The dev-only differential verification mechanism behind {@code /sculksight-verify}, split out
  * of the Fabric-only {@code VerificationCommand} by DECISIONS.md ADR-043's follow-up split.
  *
- * <p>Aim at a sculk sensor and run it. The solver predicts, the game is asked, and any
+ * <p>Aim at a sculk sensor, calibrated sculk sensor or sculk shrieker and run it. The solver
+ * predicts, the game is asked, and any
  * disagreement is reported. This is the mechanism PLAN.md §5.1 calls "the single thing standing
  * between this mod and one that lies convincingly", and ADR-007 makes a passing run a v0.0 exit
  * gate.
@@ -79,15 +81,21 @@ public final class VerificationCommandCore {
 
 		BlockPos sensorPos = blockHit.getBlockPos();
 		ClientLevel clientLevel = client.level;
+		BlockEntity blockEntity = clientLevel != null ? clientLevel.getBlockEntity(sensorPos) : null;
 
-		if (clientLevel == null || !(clientLevel.getBlockEntity(sensorPos) instanceof SculkSensorBlockEntity sensor)) {
-			return fail(feedback, "the targeted block is not a sculk sensor.");
+		// Any of the three detector types DetectorType.of classifies - never a catalyst, which
+		// also satisfies GameEventListener.Provider for an unrelated reason (DetectorType's own
+		// javadoc). Widened from a bare SculkSensorBlockEntity cast, which accepted a sensor and,
+		// through subclassing, a calibrated sensor, but rejected a shrieker outright.
+		if (!(blockEntity instanceof GameEventListener.Provider<?> provider)
+				|| DetectorType.of(blockEntity.getBlockState().getBlock()).isEmpty()) {
+			return fail(feedback, "the targeted block is not a sculk sensor, calibrated sculk sensor or sculk shrieker.");
 		}
 
-		// The radius is derived through vanilla's own idiom and never read from
-		// SculkSensorBlockEntity.VibrationUser.LISTENER_RANGE, which is a static 8 that the
-		// calibrated sensor inherits while overriding the method to 16 (R1 point 3).
-		GameEventListener listener = sensor.getListener();
+		// The radius is derived through vanilla's own idiom and never read from a stored
+		// LISTENER_RANGE/LISTENER_RADIUS constant: the calibrated sensor overrides it to 16
+		// through this same method, and reading a stored 8 for it would be wrong (R1 point 3).
+		GameEventListener listener = provider.getListener();
 		int radius = listener.getListenerRadius();
 
 		ServerLevel serverLevel = server.getLevel(clientLevel.dimension());
@@ -133,10 +141,11 @@ public final class VerificationCommandCore {
 		}).join();
 
 		if (report == null) {
-			// Re-asked on this side purely to get the reason text into the message; the run
-			// itself already declined.
-			return fail(feedback, "sensor not in a state to be probed. Wait for it to return to "
-					+ "INACTIVE with no vibration in flight, then try again.");
+			// The run itself already declined; see IntegratedServerSensorProbe.blockedReason for
+			// the specific reason, not repeated here.
+			return fail(feedback, "detector not in a state to be probed. Wait for it to finish any "
+					+ "current activation (sensor phase, or shrieker shriek) with no vibration in "
+					+ "flight, then try again.");
 		}
 
 		feedback.accept("[sculksight] " + report.summary());

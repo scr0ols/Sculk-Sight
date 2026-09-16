@@ -3,13 +3,15 @@ package com.scr0ols.sculksight.client;
 import org.jspecify.annotations.Nullable;
 
 import com.scr0ols.sculksight.solver.DetectionSet;
+import com.scr0ols.sculksight.solver.ShellSolution;
+import com.scr0ols.sculksight.solver.WorldDetectionSet;
 
 /**
  * One sensor's cached shell. ARCHITECTURE.md section 3.3, ADR-016.
  *
- * <p>v0.0 holds one of these at a time, because mode A draws the shell of the sensor being aimed
- * at (PLAN.md section 3.4). The type is keyed and shaped for many from the start, so modes B and C
- * add entries rather than a second mechanism.
+ * <p>v0.2 holds up to {@code SculkSightConfig.MAX_TRACKED_SENSORS} of these at a time, one per
+ * tracked sensor (PLAN.md section 3.4). The type was keyed and shaped for many from the start, so
+ * modes B and C add entries rather than a second mechanism.
  *
  * <p>{@code revision} is what makes the hand-off safe against a slow solve finishing after a newer
  * one; the mechanism is {@link ShellUploadSlot}.
@@ -33,6 +35,10 @@ import com.scr0ols.sculksight.solver.DetectionSet;
  * returns and nothing mutates it afterward - the same single-writer argument ADR-017's
  * {@code AtomicReference} rests on, applied to a field that needs visibility but no closing
  * discipline.
+ *
+ * <p>{@code delayOverlay} is published alongside {@code set} from the same solve. It contains the
+ * accepted and sensor-occluded positions, their block-centre anchors, and their preformatted delay
+ * text, so the render thread only submits immutable cached values to vanilla's gizmo collector.
  */
 final class ShellEntry implements AutoCloseable {
 
@@ -47,6 +53,10 @@ final class ShellEntry implements AutoCloseable {
 	private long revision = 1L;
 
 	private volatile @Nullable DetectionSet set;
+
+	private volatile @Nullable WorldDetectionSet worldSet;
+
+	private volatile @Nullable DelayOverlay delayOverlay;
 
 	private @Nullable ShellBuffer buffer;
 
@@ -95,8 +105,24 @@ final class ShellEntry implements AutoCloseable {
 	 * the shell the solve found, and the alternative would leave the previous solve's set answering
 	 * questions about the current one during the frames between the two.
 	 */
-	void setSet(DetectionSet solved) {
-		set = solved;
+	void setSolution(ShellSolution solved) {
+		delayOverlay = DelayOverlay.from(sensor, solved);
+		worldSet = null;
+		set = solved.accepted();
+	}
+
+	void setWorldSolution(WorldDetectionSet solved) {
+		worldSet = solved;
+		set = null;
+		delayOverlay = null;
+	}
+
+	@Nullable WorldDetectionSet worldSet() {
+		return worldSet;
+	}
+
+	@Nullable DelayOverlay delayOverlay() {
+		return delayOverlay;
 	}
 
 	@Nullable ShellBuffer buffer() {
@@ -137,6 +163,8 @@ final class ShellEntry implements AutoCloseable {
 		}
 
 		set = null;
+		worldSet = null;
+		delayOverlay = null;
 		stats = null;
 	}
 }

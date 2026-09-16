@@ -1,15 +1,23 @@
 package com.scr0ols.sculksight.config;
 
+import java.util.Objects;
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Every player-settable value this mod has, as one immutable record.
  *
- * <p><b>One entry, and that is the whole of v0.1's screen rather than a stub.</b>
- * `VISUAL-SPEC.md`'s 2026-09-06 status line closed the last four questions that blocked v0.1, and
- * of the answers only Q2's is a setting: ADR-049 makes the render-distance fade an implementation
- * constant rather than a config entry, ADR-050 makes shader-pack support a documentation sentence,
- * ADR-051 fixes union as the multi-sensor policy with the per-sensor alternative arriving at v0.2,
- * and ADR-052 ships no edge treatment at v0.1 at all. What is left is ADR-022's opacity, which
- * that ADR itself already calls "the numbers the v0.1 slider will move".
+ * <p><b>Three entries.</b> `VISUAL-SPEC.md`'s 2026-09-06 status line closed the last four questions
+ * that blocked v0.1, and of the answers only Q2's is a setting: ADR-049 makes the render-distance
+ * fade an implementation constant rather than a config entry, ADR-050 makes shader-pack support a
+ * documentation sentence, and ADR-052 ships no edge treatment at v0.1 at all. What is left from
+ * that round is ADR-022's opacity, which that ADR itself already calls "the numbers the v0.1
+ * slider will move". {@link #renderPolicy} joined it at v0.2 (ADR-034's M1): ADR-051 fixed union
+ * as the multi-sensor default back at v0.1 and identified this as the seam the setting would
+ * eventually live in, once a bounded multi-sensor selection existed for the policy to govern -
+ * see {@link RenderPolicy} for what this field does. {@link #trackedSensors} is that selection: a
+ * bounded, {@link #MAX_TRACKED_SENSORS}-deep list of the positions the player has chosen to track,
+ * each with its own name and enabled toggle - see {@link TrackedSensor}.
  *
  * <p><b>One slider, two alphas.</b> ADR-021 draws the shell in two passes and ADR-022 gives them
  * different alphas, 0.25 depth-tested and 0.10 see-through; every document that mentions the
@@ -24,14 +32,21 @@ package com.scr0ols.sculksight.config;
  * by {@link #depthTestedAlpha()} and {@link #seeThroughAlpha()}.
  *
  * <p><b>Validating, not clamping.</b> The canonical constructor rejects a percentage outside the
- * permitted range rather than quietly moving it, so a bug that computes one cannot hide. Repairing
- * a hand-edited file is a separate, deliberate act with its own report - see
- * {@link ConfigCodec#read}.
+ * permitted range, and a {@code null} policy, rather than quietly moving either, so a bug that
+ * computes one cannot hide. Repairing a hand-edited file is a separate, deliberate act with its
+ * own report - see {@link ConfigCodec#read}.
  */
-public record SculkSightConfig(int shellOpacityPercent) {
+public record SculkSightConfig(int shellOpacityPercent, RenderPolicy renderPolicy,
+		List<TrackedSensor> trackedSensors) {
 
 	/** ADR-022's depth-tested alpha of 0.25, as the percentage this record stores. */
 	public static final int DEFAULT_SHELL_OPACITY_PERCENT = 25;
+
+	/** ADR-051's fixed default: union, not per-sensor. */
+	public static final RenderPolicy DEFAULT_RENDER_POLICY = RenderPolicy.UNION;
+
+	/** Safety bound for selection, solving, and the union mesh. */
+	public static final int MAX_TRACKED_SENSORS = 8;
 
 	/**
 	 * Fully transparent. Permitted: a player may turn the fill off and keep the mod loaded.
@@ -59,7 +74,12 @@ public record SculkSightConfig(int shellOpacityPercent) {
 
 	/** The authored configuration: what ADR-022 and ADR-023 decided, with nothing overridden. */
 	public static SculkSightConfig defaults() {
-		return new SculkSightConfig(DEFAULT_SHELL_OPACITY_PERCENT);
+		return new SculkSightConfig(DEFAULT_SHELL_OPACITY_PERCENT, DEFAULT_RENDER_POLICY, List.of());
+	}
+
+	/** Compatibility constructor for callers that only set the appearance. */
+	public SculkSightConfig(int shellOpacityPercent, RenderPolicy renderPolicy) {
+		this(shellOpacityPercent, renderPolicy, List.of());
 	}
 
 	public SculkSightConfig {
@@ -69,6 +89,24 @@ public record SculkSightConfig(int shellOpacityPercent) {
 					+ MIN_SHELL_OPACITY_PERCENT + ".." + MAX_SHELL_OPACITY_PERCENT
 					+ ", got " + shellOpacityPercent);
 		}
+
+		Objects.requireNonNull(renderPolicy, "renderPolicy");
+		Objects.requireNonNull(trackedSensors, "trackedSensors");
+		List<TrackedSensor> normalised = new ArrayList<>();
+		for (TrackedSensor sensor : trackedSensors) {
+			if (sensor == null) {
+				throw new NullPointerException("trackedSensors contains null");
+			}
+			boolean duplicate = normalised.stream().anyMatch(existing -> samePosition(existing, sensor));
+			if (!duplicate && normalised.size() < MAX_TRACKED_SENSORS) {
+				normalised.add(sensor);
+			}
+		}
+		trackedSensors = List.copyOf(normalised);
+	}
+
+	private static boolean samePosition(TrackedSensor first, TrackedSensor second) {
+		return first.x() == second.x() && first.y() == second.y() && first.z() == second.z();
 	}
 
 	/** The nearest permitted percentage to the given one. Used when repairing a read value. */
@@ -119,6 +157,48 @@ public record SculkSightConfig(int shellOpacityPercent) {
 
 	/** A copy with a different opacity, since a record component cannot be assigned in place. */
 	public SculkSightConfig withShellOpacityPercent(int percent) {
-		return new SculkSightConfig(percent);
+		return new SculkSightConfig(percent, renderPolicy, trackedSensors);
+	}
+
+	/** A copy with a different render policy, since a record component cannot be assigned in place. */
+	public SculkSightConfig withRenderPolicy(RenderPolicy policy) {
+		return new SculkSightConfig(shellOpacityPercent, policy, trackedSensors);
+	}
+
+	public SculkSightConfig withTrackedSensors(List<TrackedSensor> sensors) {
+		return new SculkSightConfig(shellOpacityPercent, renderPolicy, sensors);
+	}
+
+	/** Adds a position once, preserving an existing name and toggle state on repeat selection. */
+	public SculkSightConfig track(TrackedSensor sensor) {
+		for (TrackedSensor existing : trackedSensors) {
+			if (samePosition(existing, sensor)) {
+				return this;
+			}
+		}
+		if (trackedSensors.size() >= MAX_TRACKED_SENSORS) {
+			return this;
+		}
+		List<TrackedSensor> updated = new ArrayList<>(trackedSensors);
+		updated.add(sensor);
+		return withTrackedSensors(updated);
+	}
+
+	/** Removes a tracked position, preserving the list order of all remaining sensors. */
+	public SculkSightConfig untrack(int x, int y, int z) {
+		List<TrackedSensor> updated = new ArrayList<>();
+		boolean removed = false;
+		for (TrackedSensor sensor : trackedSensors) {
+			if (samePosition(sensor, x, y, z)) {
+				removed = true;
+			} else {
+				updated.add(sensor);
+			}
+		}
+		return removed ? withTrackedSensors(updated) : this;
+	}
+
+	private static boolean samePosition(TrackedSensor sensor, int x, int y, int z) {
+		return sensor.x() == x && sensor.y() == y && sensor.z() == z;
 	}
 }

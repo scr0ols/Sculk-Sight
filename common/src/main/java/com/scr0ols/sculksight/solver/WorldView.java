@@ -16,13 +16,24 @@ package com.scr0ols.sculksight.solver;
 public interface WorldView {
 
 	/**
+	 * Whether the block directly below an event source dampens its vibration.
+	 *
+	 * <p>Vanilla checks the event's affected block separately from its six-ray line-of-sight
+	 * occlusion test. The default keeps the JVM-only world seam source-compatible with the
+	 * existing scripted test worlds; real level adapters override it.
+	 */
+	default boolean dampensVibrationsBelow(int sourceX, int sourceY, int sourceZ) {
+		return false;
+	}
+
+	/**
 	 * True if any block whose state matches the vibration-occlusion predicate lies on the
 	 * segment from (fromX, fromY, fromZ) to (toX, toY, toZ).
 	 *
 	 * <p>Implementations back this with {@code BlockGetter#isBlockInLine(ClipBlockStateContext)},
-	 * passing the predicate {@code state -> state.is(BlockTags.OCCLUDES_VIBRATION_SIGNALS)} and
-	 * treating a {@code HitResult} of type {@code BLOCK} as true (R3, R4). The tag is never
-	 * named in this module (ARCHITECTURE.md section 2.3).
+	 * passing the mod's vibration-occlusion predicate and treating a {@code HitResult} of type
+	 * {@code BLOCK} as true (R3, R4). The solver does not know which blocks satisfy that
+	 * predicate.
 	 *
 	 * <p>Coordinates are {@code double} rather than integers because the endpoints are block
 	 * centres, possibly nudged (R4), so they are genuinely continuous even though the solver's

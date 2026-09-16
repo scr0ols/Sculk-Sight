@@ -15,7 +15,7 @@ public enum PredictedClass {
 	/** Accepted into the detection set: in range and not occluded. */
 	IN_SET,
 
-	/** Passed the range test but was excluded by the six-ray occlusion rule. */
+	/** Passed the range test but was excluded by {@code OcclusionTest#isOccluded}. */
 	OCCLUDED_OUT,
 
 	/** Failed the range test outright. */

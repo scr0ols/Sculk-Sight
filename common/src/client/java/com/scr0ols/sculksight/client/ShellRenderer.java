@@ -2,6 +2,10 @@ package com.scr0ols.sculksight.client;
 
 import java.util.Optional;
 import java.util.OptionalDouble;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 import com.mojang.blaze3d.PrimitiveTopology;
 import com.mojang.blaze3d.buffers.GpuBuffer;
@@ -20,7 +24,12 @@ import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.DynamicUniforms;
+import net.minecraft.client.renderer.LevelRenderer;
+import net.minecraft.client.renderer.culling.Frustum;
+import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.core.BlockPos;
+import net.minecraft.gizmos.Gizmos;
+import net.minecraft.gizmos.TextGizmo;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -35,22 +44,29 @@ import org.jspecify.annotations.Nullable;
 
 import com.scr0ols.sculksight.SculkSight;
 import com.scr0ols.sculksight.config.ClientConfig;
+import com.scr0ols.sculksight.config.SculkSightConfig;
+import com.scr0ols.sculksight.config.TrackedSensor;
+import com.scr0ols.sculksight.config.RenderPolicy;
 import com.scr0ols.sculksight.mesh.ShellMeshBuilder;
 import com.scr0ols.sculksight.mesh.ShellStyle;
 import com.scr0ols.sculksight.solver.DetectionSet;
 import com.scr0ols.sculksight.solver.ShellSolution;
 import com.scr0ols.sculksight.solver.ShellSolver;
+import com.scr0ols.sculksight.solver.WorldDetectionSet;
 
 /**
- * The v0.0 renderer: mode A, one shell, for the sensor the player is aiming at.
+ * The bounded multi-sensor renderer: selected sensors are solved independently, then either
+ * merged into one world-coordinate union or drawn as separate detector-coloured shells.
  *
  * <p>This class is the whole of ARCHITECTURE.md section 7 outside the solver - it resolves the
  * aimed sensor and its radius (step 1), owns the cache entry (step 2), runs the solve and the
  * encode (step 3), offers into the hand-off slot (step 4), consumes it on the render thread and
- * uploads (step 5), and draws every frame (step 6). Steps 7 and 8 - a block change inside the cube,
- * and dropping the entry when the sensor goes away - are section 5's invalidation rules, whose
- * notification channel is R11 and is still unanswered. So v0.0 re-solves when the player presses
- * the key again and makes no claim to notice changes on its own.
+ * uploads (step 5), and draws every frame (step 6). Step 7 - a block change inside the cube - is
+ * section 5's invalidation rule, whose notification channel is R11 and is still unanswered: an
+ * already-tracked sensor's shell is only refreshed by {@link #onConfigChanged}, which a settings
+ * screen save triggers regardless of what changed, not by anything that notices the change itself.
+ * Step 8, dropping the entry when the sensor goes away, is answered by polling instead: {@link
+ * #syncEntries} runs every tick and drops an entry whose block is no longer a detector.
  *
  * <p><b>Two draws from one buffer.</b> The faces are drawn see-through and then depth-tested
  * (ADR-021). ADR-028 briefly added two more for a black crease-edge outline; ADR-030 superseded it
@@ -65,7 +81,7 @@ import com.scr0ols.sculksight.solver.ShellSolver;
  *
  * <p><b>The solve now runs on a worker thread, not the client thread - DECISIONS.md ADR-046
  * through ADR-048.</b> ARCHITECTURE.md section 6.2's four phases are wired end to end for the
- * first time here. {@link #runSolve} still runs on the client thread, but only for the first
+ * first time here. {@link #runSolves} still runs on the client thread, but only for the first
  * phase: taking a snapshot of the sensor's bounding cube (RESEARCH-LOG.md R16 found a worker may
  * not read the live level; the snapshot type is ADR-047's {@link VolumeSnapshot}). Everything
  * after that - the solve, the boundary extraction, the encode and the offer into
@@ -79,7 +95,7 @@ import com.scr0ols.sculksight.solver.ShellSolver;
  * results from it - a native-memory race, not merely a stale read. {@link ShellSolveResult} is the
  * pair's shape and DECISIONS.md ADR-048 is the decision.
  *
- * <p><b>Loader-neutral since DECISIONS.md ADR-043's follow-up split.</b> {@link #TOGGLE_KEY} is
+ * <p><b>Loader-neutral since DECISIONS.md ADR-043's follow-up split.</b> {@link #ACTIVATE_KEY} is
  * constructed here but not registered - vanilla's {@code KeyMapping} constructor touches no
  * loader API, only a loader's own key-mapping registry does. {@link #onRender} takes the camera
  * position directly rather than a level-render-event object, because that object's own type is
@@ -100,7 +116,7 @@ public final class ShellRenderer {
 	 *
 	 * <p><b>This field belongs to the client thread alone, and that is what makes a plain field
 	 * enough.</b> It is written by {@link #onConfigChanged} and read by {@link #style()}, whose
-	 * only callers are {@link #runSolve}, {@link #fillIsOff} and {@link #draw} - the client thread
+	 * only callers are {@link #runSolves}, {@link #fillIsOff} and {@link #draw} - the client thread
 	 * and the render thread, which RESEARCH-LOG.md R13 point 4 establishes are one thread. The
 	 * {@link #fillIsOff} caller arrived with OPEN-QUESTIONS.md section 23 and does not weaken the
 	 * argument, being on the render thread like the two in {@link #draw} beside it. The worker never
@@ -113,8 +129,21 @@ public final class ShellRenderer {
 
 
 	/** Constructed, not registered - see the class javadoc. */
-	public static final KeyMapping TOGGLE_KEY = new KeyMapping(
-			"key.sculksight.toggle_shell", InputConstants.KEY_K, KeyMapping.Category.MISC);
+	public static final KeyMapping ACTIVATE_KEY = new KeyMapping(
+			"key.sculksight.activate_sensor", InputConstants.KEY_K, KeyMapping.Category.MISC);
+
+	/** A separate global switch; per-sensor enabled flags remain untouched when this is pressed. */
+	public static final KeyMapping TOGGLE_RENDERING_KEY = new KeyMapping(
+			"key.sculksight.toggle_rendering", InputConstants.KEY_G, KeyMapping.Category.MISC);
+
+	/** H toggles numeric delay labels for the first enabled tracked sensor. */
+	public static final KeyMapping TOGGLE_DELAY_HEATMAP_KEY = new KeyMapping(
+			"key.sculksight.toggle_delay_heatmap", InputConstants.KEY_H, KeyMapping.Category.MISC);
+
+	private static final int DELAY_TEXT_COLOUR = 0xFFFFFFFF;
+	private static final float DELAY_TEXT_SCALE = 0.32F;
+	private static final TextGizmo.Style DELAY_TEXT_STYLE = TextGizmo.Style
+			.forColorAndCentered(DELAY_TEXT_COLOUR).withScale(DELAY_TEXT_SCALE);
 
 	/**
 	 * The initial size of each solve's own {@code ByteBufferBuilder} (DECISIONS.md ADR-048).
@@ -127,12 +156,20 @@ public final class ShellRenderer {
 	 */
 	private static final int INITIAL_STORAGE_BYTES = 65536;
 
-	private static @Nullable ShellEntry entry;
+	private static final Map<SensorKey, ShellEntry> entries = new LinkedHashMap<>();
+
+	private static @Nullable ShellEntry unionEntry;
+
+	private static boolean renderingEnabled = true;
+
+	private static long solveGeneration;
+
+	private static boolean delayHeatmap;
 
 	/**
 	 * ARCHITECTURE.md section 6.2's worker executor, DECISIONS.md ADR-046. Constructed here and
 	 * shut down from {@link #onClientStopping}. {@link #solveAndEncode} is submitted to it since
-	 * DECISIONS.md ADR-048's wiring; {@link #runSolve} itself stays on the client thread, for the
+	 * DECISIONS.md ADR-048's wiring; {@link #runSolves} itself stays on the client thread, for the
 	 * snapshot phase only.
 	 */
 	private static final ShellWorkerExecutor WORKER = new ShellWorkerExecutor();
@@ -159,18 +196,58 @@ public final class ShellRenderer {
 	public static void onEndTick(Minecraft client) {
 		// consumeClick rather than isDown: this is a toggle, and isDown would fire it on every
 		// tick the key is held down.
-		while (TOGGLE_KEY.consumeClick()) {
-			toggle(client);
+		while (ACTIVATE_KEY.consumeClick()) {
+			activate(client);
 		}
+
+		while (TOGGLE_RENDERING_KEY.consumeClick()) {
+			toggleRendering(client);
+		}
+
+		while (TOGGLE_DELAY_HEATMAP_KEY.consumeClick()) {
+			toggleDelayHeatmap(client);
+		}
+
+		syncEntries(client);
 	}
 
-	private static void toggle(Minecraft client) {
-		if (entry != null) {
-			clear();
-			say(client, "shell cleared.");
+	/**
+	 * Also called directly by the settings screen's own "Delay overlay" button ({@link
+	 * com.scr0ols.sculksight.config.SettingsScreen}), so a player has both the {@link
+	 * #TOGGLE_DELAY_HEATMAP_KEY} keybind and a menu control for the same toggle - identical
+	 * behaviour either way, since the button calls straight through to this method rather than
+	 * reimplementing it.
+	 */
+	public static void toggleDelayHeatmap(Minecraft client) {
+		if (entries.isEmpty() && unionEntry == null) {
+			say(client, "select a shell first.");
 			return;
 		}
 
+		delayHeatmap = !delayHeatmap;
+		say(client, delayHeatmap ? "delay overlay on." : "delay overlay off.");
+	}
+
+	/** Whether {@link #TOGGLE_DELAY_HEATMAP_KEY} (or the settings screen's button) is currently on. */
+	public static boolean isDelayHeatmapEnabled() {
+		return delayHeatmap;
+	}
+
+	/** Also called directly by the settings screen's own "Global render" button - see {@link #toggleDelayHeatmap}. */
+	public static void toggleRendering(Minecraft client) {
+		renderingEnabled = !renderingEnabled;
+		if (!renderingEnabled) {
+			clearRenderCaches();
+		}
+		say(client, renderingEnabled ? "sensor rendering on." : "sensor rendering off.");
+	}
+
+	/** Whether {@link #TOGGLE_RENDERING_KEY} (or the settings screen's button) is currently on. */
+	public static boolean isRenderingEnabled() {
+		return renderingEnabled;
+	}
+
+	private static void activate(Minecraft client) {
 		ClientLevel level = client.level;
 
 		if (level == null) {
@@ -185,33 +262,50 @@ public final class ShellRenderer {
 		BlockPos pos = blockHit.getBlockPos();
 		BlockEntity blockEntity = level.getBlockEntity(pos);
 
-		// The radius is derived at runtime through vanilla's own idiom, and the idiom is
-		// deliberately type-agnostic: GameEventListener.Provider is what EntityBlock#getListener
-		// uses, so this resolves a shrieker or a calibrated sensor without naming either type. It
-		// also never reads SculkSensorBlockEntity.VibrationUser.LISTENER_RANGE, which is a static
-		// 8 that the calibrated sensor inherits while overriding the method to 16 (R1 point 3).
-		// This is PLAN.md section 3.2's derive-constants-from-the-game rule applied literally.
+		// The radius is derived at runtime through vanilla's own idiom, and the idiom is deliberately
+		// type-agnostic: it resolves a shrieker or calibrated sensor without copying game constants.
 		if (!(blockEntity instanceof GameEventListener.Provider<?> provider)) {
 			say(client, "the targeted block has no game event listener.");
 			return;
 		}
 
-		int radius = provider.getListener().getListenerRadius();
-		DetectorType detector = DetectorType.of(level.getBlockState(pos).getBlock());
-		ShellEntry created = new ShellEntry(SensorKey.of(pos), radius, detector);
-		entry = created;
-		runSolve(level, created);
+		// Some GameEventListener.Provider block entities (the sculk catalyst) are not detectors;
+		// DetectorType.of's own doc explains why. This second gate is what keeps a shell from
+		// being drawn around one.
+		Optional<DetectorType> detector = DetectorType.of(level.getBlockState(pos).getBlock());
+		if (detector.isEmpty()) {
+			say(client, "the targeted block is not a detector.");
+			return;
+		}
+
+		SculkSightConfig current = ClientConfig.get();
+		TrackedSensor selected = TrackedSensor.selected(pos.getX(), pos.getY(), pos.getZ());
+		SculkSightConfig updated = current.track(selected);
+		if (updated == current) {
+			if (current.trackedSensors().size() >= SculkSightConfig.MAX_TRACKED_SENSORS) {
+				say(client, "the tracked sensor limit is " + SculkSightConfig.MAX_TRACKED_SENSORS + ".");
+			} else {
+				say(client, "sensor already tracked.");
+			}
+			return;
+		}
+		ClientConfig.set(updated);
+		say(client, "sensor tracked.");
+		clearRenderCaches();
+		syncEntries(client);
 	}
 
-	private static void clear() {
-		if (entry != null) {
-			// entry.close() closes the slot (ARCHITECTURE.md section 6.4), which drains and closes
-			// whatever ShellSolveResult is pending - the mesh and its per-solve builder together
-			// (DECISIONS.md ADR-048) - rather than leaving that for a worker still in flight to
-			// discover on its own next offer.
+	private static void clearRenderCaches() {
+		delayHeatmap = false;
+		for (ShellEntry entry : entries.values()) {
 			entry.close();
-			entry = null;
 		}
+		entries.clear();
+		if (unionEntry != null) {
+			unionEntry.close();
+			unionEntry = null;
+		}
+		solveGeneration++;
 
 		// The shell going away is the natural end of a tier 3 sample run: the frames it covers are
 		// exactly the frames this shell was drawn for (DECISIONS.md ADR-031).
@@ -229,8 +323,8 @@ public final class ShellRenderer {
 	 * is what keeps that from happening - it drops the cached shell along with the style.
 	 *
 	 * <p><b>Client thread only</b>, which is also the render thread (R13 point 4): the callers are
-	 * {@link #runSolve}, {@link #fillIsOff} and {@link #draw}. The encode does not call this -
-	 * {@link #runSolve} captures the instance here and passes it to {@link #solveAndEncode} as a parameter, the way
+	 * {@link #runSolves}, {@link #fillIsOff} and {@link #draw}. The encode does not call this -
+	 * {@link #runSolves} captures the instance here and passes it to {@link #solveAndEncode} as a parameter, the way
 	 * the snapshot already travels under R16 and DECISIONS.md ADR-048. That is what makes "one
 	 * instance serves both the encode and the draw" a property of the code rather than a sentence
 	 * asking the reader to trust it, and it is the fix OPEN-QUESTIONS.md section 22.1 named.
@@ -273,7 +367,7 @@ public final class ShellRenderer {
 	 */
 	public static void onConfigChanged() {
 		style = null;
-		clear();
+		clearRenderCaches();
 	}
 
 	/**
@@ -284,7 +378,7 @@ public final class ShellRenderer {
 	 * (ARCHITECTURE.md section 6.4).
 	 */
 	public static void onLevelChanged() {
-		clear();
+		clearRenderCaches();
 	}
 
 	/**
@@ -292,7 +386,7 @@ public final class ShellRenderer {
 	 * {@link #onLevelChanged}'s javadoc for why that makes closing GPU resources here legal.
 	 */
 	public static void onClientStopping() {
-		clear();
+		clearRenderCaches();
 		// The same point in the sequence Minecraft.close() itself uses for
 		// Util.shutdownExecutors() (RESEARCH-LOG.md R18): after the shell's own GPU and native
 		// resources are already gone, not before. WORKER.close() waits for a solve already in
@@ -302,7 +396,61 @@ public final class ShellRenderer {
 		WORKER.close();
 	}
 
-	// ---------------------------------------------------------------- solve and encode
+	// ---------------------------------------------------------------- selection, solve and encode
+
+	private record PendingSolve(ShellEntry target, SensorKey sensor, int radius,
+			VolumeSnapshot snapshot, long snapshotNanos, ShellStyle shellStyle) {
+	}
+
+	/** Reconciles persisted selections with live detector block entities and dispatches a new batch. */
+	private static void syncEntries(Minecraft client) {
+		if (!renderingEnabled || client.level == null) {
+			return;
+		}
+
+		Map<SensorKey, ShellEntry> desired = new LinkedHashMap<>();
+		for (TrackedSensor tracked : ClientConfig.get().trackedSensors()) {
+			if (!tracked.enabled()) {
+				continue;
+			}
+			BlockPos pos = new BlockPos(tracked.x(), tracked.y(), tracked.z());
+			BlockEntity blockEntity = client.level.getBlockEntity(pos);
+			if (!(blockEntity instanceof GameEventListener.Provider<?> provider)) {
+				continue;
+			}
+			Optional<DetectorType> detector = DetectorType.of(client.level.getBlockState(pos).getBlock());
+			if (detector.isEmpty()) {
+				continue;
+			}
+			SensorKey key = SensorKey.of(pos);
+			desired.put(key, new ShellEntry(key, provider.getListener().getListenerRadius(), detector.orElseThrow()));
+		}
+
+		if (sameEntries(desired)) {
+			return;
+		}
+		clearRenderCaches();
+		entries.putAll(desired);
+		if (!entries.isEmpty()) {
+			unionEntry = new ShellEntry(entries.values().iterator().next().sensor(), 0,
+					DetectorType.NORMAL_SENSOR);
+			runSolves(client.level);
+		}
+	}
+
+	private static boolean sameEntries(Map<SensorKey, ShellEntry> desired) {
+		if (!entries.keySet().equals(desired.keySet())) {
+			return false;
+		}
+		for (SensorKey key : desired.keySet()) {
+			ShellEntry current = entries.get(key);
+			ShellEntry next = desired.get(key);
+			if (current.radius() != next.radius() || current.detector() != next.detector()) {
+				return false;
+			}
+		}
+		return true;
+	}
 
 	/**
 	 * ARCHITECTURE.md section 6.2's snapshot phase, then the dispatch that starts the other three.
@@ -323,24 +471,20 @@ public final class ShellRenderer {
 	 * snapshot means the instance the worker encodes at is the instance that was current when the
 	 * solve was dispatched, by construction rather than by timing.
 	 */
-	private static void runSolve(ClientLevel level, ShellEntry target) {
-		long revision = target.revision();
-		SensorKey sensor = target.sensor();
-		int radius = target.radius();
-		ShellStyle style = style(target.detector());
-
-		// ARCHITECTURE.md section 6.2's first phase, and the only phase still on the client thread.
-		// Timed since 2026-09-06 (DECISIONS.md ADR-031's addendum of that date): nothing measured
-		// it before, so the one part of a solve that genuinely costs the player a frame was the one
-		// part the instrument could not see.
-		long snapshotStart = TierTiming.start();
-
-		VolumeSnapshot snapshot = VolumeSnapshot.of(level, sensor.x(), sensor.y(), sensor.z(), radius);
-
-		long snapshotNanos = TierTiming.since(snapshotStart);
-
-		WORKER.execute(
-				() -> solveAndEncode(target, revision, sensor, radius, snapshot, snapshotNanos, style));
+	private static void runSolves(ClientLevel level) {
+		long generation = solveGeneration;
+		List<PendingSolve> pending = new ArrayList<>();
+		for (ShellEntry target : entries.values()) {
+			SensorKey sensor = target.sensor();
+			long snapshotStart = TierTiming.start();
+			VolumeSnapshot snapshot = VolumeSnapshot.of(level, sensor.x(), sensor.y(), sensor.z(), target.radius());
+			pending.add(new PendingSolve(target, sensor, target.radius(), snapshot,
+					TierTiming.since(snapshotStart), style(target.detector())));
+		}
+		ShellStyle unionStyle = style(DetectorType.NORMAL_SENSOR);
+		ShellEntry unionTarget = unionEntry;
+		RenderPolicy policy = ClientConfig.get().renderPolicy();
+		WORKER.execute(() -> solveAndEncode(generation, pending, policy, unionTarget, unionStyle));
 	}
 
 	/**
@@ -368,55 +512,59 @@ public final class ShellRenderer {
 	 * {@link #style} deliberately: the field is not reachable from this body by name, which is
 	 * OPEN-QUESTIONS.md section 22.1's fix made structural rather than remembered.
 	 *
-	 * @param style the appearance captured on the client thread in {@link #runSolve}, and the same
+	 * @param style the union appearance captured on the client thread in {@link #runSolves}, and the same
 	 *        instance the draw will modulate against - never re-read from the field here
 	 */
-	private static void solveAndEncode(ShellEntry target, long revision, SensorKey sensor, int radius,
-			VolumeSnapshot snapshot, long snapshotNanos, ShellStyle style) {
-
-		// DECISIONS.md ADR-031 times from here to the end of the encode: tier 1 plus everything the
-		// producer does before the slot. Reported beside the client-thread figure and deliberately
-		// not added into it (ADR-031's 2026-09-06 addendum) - this thread is not the frame, so this
-		// number is the shell's latency rather than any part of PLAN.md section 3.3's per-tick budget.
+	private static void solveAndEncode(long generation, List<PendingSolve> pending,
+			RenderPolicy policy, ShellEntry unionTarget, ShellStyle style) {
 		long encodeStart = TierTiming.start();
-
-		ShellSolution solution = ShellSolver.solveDetailed(new LevelWorldView(snapshot),
-				sensor.x(), sensor.y(), sensor.z(), radius);
-
-		DetectionSet accepted = solution.accepted();
-
-		int faces = ShellMeshBuilder.countBoundaryFaces(accepted);
-
-		// DECISIONS.md ADR-048: a fresh builder per solve now that the encode runs on a worker.
-		// The one long-lived, shared builder this class used to own is retired - RESEARCH-LOG.md
-		// R19 found ByteBufferBuilder carries no synchronisation on any field, so a worker writing
-		// into a shared builder while the render thread frees results from it would be a
-		// native-memory race, not merely a stale read.
-		ByteBufferBuilder storage = new ByteBufferBuilder(INITIAL_STORAGE_BYTES);
-
-		MeshData faceMesh = ShellMeshBuilder.build(accepted, DefaultVertexFormat.POSITION_COLOR, style,
-				storage);
+		WorldDetectionSet union = new WorldDetectionSet();
+		List<ShellSolution> solutions = new ArrayList<>();
+		for (PendingSolve solve : pending) {
+			ShellSolution solution = ShellSolver.solveDetailed(new LevelWorldView(solve.snapshot()),
+					solve.sensor().x(), solve.sensor().y(), solve.sensor().z(), solve.radius());
+			solutions.add(solution);
+			solve.target().setSolution(solution);
+			union.add(solution.accepted(), solve.sensor().x(), solve.sensor().y(), solve.sensor().z(),
+					solve.target().detector());
+		}
 
 		long encodeNanos = TierTiming.since(encodeStart);
-
-		// Bookkeeping rather than budgeted work, so it sits outside the timed region above.
-		target.setSet(accepted);
-
-		if (faceMesh == null) {
-			storage.close();
-			SculkSight.LOGGER.info("[sculksight] the solver returned an empty set: nothing to draw.");
+		if (policy == RenderPolicy.UNION) {
+			if (unionTarget == null || pending.isEmpty()) {
+				return;
+			}
+			ShellEntry target = unionTarget;
+			SensorKey origin = pending.getFirst().sensor();
+			target.setWorldSolution(union);
+			ByteBufferBuilder storage = new ByteBufferBuilder(INITIAL_STORAGE_BYTES);
+			MeshData mesh = ShellMeshBuilder.build(union, origin.x(), origin.y(), origin.z(),
+					DefaultVertexFormat.POSITION_COLOR, style, storage);
+			if (mesh == null) {
+				storage.close();
+				return;
+			}
+			int faces = ShellMeshBuilder.countBoundaryFaces(union);
+			int occluded = solutions.stream().mapToInt(solution -> solution.occludedOut().size()).sum();
+			target.slot().offer(generation, new ShellSolveResult(mesh, storage,
+					new ShellStats(0, union.size(), occluded, faces), 0L, encodeNanos));
 			return;
 		}
 
-		ShellStats stats = new ShellStats(radius, accepted.size(), solution.occludedOut().size(), faces);
-
-		// If this returns false the slot has already closed the mesh and the builder together
-		// (DECISIONS.md ADR-048 point 2); there is nothing further to do. In v0.0 this cannot
-		// happen from a newer revision racing this one, since one sensor has one solve in flight
-		// at a time, but it is real code rather than an assertion: a world unload racing this
-		// solve reaches exactly this path.
-		target.slot().offer(revision,
-				new ShellSolveResult(faceMesh, storage, stats, snapshotNanos, encodeNanos));
+		for (PendingSolve solve : pending) {
+			ShellSolution solution = solutions.get(pending.indexOf(solve));
+			ByteBufferBuilder storage = new ByteBufferBuilder(INITIAL_STORAGE_BYTES);
+			MeshData mesh = ShellMeshBuilder.build(solution.accepted(), DefaultVertexFormat.POSITION_COLOR,
+					solve.shellStyle(), storage);
+			if (mesh == null) {
+				storage.close();
+				continue;
+			}
+			int faces = ShellMeshBuilder.countBoundaryFaces(solution.accepted());
+			solve.target().slot().offer(generation, new ShellSolveResult(mesh, storage,
+					new ShellStats(solve.radius(), solution.accepted().size(), solution.occludedOut().size(), faces),
+					solve.snapshotNanos(), encodeNanos));
+		}
 	}
 
 	// ---------------------------------------------------------------- upload and draw
@@ -431,17 +579,7 @@ public final class ShellRenderer {
 	 * it and calls this method with it.
 	 */
 	public static void onRender(Vec3 cameraPos) {
-		ShellEntry current = entry;
-
-		if (current == null) {
-			return;
-		}
-
-		consumePending(current);
-
-		ShellBuffer faces = current.buffer();
-
-		if (faces == null) {
+		if (!SensorRenderState.shouldRender(renderingEnabled, true)) {
 			return;
 		}
 
@@ -449,20 +587,72 @@ public final class ShellRenderer {
 			return;
 		}
 
-		long drawStart = TierTiming.start();
+		List<ShellEntry> toDraw = ClientConfig.get().renderPolicy() == RenderPolicy.UNION
+				? (unionEntry == null ? List.of() : List.of(unionEntry)) : new ArrayList<>(entries.values());
+		for (ShellEntry current : toDraw) {
+			consumePending(current);
+			ShellBuffer faces = current.buffer();
+			if (faces == null) {
+				continue;
+			}
+			long drawStart = TierTiming.start();
+			draw(current, faces, cameraPos);
+			if (TimingGate.ENABLED) {
+				long now = System.nanoTime();
+				FRAMES.record(now - drawStart);
+				if (lastFlushNanos == 0L) {
+					lastFlushNanos = now;
+				} else if (now - lastFlushNanos >= TierTiming.FLUSH_INTERVAL_NANOS) {
+					flushFrames();
+				}
+			}
+		}
+	}
 
-		draw(current, faces, cameraPos);
+	/**
+	 * Emits the numeric overlay into vanilla's per-frame gizmo collector.
+	 *
+	 * <p>This is called from the loader's gizmo-adjacent render hook. The normal gizmo path is
+	 * intentionally used: it billboards the glyphs and depth-tests them against the terrain, so the
+	 * player's view is the visibility rule without a second set of CPU raycasts. The collection
+	 * scope is opened here as well so the method is safe on loaders whose hook is adjacent to, rather
+	 * than nested inside, vanilla's own collector scope.
+	 */
+	public static void onRenderDelayOverlay(LevelRenderer levelRenderer, CameraRenderState camera) {
+		if (!delayHeatmap || entries.isEmpty() || levelRenderer == null || camera == null || !camera.initialized) {
+			return;
+		}
 
-		if (TimingGate.ENABLED) {
-			// One clock read serves as both the end of this sample and the flush check, which is
-			// the only place in this class where a second read would be per frame.
-			long now = System.nanoTime();
-			FRAMES.record(now - drawStart);
+		ShellEntry first = entries.values().iterator().next();
+		DelayOverlay overlay = first.delayOverlay();
 
-			if (lastFlushNanos == 0L) {
-				lastFlushNanos = now;
-			} else if (now - lastFlushNanos >= TierTiming.FLUSH_INTERVAL_NANOS) {
-				flushFrames();
+		if (overlay == null) {
+			return;
+		}
+
+		Frustum frustum = camera.cullFrustum;
+
+		try (Gizmos.TemporaryCollection ignored = levelRenderer.collectPerFrameRenderThreadGizmos()) {
+			for (int index = 0; index < overlay.size(); index++) {
+				// Occluded cells render no label at all rather than a distinct colour, per the
+				// captain's ruling that a wool-tagged occluder should read as unreachable instead of
+				// merely differently coloured. This is the same architectural gap documented on
+				// ShellRendererStyleCaptureTest: the class only compiles under fabric/neoforge, which
+				// have no test source sets, so this blank-on-occlusion behaviour is covered by the
+				// surrounding unit/build checks and this note, not by a render or visual test.
+				if (overlay.isSensorOccluded(index)) {
+					continue;
+				}
+
+				Vec3 anchor = overlay.anchor(index);
+
+				// A point frustum test avoids constructing an AABB for every label. Labels outside the
+				// current view cannot contribute fragments, while all in-view labels remain uncapped.
+				if (frustum != null && !frustum.pointInFrustum(anchor.x, anchor.y, anchor.z)) {
+					continue;
+				}
+
+				Gizmos.billboardText(overlay.text(index), anchor, DELAY_TEXT_STYLE);
 			}
 		}
 	}
@@ -708,6 +898,10 @@ public final class ShellRenderer {
 	 * camera anywhere within a block is, for this purpose, at that block.
 	 */
 	private static boolean cameraInside(ShellEntry current, Vec3 camera) {
+		WorldDetectionSet worldSet = current.worldSet();
+		if (worldSet != null) {
+			return worldSet.contains(Mth.floor(camera.x), Mth.floor(camera.y), Mth.floor(camera.z));
+		}
 		DetectionSet set = current.set();
 
 		if (set == null) {

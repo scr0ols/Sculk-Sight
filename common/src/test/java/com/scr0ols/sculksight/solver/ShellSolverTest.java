@@ -88,6 +88,28 @@ class ShellSolverTest {
 	}
 
 	@Test
+	@DisplayName("a source directly above a vibration-dampening block is occluded")
+	void sourceAboveDampeningBlockIsOccluded() {
+		WorldView world = new WorldView() {
+			@Override
+			public boolean occluderOnSegment(double fromX, double fromY, double fromZ,
+					double toX, double toY, double toZ) {
+				return false;
+			}
+
+			@Override
+			public boolean dampensVibrationsBelow(int sourceX, int sourceY, int sourceZ) {
+				return sourceX == SENSOR_X && sourceY == SENSOR_Y + 2 && sourceZ == SENSOR_Z;
+			}
+		};
+
+		ShellSolution solution = ShellSolver.solveDetailed(world, SENSOR_X, SENSOR_Y, SENSOR_Z, 2);
+
+		assertTrue(solution.occludedOut().contains(0, 2, 0));
+		assertFalse(solution.accepted().contains(0, 2, 0));
+	}
+
+	@Test
 	@DisplayName("occlusion removes exactly the occluded positions and nothing else")
 	void occlusionCarvesTheSphere() {
 		// A fake that occludes every ray whose source sits at a negative x offset from the

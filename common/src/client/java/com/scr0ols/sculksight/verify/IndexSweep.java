@@ -10,6 +10,8 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.gameevent.GameEventListener;
 
+import com.scr0ols.sculksight.client.DetectorType;
+
 /**
  * The independent ground truth DECISIONS.md ADR-041 requires: a direct chunk sweep, built without
  * going through {@code SensorIndex}'s own callback-maintained state.
@@ -53,12 +55,21 @@ public final class IndexSweep {
 
 	/**
 	 * Sweeps every loaded chunk within {@code chunkRadius} chunks of {@code center}, in both
-	 * axes, and returns every game-event listener found, keyed by its world position.
+	 * axes, and returns every one of the three detector types {@link DetectorType} classifies,
+	 * keyed by its world position.
 	 *
-	 * <p>The filter and the radius read are the same one-line idiom {@code SensorIndex.tryAdd},
-	 * {@code ShellRenderer.toggle} and {@code VerificationCommand} already use: an
-	 * {@code instanceof GameEventListener.Provider<?>} test, then
+	 * <p>The filter and the radius read are the same one this project settled on for
+	 * {@code SensorIndex.tryAdd}, {@code ShellRenderer.toggle} and {@code VerificationCommand}:
+	 * an {@code instanceof GameEventListener.Provider<?>} test, narrowed by
+	 * {@link DetectorType#of} so a sculk catalyst is excluded here exactly as it is there, then
 	 * {@code getListener().getListenerRadius()} - never a stored constant, per R1 point 3's trap.
+	 *
+	 * <p>Applying the same {@code DetectorType} gate {@code SensorIndex.tryAdd} uses is required,
+	 * not optional, for this class's own independence to mean anything: this class's javadoc
+	 * above already explains why it does not call {@code SensorIndex.tryAdd} itself, but a ground
+	 * truth built with a <em>looser</em> filter than the index it is compared against would make
+	 * every catalyst in range a spurious {@code MISSING_FROM_INDEX} discrepancy instead of the
+	 * two staying silent about it together, which is worse than the bug this fixes.
 	 */
 	public static Map<WorldPosition, Integer> sweep(ClientLevel level, BlockPos center, int chunkRadius) {
 		Map<WorldPosition, Integer> found = new HashMap<>();
@@ -72,7 +83,8 @@ public final class IndexSweep {
 			}
 
 			for (BlockEntity blockEntity : chunk.getBlockEntities().values()) {
-				if (blockEntity instanceof GameEventListener.Provider<?> provider) {
+				if (blockEntity instanceof GameEventListener.Provider<?> provider
+						&& DetectorType.of(blockEntity.getBlockState().getBlock()).isPresent()) {
 					BlockPos pos = blockEntity.getBlockPos();
 
 					found.put(new WorldPosition(pos.getX(), pos.getY(), pos.getZ()),

@@ -1,96 +1,163 @@
 package com.scr0ols.sculksight.config;
 
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.ArrayList;
+import java.util.List;
 
+import org.jspecify.annotations.Nullable;
+
+import com.mojang.blaze3d.platform.InputConstants;
+
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.network.chat.Component;
-
-import me.shedaniel.clothconfig2.api.AbstractConfigListEntry;
-import me.shedaniel.clothconfig2.api.ConfigBuilder;
-import me.shedaniel.clothconfig2.api.ConfigCategory;
-import me.shedaniel.clothconfig2.api.ConfigEntryBuilder;
 
 import com.scr0ols.sculksight.client.ShellRenderer;
 
 /**
- * Builds this mod's Cloth Config screen.
+ * Reaches this mod's settings screen, and holds the pure mutation logic behind every one of its
+ * controls.
  *
- * <p>PLAN.md section 4 puts Cloth Config on the screen and this project's own persistence layer
- * underneath it, and this class is the whole of the seam between them: Cloth is asked for widgets
- * and told what to call on save, and {@link ClientConfig} is what the save actually reaches.
- * Nothing about the stored format, the file, the defaults or the validation is Cloth's - which is
- * what makes the mod's settings survive Cloth being absent, replaced, or dropped at v0.2.
+ * <p><b>No more Cloth Config, no more Save button.</b> Up to v0.2 this class built a Cloth Config
+ * screen and parked every edit in a draft object until one distant Save button ran {@code save()}
+ * - including "remove", which was a checkbox that only took effect then. That batching was a real
+ * UX problem in its own right (a rename or a removal a player just clicked did not visibly happen
+ * until they found and pressed Save), so the replacement removes both the dependency and the
+ * batching at once: {@link SettingsScreen} is a hand-rolled vanilla {@link Screen}, and every
+ * action below applies to {@link ClientConfig} - and asks {@link ShellRenderer#onConfigChanged()}
+ * to forget the old style - the instant it runs, not on some later save.
  *
- * <p><b>One entry, deliberately.</b> `VISUAL-SPEC.md`'s 2026-09-06 status line closed the last
- * questions blocking v0.1, and of their answers only ADR-022's opacity is a setting - see
- * {@link SculkSightConfig} for the other three and why none of them is here.
+ * <p><b>Loader-independent, and in {@code common}'s client source set for that reason.</b> Nothing
+ * here names a Cloth or ModMenu type, but the class still lives beside the vanilla {@code Screen}
+ * types it does name, which are identical across both loaders' own Minecraft artifacts - so each
+ * loader module recompiles this file (and {@link SettingsScreen}, {@link TrackedSensorListWidget})
+ * against its own Minecraft jar the same way it already recompiles the rest of {@code common}. What
+ * is per loader is only how the screen is reached: a ModMenu entrypoint on Fabric, an
+ * {@code IConfigScreenFactory} extension point on NeoForge - both untouched by this change, since
+ * both call only {@link #create(Screen)}, whose signature has not moved.
  *
- * <p><b>Loader-independent, and in {@code common}'s client source set for that reason.</b> Cloth
- * ships a separate artifact per loader, but the {@code me.shedaniel.clothconfig2.api} types this
- * class names are identical across both, so each loader module recompiles this file against its
- * own Cloth jar in the same way it already recompiles the rest of {@code common} against its own
- * Minecraft jar (see {@code common/build.gradle}). What is per loader is only how the screen is
- * reached: a ModMenu entrypoint on Fabric, an {@code IConfigScreenFactory} extension point on
- * NeoForge.
+ * <p><b>These action methods are the pure, testable unit</b> this class now exposes in place of the
+ * old private {@code save}/{@code SensorDraft}: no {@code Minecraft} instance, no widget, just
+ * {@link ClientConfig} read, a {@code with*}/{@code track}/{@code untrack} call on the immutable
+ * {@link SculkSightConfig} it returns, and {@link ClientConfig#set}. {@code fabric}'s own
+ * {@code ConfigScreensActionsTest} calls them directly, the same way it once drove {@code save}
+ * through reflection.
  */
 public final class ConfigScreens {
+
+	/**
+	 * Opens the settings screen directly from gameplay, without going through Mod Menu (Fabric) or
+	 * the mod list (NeoForge) - both of which stay as they were, unaffected by this. Loader-neutral
+	 * for the same reason {@link ShellRenderer}'s and {@code DetectionIndicator}'s own keys are:
+	 * constructed here, but registered and ticked by each loader's own entrypoint, since only that
+	 * registers a {@code KeyMapping} against real input or drives {@link #onEndTick} from a client
+	 * tick event.
+	 *
+	 * <p>No default-key collision with any other binding this mod defines (K/G/H/J are already
+	 * taken) has been checked against a live client the way {@code DetectionIndicator}'s own
+	 * TOGGLE_KEY javadoc records doing for L - so, as with any new default keybind, whether B
+	 * collides with something else entirely (vanilla's own bindings, another installed mod) still
+	 * needs a live-client check. Any collision is cosmetic, not a functional bug: every
+	 * {@code KeyMapping} is rebindable through vanilla's own Controls screen regardless.
+	 */
+	public static final KeyMapping OPEN_SETTINGS_KEY = new KeyMapping(
+			"key.sculksight.open_settings", InputConstants.KEY_B, KeyMapping.Category.MISC);
 
 	private ConfigScreens() {
 	}
 
-	/**
-	 * The settings screen, ready to be shown.
-	 *
-	 * @param parent the screen to return to, which Cloth wires to both the cancel and the save
-	 *        button
-	 */
+	/** The settings screen, ready to be shown. */
 	public static Screen create(Screen parent) {
-		SculkSightConfig config = ClientConfig.get();
-
-		// Cloth hands each entry's value to its own save consumer and only then runs the saving
-		// runnable, so the pending value has to be parked somewhere both can see. A holder rather
-		// than a field: two screens open at once is not a state this mod should have opinions
-		// about, and a local one cannot be left behind by a cancelled screen.
-		AtomicInteger pendingOpacity = new AtomicInteger(config.shellOpacityPercent());
-
-		ConfigBuilder builder = ConfigBuilder.create()
-				.setParentScreen(parent)
-				.setTitle(Component.translatable("sculksight.config.title"))
-				.setSavingRunnable(() -> save(pendingOpacity.get()));
-
-		ConfigCategory appearance =
-				builder.getOrCreateCategory(Component.translatable("sculksight.config.category.appearance"));
-
-		appearance.addEntry(opacitySlider(builder.entryBuilder(), config, pendingOpacity));
-
-		return builder.build();
-	}
-
-	private static AbstractConfigListEntry<Integer> opacitySlider(
-			ConfigEntryBuilder entries, SculkSightConfig config, AtomicInteger pending) {
-		return entries.startIntSlider(
-						Component.translatable("sculksight.config.shell_opacity"),
-						config.shellOpacityPercent(),
-						SculkSightConfig.MIN_SHELL_OPACITY_PERCENT,
-						SculkSightConfig.MAX_SHELL_OPACITY_PERCENT)
-				.setDefaultValue(SculkSightConfig.DEFAULT_SHELL_OPACITY_PERCENT)
-				.setTooltip(Component.translatable("sculksight.config.shell_opacity.tooltip"))
-				.setTextGetter(percent ->
-						Component.translatable("sculksight.config.shell_opacity.value", percent))
-				.setSaveConsumer(pending::set)
-				.build();
+		return new SettingsScreen(parent);
 	}
 
 	/**
-	 * Writes the new settings and tells the renderer to forget what it drew at the old ones.
-	 *
-	 * <p>Runs on the client thread, which is where a screen's own buttons run and also the render
-	 * thread (R13 point 4) - the condition {@link ShellRenderer#onConfigChanged()} needs in order
-	 * to close the cached shell's GPU resources.
+	 * Called from a loader's own client tick event, once per tick. Opens the settings screen with
+	 * no parent - the same as pressing Escape to leave it does with nothing further to return to -
+	 * since a key pressed during gameplay has no menu screen to treat as the parent.
 	 */
-	private static void save(int shellOpacityPercent) {
-		ClientConfig.set(ClientConfig.get().withShellOpacityPercent(shellOpacityPercent));
+	public static void onEndTick(Minecraft client) {
+		while (OPEN_SETTINGS_KEY.consumeClick()) {
+			if (client.gui.screen() == null) {
+				client.gui.setScreen(create(null));
+			}
+		}
+	}
 
+	/**
+	 * Renames a tracked sensor immediately. A blank (or all-whitespace) name is not an edit - it
+	 * keeps the sensor's existing name, matching the old Cloth screen's own save-time fallback -
+	 * and a name past {@link TrackedSensor#MAX_NAME_LENGTH} is rejected the same quiet way that
+	 * fallback rejected one: the sensor is left unrenamed rather than dropped.
+	 */
+	static void renameSensor(int x, int y, int z, String newName) {
+		SculkSightConfig live = ClientConfig.get();
+		TrackedSensor current = findSensor(live, x, y, z);
+		if (current == null) {
+			return;
+		}
+
+		String name = newName.strip();
+		if (name.isEmpty()) {
+			name = current.name();
+		}
+
+		TrackedSensor renamed;
+		try {
+			renamed = current.withName(name);
+		} catch (IllegalArgumentException tooLong) {
+			return;
+		}
+
+		replaceSensor(live, renamed);
+	}
+
+	/** Toggles a tracked sensor's enabled state immediately. */
+	static void setSensorEnabled(int x, int y, int z, boolean enabled) {
+		SculkSightConfig live = ClientConfig.get();
+		TrackedSensor current = findSensor(live, x, y, z);
+		if (current == null) {
+			return;
+		}
+
+		replaceSensor(live, current.withEnabled(enabled));
+	}
+
+	/** Removes a tracked sensor immediately - no confirmation, no save button, per the redesign. */
+	static void removeSensor(int x, int y, int z) {
+		ClientConfig.set(ClientConfig.get().untrack(x, y, z));
 		ShellRenderer.onConfigChanged();
+	}
+
+	/** Applies a new shell opacity immediately, the same instant a slider drag changes it. */
+	static void setShellOpacityPercent(int percent) {
+		ClientConfig.set(ClientConfig.get().withShellOpacityPercent(percent));
+		ShellRenderer.onConfigChanged();
+	}
+
+	/** Applies a new render policy immediately, the same instant the cycle button changes it. */
+	static void setRenderPolicy(RenderPolicy policy) {
+		ClientConfig.set(ClientConfig.get().withRenderPolicy(policy));
+		ShellRenderer.onConfigChanged();
+	}
+
+	private static void replaceSensor(SculkSightConfig live, TrackedSensor updated) {
+		List<TrackedSensor> sensors = new ArrayList<>();
+		for (TrackedSensor sensor : live.trackedSensors()) {
+			boolean samePosition = sensor.x() == updated.x() && sensor.y() == updated.y() && sensor.z() == updated.z();
+			sensors.add(samePosition ? updated : sensor);
+		}
+
+		ClientConfig.set(live.withTrackedSensors(sensors));
+		ShellRenderer.onConfigChanged();
+	}
+
+	private static @Nullable TrackedSensor findSensor(SculkSightConfig config, int x, int y, int z) {
+		for (TrackedSensor sensor : config.trackedSensors()) {
+			if (sensor.x() == x && sensor.y() == y && sensor.z() == z) {
+				return sensor;
+			}
+		}
+
+		return null;
 	}
 }

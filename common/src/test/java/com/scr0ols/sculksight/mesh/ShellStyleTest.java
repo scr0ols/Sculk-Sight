@@ -38,7 +38,8 @@ class ShellStyleTest {
 	/** The slider moves the alphas and nothing else - ADR-023's colour is not a v0.1 setting. */
 	@Test
 	void theSliderMovesBothAlphasAndLeavesTheColourAlone() {
-		ShellStyle configured = ShellStyle.fromConfig(new SculkSightConfig(60));
+		ShellStyle configured =
+				ShellStyle.fromConfig(new SculkSightConfig(60, SculkSightConfig.DEFAULT_RENDER_POLICY));
 
 		assertEquals(0xFFA300, configured.colour());
 		assertEquals(0.60F, configured.depthTestedAlpha(), 1.0E-6F);
@@ -69,7 +70,9 @@ class ShellStyleTest {
 	@ParameterizedTest
 	@EnumSource(DetectorType.class)
 	void detectorPaletteUsesTheApprovedColourAndConfiguredAlpha(DetectorType detector) {
-		ShellStyle style = ShellStyle.fromConfig(new SculkSightConfig(60)).withColour(detector.colour());
+		ShellStyle style = ShellStyle.fromConfig(
+				new SculkSightConfig(60, SculkSightConfig.DEFAULT_RENDER_POLICY))
+				.withColour(detector.colour());
 
 		assertEquals(detector.colour(), style.colour());
 		assertEquals(0.60F, style.depthTestedAlpha(), 1.0E-6F);
@@ -215,8 +218,8 @@ class ShellStyleTest {
 	 */
 	@Test
 	void theLowestPermittedOpacityIsExactlyTheOneThisTypeCannotModulate() {
-		ShellStyle off = ShellStyle.fromConfig(
-				new SculkSightConfig(SculkSightConfig.MIN_SHELL_OPACITY_PERCENT));
+		ShellStyle off = ShellStyle.fromConfig(new SculkSightConfig(
+				SculkSightConfig.MIN_SHELL_OPACITY_PERCENT, SculkSightConfig.DEFAULT_RENDER_POLICY));
 
 		assertEquals(0, off.encodedAlpha());
 		assertThrows(IllegalStateException.class, () -> off.faceModulation(false, false));
@@ -239,13 +242,15 @@ class ShellStyleTest {
 		for (int percent = SculkSightConfig.MIN_SHELL_OPACITY_PERCENT + 1;
 				percent <= SculkSightConfig.MAX_SHELL_OPACITY_PERCENT; percent++) {
 
-			ShellStyle style = ShellStyle.fromConfig(new SculkSightConfig(percent));
+			ShellStyle style = ShellStyle.fromConfig(
+					new SculkSightConfig(percent, SculkSightConfig.DEFAULT_RENDER_POLICY));
 
 			assertTrue(style.encodedAlpha() > 0, "encoded alpha was zero at " + percent + "%");
 			assertTrue(style.faceModulation(true, true) > 0.0F, "no modulation at " + percent + "%");
 		}
 
-		assertEquals(3, ShellStyle.fromConfig(new SculkSightConfig(1)).encodedAlpha());
+		assertEquals(3, ShellStyle.fromConfig(
+				new SculkSightConfig(1, SculkSightConfig.DEFAULT_RENDER_POLICY)).encodedAlpha());
 	}
 
 	private static float outsideComposite(float alpha) {

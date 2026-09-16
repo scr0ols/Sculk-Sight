@@ -156,14 +156,25 @@ public final class SculkSightNeoForge {
 
 	@SubscribeEvent
 	static void registerShellRendererKey(RegisterKeyMappingsEvent event) {
-		event.register(ShellRenderer.TOGGLE_KEY);
+		event.register(ShellRenderer.ACTIVATE_KEY);
+		event.register(ShellRenderer.TOGGLE_RENDERING_KEY);
+		event.register(ShellRenderer.TOGGLE_DELAY_HEATMAP_KEY);
 	}
 
 	@SubscribeEvent
 	static void onEndTick(ClientTickEvent.Post event) {
 		ShellRenderer.onEndTick(Minecraft.getInstance());
 		DetectionIndicator.onEndTick(Minecraft.getInstance());
+		ConfigScreens.onEndTick(Minecraft.getInstance());
 		resyncSensorIndexNearPlayer();
+	}
+
+	// ---------------------------------------------------------------- settings screen
+
+	/** Lets a player open the settings screen straight from gameplay, without opening the mod list. */
+	@SubscribeEvent
+	static void registerConfigScreensKey(RegisterKeyMappingsEvent event) {
+		event.register(ConfigScreens.OPEN_SETTINGS_KEY);
 	}
 
 	/**
@@ -176,6 +187,8 @@ public final class SculkSightNeoForge {
 	 */
 	@SubscribeEvent
 	static void onRenderLevel(RenderLevelStageEvent.AfterTranslucentBlocks event) {
+		ShellRenderer.onRenderDelayOverlay(event.getLevelRenderer(),
+				event.getLevelRenderState().cameraRenderState);
 		ShellRenderer.onRender(event.getLevelRenderState().cameraRenderState.pos);
 	}
 
