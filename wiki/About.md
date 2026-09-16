@@ -1,9 +1,16 @@
 # About Sculk Sight
 
-Sculk Sight is a client-side visual aid for understanding sculk detection in Minecraft. It shows information about where vibrations could reach a detector; it does not change Minecraft's vanilla sculk rules.
+Sculk Sight is a client-side Minecraft mod that displays the area from which vibrations can reach a sculk detector. It does not change vanilla sculk mechanics.
 
-The project is still in development. Its current documented build is the [v0.2.0 pre-release](https://github.com/scr0ols/Sculk-Sight/releases/tag/v0.2.0) for Minecraft 26.2, with separate Fabric and NeoForge downloads. The mod belongs in a player's client installation, not on a server.
+## Release status
 
-Sculk Sight is licensed under [GPL-3.0-or-later](https://github.com/scr0ols/Sculk-Sight/blob/v0.2.0/LICENSE). You can read the [source](https://github.com/scr0ols/Sculk-Sight), browse [releases](https://github.com/scr0ols/Sculk-Sight/releases), or [report an issue](https://github.com/scr0ols/Sculk-Sight/issues).
+Sculk Sight is in development. The current [v0.2.0 pre-release](https://github.com/scr0ols/Sculk-Sight/releases/tag/v0.2.0) supports Minecraft 26.2 on Fabric and NeoForge. Install it on the client, not the server. See [Installation](Installation) for the requirements and download instructions.
 
-To get the released build running, see [Installation](Installation). If Minecraft will not launch with it, see [Troubleshooting](Troubleshooting).
+## Project links
+
+- [Source code](https://github.com/scr0ols/Sculk-Sight)
+- [Releases](https://github.com/scr0ols/Sculk-Sight/releases)
+- [Issue tracker](https://github.com/scr0ols/Sculk-Sight/issues)
+- [GPL-3.0-or-later licence](https://github.com/scr0ols/Sculk-Sight/blob/v0.2.0/LICENSE)
+
+If the game does not launch after installation, see [Troubleshooting](Troubleshooting).
