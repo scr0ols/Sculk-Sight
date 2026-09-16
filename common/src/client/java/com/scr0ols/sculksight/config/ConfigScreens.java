@@ -54,13 +54,13 @@ public final class ConfigScreens {
 	 *
 	 * <p>No default-key collision with any other binding this mod defines (K/G/H/J are already
 	 * taken) has been checked against a live client the way {@code DetectionIndicator}'s own
-	 * TOGGLE_KEY javadoc records doing for L - so, as with any new default keybind, whether O
+	 * TOGGLE_KEY javadoc records doing for L - so, as with any new default keybind, whether B
 	 * collides with something else entirely (vanilla's own bindings, another installed mod) still
 	 * needs a live-client check. Any collision is cosmetic, not a functional bug: every
 	 * {@code KeyMapping} is rebindable through vanilla's own Controls screen regardless.
 	 */
 	public static final KeyMapping OPEN_SETTINGS_KEY = new KeyMapping(
-			"key.sculksight.open_settings", InputConstants.KEY_O, KeyMapping.Category.MISC);
+			"key.sculksight.open_settings", InputConstants.KEY_B, KeyMapping.Category.MISC);
 
 	private ConfigScreens() {
 	}

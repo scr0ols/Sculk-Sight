@@ -211,7 +211,14 @@ public final class ShellRenderer {
 		syncEntries(client);
 	}
 
-	private static void toggleDelayHeatmap(Minecraft client) {
+	/**
+	 * Also called directly by the settings screen's own "Delay overlay" button ({@link
+	 * com.scr0ols.sculksight.config.SettingsScreen}), so a player has both the {@link
+	 * #TOGGLE_DELAY_HEATMAP_KEY} keybind and a menu control for the same toggle - identical
+	 * behaviour either way, since the button calls straight through to this method rather than
+	 * reimplementing it.
+	 */
+	public static void toggleDelayHeatmap(Minecraft client) {
 		if (entries.isEmpty() && unionEntry == null) {
 			say(client, "select a shell first.");
 			return;
@@ -221,12 +228,23 @@ public final class ShellRenderer {
 		say(client, delayHeatmap ? "delay overlay on." : "delay overlay off.");
 	}
 
-	private static void toggleRendering(Minecraft client) {
+	/** Whether {@link #TOGGLE_DELAY_HEATMAP_KEY} (or the settings screen's button) is currently on. */
+	public static boolean isDelayHeatmapEnabled() {
+		return delayHeatmap;
+	}
+
+	/** Also called directly by the settings screen's own "Global render" button - see {@link #toggleDelayHeatmap}. */
+	public static void toggleRendering(Minecraft client) {
 		renderingEnabled = !renderingEnabled;
 		if (!renderingEnabled) {
 			clearRenderCaches();
 		}
 		say(client, renderingEnabled ? "sensor rendering on." : "sensor rendering off.");
+	}
+
+	/** Whether {@link #TOGGLE_RENDERING_KEY} (or the settings screen's button) is currently on. */
+	public static boolean isRenderingEnabled() {
+		return renderingEnabled;
 	}
 
 	private static void activate(Minecraft client) {
