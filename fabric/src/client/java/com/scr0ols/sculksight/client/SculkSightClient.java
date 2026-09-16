@@ -12,6 +12,7 @@ import net.fabricmc.loader.api.FabricLoader;
 
 import com.scr0ols.sculksight.SculkSight;
 import com.scr0ols.sculksight.config.ClientConfig;
+import com.scr0ols.sculksight.config.ConfigScreens;
 import com.scr0ols.sculksight.verify.DetectionVerificationCommand;
 import com.scr0ols.sculksight.verify.IndexVerificationCommand;
 import com.scr0ols.sculksight.verify.VerificationCommand;
@@ -60,6 +61,10 @@ public class SculkSightClient implements ClientModInitializer {
 		ClientConfig.load();
 
 		registerShellRenderer();
+
+		// Lets a player open the settings screen straight from gameplay, without going through
+		// Mod Menu - see ConfigScreens.OPEN_SETTINGS_KEY's own javadoc.
+		registerConfigScreensKey();
 
 		// The sensor index (ADR-038) must register before any ClientLevel exists, which
 		// onInitializeClient always runs before - see SensorIndex's own class comment for why
@@ -123,6 +128,12 @@ public class SculkSightClient implements ClientModInitializer {
 		// here at all (ARCHITECTURE.md section 6.4).
 		ClientLevelEvents.AFTER_CLIENT_LEVEL_CHANGE.register((client, level) -> ShellRenderer.onLevelChanged());
 		ClientLifecycleEvents.CLIENT_STOPPING.register(client -> ShellRenderer.onClientStopping());
+	}
+
+	/** Registers {@link ConfigScreens#OPEN_SETTINGS_KEY} and ticks {@link ConfigScreens#onEndTick}. */
+	private static void registerConfigScreensKey() {
+		KeyMappingHelper.registerKeyMapping(ConfigScreens.OPEN_SETTINGS_KEY);
+		ClientTickEvents.END_CLIENT_TICK.register(ConfigScreens::onEndTick);
 	}
 
 	/** Everything {@code SensorIndex.register()} did on Fabric before the split, now here instead. */

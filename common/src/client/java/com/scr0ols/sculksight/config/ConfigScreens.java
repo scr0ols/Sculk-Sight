@@ -5,6 +5,10 @@ import java.util.List;
 
 import org.jspecify.annotations.Nullable;
 
+import com.mojang.blaze3d.platform.InputConstants;
+
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 
 import com.scr0ols.sculksight.client.ShellRenderer;
@@ -40,12 +44,43 @@ import com.scr0ols.sculksight.client.ShellRenderer;
  */
 public final class ConfigScreens {
 
+	/**
+	 * Opens the settings screen directly from gameplay, without going through Mod Menu (Fabric) or
+	 * the mod list (NeoForge) - both of which stay as they were, unaffected by this. Loader-neutral
+	 * for the same reason {@link ShellRenderer}'s and {@code DetectionIndicator}'s own keys are:
+	 * constructed here, but registered and ticked by each loader's own entrypoint, since only that
+	 * registers a {@code KeyMapping} against real input or drives {@link #onEndTick} from a client
+	 * tick event.
+	 *
+	 * <p>No default-key collision with any other binding this mod defines (K/G/H/J are already
+	 * taken) has been checked against a live client the way {@code DetectionIndicator}'s own
+	 * TOGGLE_KEY javadoc records doing for L - so, as with any new default keybind, whether B
+	 * collides with something else entirely (vanilla's own bindings, another installed mod) still
+	 * needs a live-client check. Any collision is cosmetic, not a functional bug: every
+	 * {@code KeyMapping} is rebindable through vanilla's own Controls screen regardless.
+	 */
+	public static final KeyMapping OPEN_SETTINGS_KEY = new KeyMapping(
+			"key.sculksight.open_settings", InputConstants.KEY_B, KeyMapping.Category.MISC);
+
 	private ConfigScreens() {
 	}
 
 	/** The settings screen, ready to be shown. */
 	public static Screen create(Screen parent) {
 		return new SettingsScreen(parent);
+	}
+
+	/**
+	 * Called from a loader's own client tick event, once per tick. Opens the settings screen with
+	 * no parent - the same as pressing Escape to leave it does with nothing further to return to -
+	 * since a key pressed during gameplay has no menu screen to treat as the parent.
+	 */
+	public static void onEndTick(Minecraft client) {
+		while (OPEN_SETTINGS_KEY.consumeClick()) {
+			if (client.gui.screen() == null) {
+				client.gui.setScreen(create(null));
+			}
+		}
 	}
 
 	/**

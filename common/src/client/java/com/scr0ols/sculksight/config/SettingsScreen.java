@@ -12,6 +12,9 @@ import net.minecraft.client.gui.layouts.LinearLayout;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
+import com.scr0ols.sculksight.client.DetectionIndicator;
+import com.scr0ols.sculksight.client.ShellRenderer;
+
 /**
  * This mod's settings screen: a hand-rolled vanilla {@link Screen}, replacing the Cloth Config one
  * {@link ConfigScreens} used to build.
@@ -30,13 +33,29 @@ import net.minecraft.network.chat.Component;
  */
 final class SettingsScreen extends Screen {
 
-	/** Title row plus the opacity slider and render-policy button, each {@value BUTTON_HEIGHT} tall. */
+	/**
+	 * Title row, the opacity slider, and one more {@value BUTTON_HEIGHT}-tall row holding every
+	 * remaining control side by side - the render-policy cycle button and the three session toggles
+	 * (global render, delay overlay, detection indicator) that mirror keys G, H and J. See
+	 * {@link #buildGlobalRenderButton()}'s own javadoc for why those three exist as buttons at all,
+	 * and {@link #TOGGLE_ROW_SPACING} for why they sit in one row rather than one each.
+	 */
 	private static final int HEADER_HEIGHT = 82;
 
 	private static final int FOOTER_HEIGHT = 33;
 	private static final int BUTTON_HEIGHT = 20;
 	private static final int CONTROL_WIDTH = 300;
 	private static final int DONE_BUTTON_WIDTH = 200;
+
+	/** Gap between the four buttons sharing {@link #buildToggleRow}'s single row. */
+	private static final int TOGGLE_ROW_SPACING = 4;
+
+	/**
+	 * Width of each of the four buttons on the toggle row, all equal and sized so the row as a whole
+	 * lines up with {@link #CONTROL_WIDTH} above it, the same width the opacity slider and the old
+	 * one-button-per-row layout used: {@code 4 * TOGGLE_BUTTON_WIDTH + 3 * TOGGLE_ROW_SPACING == CONTROL_WIDTH}.
+	 */
+	private static final int TOGGLE_BUTTON_WIDTH = (CONTROL_WIDTH - 3 * TOGGLE_ROW_SPACING) / 4;
 
 	private final Screen parent;
 	private final HeaderAndFooterLayout layout = new HeaderAndFooterLayout(this, HEADER_HEIGHT, FOOTER_HEIGHT);
@@ -58,7 +77,7 @@ final class SettingsScreen extends Screen {
 		header.defaultCellSetting().alignHorizontallyCenter();
 		header.addChild(new StringWidget(title, font));
 		header.addChild(buildOpacitySlider(config.shellOpacityPercent()));
-		header.addChild(buildRenderPolicyButton(config.renderPolicy()));
+		buildToggleRow(header, config.renderPolicy());
 
 		sensorList = layout.addToContents(new TrackedSensorListWidget(
 				minecraft, width, layout.getContentHeight(), layout.getHeaderHeight()));
@@ -96,12 +115,97 @@ final class SettingsScreen extends Screen {
 								"sculksight.config.render_policy." + policy.name().toLowerCase(Locale.ROOT)),
 						initial)
 				.withValues(RenderPolicy.values())
-				.create(0, 0, CONTROL_WIDTH, BUTTON_HEIGHT,
+				.create(0, 0, TOGGLE_BUTTON_WIDTH, BUTTON_HEIGHT,
 						Component.translatable("sculksight.config.render_policy"),
 						(button, value) -> ConfigScreens.setRenderPolicy(value));
 		renderPolicyButton.setTooltip(Tooltip.create(
 				Component.translatable("sculksight.config.render_policy.tooltip")));
 		return renderPolicyButton;
+	}
+
+	/**
+	 * {@link ShellRenderer#TOGGLE_RENDERING_KEY} (key G), {@link ShellRenderer#TOGGLE_DELAY_HEATMAP_KEY}
+	 * (key H) and {@link DetectionIndicator#TOGGLE_KEY} (key J) toggle session state that used to be
+	 * reachable only by keybind - a player who forgot which key does what, or is not at a keyboard
+	 * layout where G/H/J are convenient, had no other way to reach them. This row gives the render
+	 * policy above it and the same three toggles a menu control apiece, side by side in one row
+	 * rather than one full-width row each, so the header does not grow by three more button heights.
+	 * Each button calls straight through to the same method its keybind already calls (see e.g.
+	 * {@link ShellRenderer#toggleRendering}'s own javadoc), so pressing the key and clicking the
+	 * button do exactly the same thing rather than two independently-maintained toggles that could
+	 * drift apart.
+	 *
+	 * <p>Captions on this row are deliberately terse - "Mode", "Global", "Delay", "Detect" rather
+	 * than each button's full name - because the four buttons are equal width
+	 * ({@link #TOGGLE_BUTTON_WIDTH}) and share the same {@value CONTROL_WIDTH}px total the opacity
+	 * slider above them uses, rather than each getting its own full-width row. Every button keeps
+	 * its full tooltip, matching the Remove button's own short-caption-plus-tooltip pattern in
+	 * {@link TrackedSensorListWidget}.
+	 *
+	 * <p>Unlike the opacity slider above, none of the three session toggles are persisted
+	 * {@link SculkSightConfig} settings - they reset to their defaults every session, exactly as they
+	 * did before this row existed. Each button's own re-render-on-click pattern is enough to keep its
+	 * label correct without a {@link ConfigScreens} action method, since there is no saved config for
+	 * one to write to.
+	 */
+	private void buildToggleRow(LinearLayout header, RenderPolicy initialRenderPolicy) {
+		LinearLayout row = header.addChild(LinearLayout.horizontal().spacing(TOGGLE_ROW_SPACING));
+		row.addChild(buildRenderPolicyButton(initialRenderPolicy));
+		row.addChild(buildGlobalRenderButton());
+		row.addChild(buildDelayOverlayButton());
+		row.addChild(buildDetectionIndicatorButton());
+	}
+
+	private Button buildGlobalRenderButton() {
+		Button button = Button.builder(globalRenderLabel(), pressed -> {
+					ShellRenderer.toggleRendering(minecraft);
+					pressed.setMessage(globalRenderLabel());
+				})
+				.size(TOGGLE_BUTTON_WIDTH, BUTTON_HEIGHT)
+				.build();
+		button.setTooltip(Tooltip.create(Component.translatable("sculksight.config.global_render.tooltip")));
+		return button;
+	}
+
+	private Button buildDelayOverlayButton() {
+		Button button = Button.builder(delayOverlayLabel(), pressed -> {
+					ShellRenderer.toggleDelayHeatmap(minecraft);
+					pressed.setMessage(delayOverlayLabel());
+				})
+				.size(TOGGLE_BUTTON_WIDTH, BUTTON_HEIGHT)
+				.build();
+		button.setTooltip(Tooltip.create(Component.translatable("sculksight.config.delay_overlay.tooltip")));
+		return button;
+	}
+
+	private Button buildDetectionIndicatorButton() {
+		Button button = Button.builder(detectionIndicatorLabel(), pressed -> {
+					DetectionIndicator.toggle(minecraft);
+					pressed.setMessage(detectionIndicatorLabel());
+				})
+				.size(TOGGLE_BUTTON_WIDTH, BUTTON_HEIGHT)
+				.build();
+		button.setTooltip(Tooltip.create(
+				Component.translatable("sculksight.config.detection_indicator.tooltip")));
+		return button;
+	}
+
+	private static Component globalRenderLabel() {
+		Component state = Component.translatable(ShellRenderer.isRenderingEnabled()
+				? "sculksight.config.on" : "sculksight.config.off");
+		return Component.translatable("sculksight.config.global_render", state);
+	}
+
+	private static Component delayOverlayLabel() {
+		Component state = Component.translatable(ShellRenderer.isDelayHeatmapEnabled()
+				? "sculksight.config.on" : "sculksight.config.off");
+		return Component.translatable("sculksight.config.delay_overlay", state);
+	}
+
+	private static Component detectionIndicatorLabel() {
+		Component state = Component.translatable(DetectionIndicator.isEnabled()
+				? "sculksight.config.on" : "sculksight.config.off");
+		return Component.translatable("sculksight.config.detection_indicator", state);
 	}
 
 	private static Component opacityMessage(int percent) {

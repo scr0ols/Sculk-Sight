@@ -85,7 +85,13 @@ public final class DetectionIndicator {
 		hasReading = false;
 	}
 
-	private static void toggle(Minecraft client) {
+	/**
+	 * Also called directly by the settings screen's own "Detection indicator" button ({@link
+	 * com.scr0ols.sculksight.config.SettingsScreen}), so a player has both the {@link #TOGGLE_KEY}
+	 * keybind and a menu control for the same toggle - identical behaviour either way, since the
+	 * button calls straight through to this method rather than reimplementing it.
+	 */
+	public static void toggle(Minecraft client) {
 		enabled = !enabled;
 
 		if (!enabled) {
@@ -98,6 +104,11 @@ public final class DetectionIndicator {
 		// turning the indicator on is never silent about what it already knows.
 		hasReading = false;
 		tick(client);
+	}
+
+	/** Whether {@link #TOGGLE_KEY} (or the settings screen's button) is currently on. */
+	public static boolean isEnabled() {
+		return enabled;
 	}
 
 	private static void tick(Minecraft client) {
