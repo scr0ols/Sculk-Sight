@@ -84,7 +84,3 @@ Built jars are written to `fabric/build/libs/` and `neoforge/build/libs/`.
 - The delay overlay (**H**) shows travel-delay labels for only the first enabled tracked sensor, even when several are tracked and enabled at once.
 - Mode C reports whether any indexed, loaded sensor can detect you; it does not identify a particular sensor.
 - The released mod is client-only. Development-only verification commands are not included in normal production use.
-
-## Contributing and issues
-
-Bug reports and source code are welcome at the [GitHub repository](https://github.com/scr0ols/Sculk-Sight). For project-specific build and test notes, see [AGENTS.md](AGENTS.md).
