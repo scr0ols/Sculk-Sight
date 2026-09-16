@@ -2,7 +2,7 @@
 
 Sculk Sight is a client-side Minecraft mod that makes sculk-sensor detection easier to understand. It can draw the effective area from which a vibration can reach a sensor and tell you when your current position can be detected by a nearby sensor.
 
-Current pre-release: **v0.1.0** for **Minecraft 26.2**, with **Fabric and NeoForge** support.
+Current pre-release: **v0.2.0** for **Minecraft 26.2**, with **Fabric and NeoForge** support.
 
 Licence: **GPL-3.0-or-later**. See [LICENSE](LICENSE).
 
@@ -28,8 +28,9 @@ This mode answers “am I detected?” without drawing a shell. It only knows ab
 
 Sculk Sight has an in-game settings screen with a **Shell opacity** slider, a **Mode** choice (Union or Split) for multi-sensor rendering, **Global render**/**Delay overlay**/**Detection indicator** toggles, and a bounded **Tracked sensors** list whose compact sensor cards keep identity, naming, enabled state, and removal together. Settings are saved between sessions in `config/sculksight.json`.
 
-- On **NeoForge**, open the mod’s configuration from the Mods screen.
-- On **Fabric**, install [Mod Menu](https://modrinth.com/mod/modmenu) to open the configuration screen from its mod list. Mod Menu is optional; without it, edit `config/sculksight.json` manually.
+- Press **B** (rebindable) to open the settings screen directly from gameplay, on either loader.
+- On **NeoForge**, you can also open the mod’s configuration from the Mods screen.
+- On **Fabric**, you can also install [Mod Menu](https://modrinth.com/mod/modmenu) to open the configuration screen from its mod list. Mod Menu is optional; without it, edit `config/sculksight.json` manually or use the **B** key above.
 
 ## Requirements
 
@@ -38,20 +39,18 @@ Sculk Sight has an in-game settings screen with a **Shell opacity** slider, a **
 | Minecraft | 26.2 | 26.2 |
 | Java | 25 | 25 |
 | Loader | Fabric Loader 0.19.3 or newer | NeoForge 26.2.0.75 or newer |
-| Required dependencies | Fabric API 0.158.0+26.2 or newer; Cloth Config 26.2.155 or newer | Cloth Config 26.2.155 or newer |
+| Required dependencies | Fabric API 0.158.0+26.2 or newer | None |
 
 Sculk Sight is **client-side only**. Do not install it on a server.
 
 ## Install
 
 1. Install Minecraft 26.2, Java 25, and either Fabric or NeoForge.
-2. Install the required dependencies for that loader:
-   - **Fabric:** Fabric API and Cloth Config.
-   - **NeoForge:** Cloth Config for NeoForge.
-3. Download the matching v0.1.0 jar from [Releases](https://github.com/scr0ols/Sculk-Sight/releases) and place it in your instance's `mods` directory:
-   - `fabric-sculksight-0.1.0+26.2.jar` for Fabric.
-   - `neoforge-sculksight-0.1.0+26.2.jar` for NeoForge.
-4. Launch the game. Aim at detectors and use **K** to track them, **G** to toggle rendering, then **H** for delay labels, or press **J** for the detection indicator.
+2. **Fabric only:** install Fabric API. NeoForge needs no extra dependency.
+3. Download the matching v0.2.0 jar from [Releases](https://github.com/scr0ols/Sculk-Sight/releases) and place it in your instance's `mods` directory:
+   - `fabric-sculksight-0.2.0+26.2.jar` for Fabric.
+   - `neoforge-sculksight-0.2.0+26.2.jar` for NeoForge.
+4. Launch the game. Aim at detectors and use **K** to track them, **G** to toggle rendering, then **H** for delay labels, or press **J** for the detection indicator. Press **B** to open the settings screen directly.
 
 ## Build from source
 
@@ -81,7 +80,8 @@ Built jars are written to `fabric/build/libs/` and `neoforge/build/libs/`.
 
 ## Known limitations
 
-- Mode A keeps a bounded list of selected sensors and recalculates when tracked detector blocks or their settings change.
+- Mode A tracks at most eight sensors at once (`MAX_TRACKED_SENSORS`); tracking a ninth is refused rather than replacing an existing one.
+- The delay overlay (**H**) shows travel-delay labels for only the first enabled tracked sensor, even when several are tracked and enabled at once.
 - Mode C reports whether any indexed, loaded sensor can detect you; it does not identify a particular sensor.
 - The released mod is client-only. Development-only verification commands are not included in normal production use.
 
