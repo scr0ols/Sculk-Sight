@@ -51,14 +51,11 @@ final class SettingsScreen extends Screen {
 	private static final int TOGGLE_ROW_SPACING = 4;
 
 	/**
-	 * Individual widths for the four buttons on the toggle row, each sized to its own (deliberately
-	 * short - see the caption comment on each builder method below) label rather than split evenly,
-	 * since "Mode: Per-sensor" needs meaningfully more room than "Delay: Off" does.
+	 * Width of each of the four buttons on the toggle row, all equal and sized so the row as a whole
+	 * lines up with {@link #CONTROL_WIDTH} above it, the same width the opacity slider and the old
+	 * one-button-per-row layout used: {@code 4 * TOGGLE_BUTTON_WIDTH + 3 * TOGGLE_ROW_SPACING == CONTROL_WIDTH}.
 	 */
-	private static final int RENDER_POLICY_BUTTON_WIDTH = 110;
-	private static final int GLOBAL_RENDER_BUTTON_WIDTH = 80;
-	private static final int DELAY_OVERLAY_BUTTON_WIDTH = 75;
-	private static final int DETECTION_INDICATOR_BUTTON_WIDTH = 80;
+	private static final int TOGGLE_BUTTON_WIDTH = (CONTROL_WIDTH - 3 * TOGGLE_ROW_SPACING) / 4;
 
 	private final Screen parent;
 	private final HeaderAndFooterLayout layout = new HeaderAndFooterLayout(this, HEADER_HEIGHT, FOOTER_HEIGHT);
@@ -118,7 +115,7 @@ final class SettingsScreen extends Screen {
 								"sculksight.config.render_policy." + policy.name().toLowerCase(Locale.ROOT)),
 						initial)
 				.withValues(RenderPolicy.values())
-				.create(0, 0, RENDER_POLICY_BUTTON_WIDTH, BUTTON_HEIGHT,
+				.create(0, 0, TOGGLE_BUTTON_WIDTH, BUTTON_HEIGHT,
 						Component.translatable("sculksight.config.render_policy"),
 						(button, value) -> ConfigScreens.setRenderPolicy(value));
 		renderPolicyButton.setTooltip(Tooltip.create(
@@ -139,10 +136,11 @@ final class SettingsScreen extends Screen {
 	 * drift apart.
 	 *
 	 * <p>Captions on this row are deliberately terse - "Mode", "Global", "Delay", "Detect" rather
-	 * than each button's full name - because four buttons sharing one row leaves each one only as
-	 * wide as its own text needs to be, not the {@value CONTROL_WIDTH}px the opacity slider and the
-	 * old one-button-per-row layout could afford. Every button keeps its full tooltip, matching the
-	 * Remove button's own short-caption-plus-tooltip pattern in {@link TrackedSensorListWidget}.
+	 * than each button's full name - because the four buttons are equal width
+	 * ({@link #TOGGLE_BUTTON_WIDTH}) and share the same {@value CONTROL_WIDTH}px total the opacity
+	 * slider above them uses, rather than each getting its own full-width row. Every button keeps
+	 * its full tooltip, matching the Remove button's own short-caption-plus-tooltip pattern in
+	 * {@link TrackedSensorListWidget}.
 	 *
 	 * <p>Unlike the opacity slider above, none of the three session toggles are persisted
 	 * {@link SculkSightConfig} settings - they reset to their defaults every session, exactly as they
@@ -163,7 +161,7 @@ final class SettingsScreen extends Screen {
 					ShellRenderer.toggleRendering(minecraft);
 					pressed.setMessage(globalRenderLabel());
 				})
-				.size(GLOBAL_RENDER_BUTTON_WIDTH, BUTTON_HEIGHT)
+				.size(TOGGLE_BUTTON_WIDTH, BUTTON_HEIGHT)
 				.build();
 		button.setTooltip(Tooltip.create(Component.translatable("sculksight.config.global_render.tooltip")));
 		return button;
@@ -174,7 +172,7 @@ final class SettingsScreen extends Screen {
 					ShellRenderer.toggleDelayHeatmap(minecraft);
 					pressed.setMessage(delayOverlayLabel());
 				})
-				.size(DELAY_OVERLAY_BUTTON_WIDTH, BUTTON_HEIGHT)
+				.size(TOGGLE_BUTTON_WIDTH, BUTTON_HEIGHT)
 				.build();
 		button.setTooltip(Tooltip.create(Component.translatable("sculksight.config.delay_overlay.tooltip")));
 		return button;
@@ -185,7 +183,7 @@ final class SettingsScreen extends Screen {
 					DetectionIndicator.toggle(minecraft);
 					pressed.setMessage(detectionIndicatorLabel());
 				})
-				.size(DETECTION_INDICATOR_BUTTON_WIDTH, BUTTON_HEIGHT)
+				.size(TOGGLE_BUTTON_WIDTH, BUTTON_HEIGHT)
 				.build();
 		button.setTooltip(Tooltip.create(
 				Component.translatable("sculksight.config.detection_indicator.tooltip")));
