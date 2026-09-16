@@ -165,7 +165,16 @@ public final class SculkSightNeoForge {
 	static void onEndTick(ClientTickEvent.Post event) {
 		ShellRenderer.onEndTick(Minecraft.getInstance());
 		DetectionIndicator.onEndTick(Minecraft.getInstance());
+		ConfigScreens.onEndTick(Minecraft.getInstance());
 		resyncSensorIndexNearPlayer();
+	}
+
+	// ---------------------------------------------------------------- settings screen
+
+	/** Lets a player open the settings screen straight from gameplay, without opening the mod list. */
+	@SubscribeEvent
+	static void registerConfigScreensKey(RegisterKeyMappingsEvent event) {
+		event.register(ConfigScreens.OPEN_SETTINGS_KEY);
 	}
 
 	/**

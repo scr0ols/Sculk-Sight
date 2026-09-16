@@ -18,6 +18,7 @@ No code changed for this release. The itemised entries below are left under `[Un
 
 ### Added
 
+- **A keybind (default **O**, unbound-collision unverified against a live client) opens the settings screen directly from gameplay**, without going through Mod Menu on Fabric or the mod list on NeoForge. Both of those remain exactly as they were; this is a second way to reach the same screen `ConfigScreens.create` already builds. Rebindable through vanilla's own Controls screen like every other keybind this mod defines.
 - **The Fabric development environment for Minecraft 26.2**, at `fabric/`, derived from the official `fabric-example-mod` template (branch `26.2`). It builds the mod jar, generates decompiled Minecraft sources, and launches a dev client with the mod loaded. There is no mappings configuration, because 26.2 is unobfuscated — see the README's "About mappings" section. Toolchain versions were each looked up against Fabric's own sources rather than recalled, and are listed in the README.
 - **`LICENSE` at the repository root**: GPL-3.0-or-later. The `jar` task packages it into the built jar.
 - **`README.md` at the repository root**, covering what the mod does, what it does not do yet, the requirements for a player, and the build and development setup.
@@ -84,6 +85,7 @@ No code changed for this release. The itemised entries below are left under `[Un
 - **The mod version is now `0.0.1+26.2`** rather than `0.0.1`, adopting the versioning scheme described under `[0.0.1]` above.
 - **The settings screen is now a hand-rolled vanilla screen instead of a Cloth Config one, and every tracked-sensor edit applies immediately.** Renaming, enabling/disabling or removing a tracked sensor used to be a checkbox or field parked in a draft until one distant Save button ran; a "remove" in particular did nothing visible until that save. Every one of those controls now writes straight to the settings file the instant it is clicked — there is no Save button on the tracked-sensors list at all, and none is needed. The opacity slider and the render-policy toggle apply the same way, on every drag or click rather than on save. Reaching the screen is unchanged: Mod Menu on Fabric, the mod list on NeoForge.
 - **Each tracked-sensor row's Rename/Enabled/Remove buttons are wider (64px to 84px).** "Enabled: Yes" and "Enabled: No" are different lengths, and the buttons had been sized tightly enough around the shorter label that toggling visibly shifted the text; the extra width keeps it in the same place either way.
+- **The Remove button's caption is now just "Remove"**, down from "Remove tracked render". Its tooltip already says what it removes and that the removal is immediate; the caption repeating that made the label crowd the button for no reason.
 
 ### Removed
 

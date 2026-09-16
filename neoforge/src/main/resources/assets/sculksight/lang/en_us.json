@@ -3,6 +3,7 @@
 	"key.sculksight.toggle_rendering": "Toggle sensor rendering",
 	"key.sculksight.toggle_delay_heatmap": "Toggle delay overlay",
 	"key.sculksight.toggle_detection": "Toggle detection indicator",
+	"key.sculksight.open_settings": "Open Sculk Sight settings",
 
 	"sculksight.config.title": "Sculk Sight",
 	"sculksight.config.category.appearance": "Appearance",
@@ -19,7 +20,7 @@
 	"sculksight.config.tracked_sensors.enabled.yes": "Yes",
 	"sculksight.config.tracked_sensors.enabled.no": "No",
 	"sculksight.config.tracked_sensors.enabled.tooltip": "Toggle whether this sensor's shell is rendered.",
-	"sculksight.config.tracked_sensors.remove": "Remove tracked render",
+	"sculksight.config.tracked_sensors.remove": "Remove",
 	"sculksight.config.tracked_sensors.remove.tooltip": "Remove this sensor from the tracked-render list immediately.",
 	"sculksight.config.tracked_sensors.rename": "Rename",
 	"sculksight.config.tracked_sensors.rename.tooltip": "Open a text field to rename this sensor.",
