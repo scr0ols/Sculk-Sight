@@ -199,11 +199,25 @@ public final class SensorIndex {
 	}
 
 	/**
-	 * Adds the block entity if it is a game-event listener, reading its radius through the same
-	 * runtime idiom {@code ShellRenderer#toggle} uses.
+	 * Adds the block entity if it is one of the three detector types {@link DetectorType}
+	 * classifies, reading its radius through the same runtime idiom {@code ShellRenderer#toggle}
+	 * uses.
+	 *
+	 * <p>Gated on {@link DetectorType#of} rather than a bare {@code GameEventListener.Provider}
+	 * test, so a sculk catalyst - which satisfies that interface too, for an unrelated reason
+	 * {@code DetectorType}'s own javadoc explains - is never indexed. Before this gate existed,
+	 * a catalyst's radius-8 listener was indexed like a real detector, which let Mode C's
+	 * {@code DetectionIndicator} report a player as "detected" near a lone catalyst with no
+	 * sensor nearby at all, since {@code DetectionIndicator.isDetected} runs a pure range and
+	 * occlusion test against whatever this index holds, with no type check of its own.
+	 * {@link IndexSweep#sweep} applies the identical gate, which matters as much as this one
+	 * does: gating only one side would desync the index from the independent ground truth
+	 * {@code /sculksight-verify-index} compares it against, turning every catalyst in range into
+	 * a spurious discrepancy instead of the two staying silent about it together.
 	 */
 	private static void tryAdd(BlockEntity blockEntity) {
-		if (blockEntity instanceof GameEventListener.Provider<?> provider) {
+		if (blockEntity instanceof GameEventListener.Provider<?> provider
+				&& DetectorType.of(blockEntity.getBlockState().getBlock()).isPresent()) {
 			SENSORS.put(blockEntity.getBlockPos(), provider.getListener().getListenerRadius());
 		}
 	}
