@@ -120,7 +120,7 @@ public final class SculkSightNeoForge {
 	 * itself, so 2 chunks of margin on every side of the player's own chunk - a 5x5 chunk square -
 	 * covers the whole reachable area with room to spare.
 	 *
-	 * <p><b>Mode B needs more.</b> {@code /sculksight radius <n>} can ask up to
+	 * <p><b>Mode B needs more.</b> {@code /sculksight find <type> <n> live} can ask up to
 	 * {@link RadiusAuditRequest#MAX_RADIUS} blocks away, far past this default - and a sensor
 	 * placed fresh, in the current session, beyond this sweep is exactly the gap this whole
 	 * mechanism exists to close (this class's own javadoc, the 2026-09-08 report). {@link
@@ -296,22 +296,7 @@ public final class SculkSightNeoForge {
 
 		swept.forEach((pos, radius) -> truth.put(new BlockPos(pos.x(), pos.y(), pos.z()), radius));
 
-		// TEMPORARY - round 4 diagnostics for the still-open Bug A re-investigation (loop file
-		// "Round 4"). Only logs while a radius audit is active, so it says nothing under ordinary
-		// play. Remove once Bug A is confirmed fixed or root-caused some other way.
-		if (RadiusAuditController.activeRequest() != null) {
-			SculkSight.LOGGER.info(
-					"[sculksight-diag] neoforge resync: center={} radiusChunks={} sweptCount={} "
-							+ "indexSizeBefore={}",
-					center, radiusChunks, swept.size(), SensorIndex.snapshot().size());
-		}
-
 		SensorIndex.reconcile(truth, pos -> IndexSweep.withinSweep(pos, center, radiusChunks));
-
-		if (RadiusAuditController.activeRequest() != null) {
-			SculkSight.LOGGER.info("[sculksight-diag] neoforge resync: indexSizeAfter={}",
-					SensorIndex.snapshot().size());
-		}
 	}
 
 	/**
@@ -344,7 +329,7 @@ public final class SculkSightNeoForge {
 	 */
 	@SubscribeEvent
 	static void onRegisterClientCommands(RegisterClientCommandsEvent event) {
-		// Mode B (PLAN.md section 5, ARCHITECTURE.md section 12): /sculksight radius <n> [type].
+		// Mode B (PLAN.md section 5, ARCHITECTURE.md section 12): /sculksight find <type> <n> <mode>.
 		// A client command, so it resolves locally and works on a vanilla server. Registered
 		// unconditionally, outside the ADR-019 gate below, because it is a player-facing feature
 		// rather than a development mechanism. Only its arguments are implemented so far; the

@@ -15,7 +15,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import com.scr0ols.sculksight.client.DetectorType;
 
 /**
- * Argument parsing and validation for {@code /sculksight radius <n> [type]}.
+ * Argument parsing and validation for {@code /sculksight find <type> <n> <mode>}.
  *
  * <p>These are the tests ARCHITECTURE.md section 12.1 says the layer-1 half of mode B exists to
  * make possible: no {@code ClientLevel}, no dispatcher, no loader. What they do not cover is
@@ -24,11 +24,40 @@ import com.scr0ols.sculksight.client.DetectorType;
 class RadiusAuditRequestTest {
 
 	@Test
-	void omittedTypeMeansEveryDetector() throws Exception {
-		RadiusAuditRequest request = RadiusAuditRequest.of(32, null);
+	void theAllNameMeansEveryDetector() throws Exception {
+		RadiusAuditRequest request = RadiusAuditRequest.of(32, "all");
 
 		assertEquals(32, request.radius());
 		assertEquals(Optional.empty(), request.detector());
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = {"ALL", "All"})
+	void theAllNameIsCaseInsensitiveToo(String name) throws Exception {
+		assertEquals(Optional.empty(), RadiusAuditRequest.of(16, name).detector());
+	}
+
+	/**
+	 * The regression this pair of assertions exists for: {@code all} parsed but was never offered,
+	 * because the every-detector case used to be "leave the argument out" and the suggestion list
+	 * was three concrete detector names. With the argument required, a value that does not appear in
+	 * the completions is a value most players will never find.
+	 */
+	@Test
+	void theAllNameIsBothOfferedAndAccepted() throws Exception {
+		assertTrue(RadiusAuditRequest.TYPE_NAMES.contains("all"),
+				"'all' is accepted by the parser but not offered as a completion");
+		assertEquals(Optional.empty(), RadiusAuditRequest.of(16, "all").detector());
+	}
+
+	/**
+	 * The {@code type} argument is required, so nothing can reach the parser having omitted it.
+	 * Reading a {@code null} as {@code all} would turn a caller's mistake into a plausible-looking
+	 * every-detector audit; {@link RadiusAuditMode} rejects its own {@code null} for the same reason.
+	 */
+	@Test
+	void aMissingTypeIsRejectedRatherThanReadAsAll() {
+		assertThrows(RadiusAuditArgumentException.class, () -> RadiusAuditRequest.of(16, null));
 	}
 
 	@ParameterizedTest
@@ -49,7 +78,7 @@ class RadiusAuditRequestTest {
 
 	@Test
 	void everyOfferedCompletionIsAcceptedByTheParser() {
-		for (String name : RadiusAuditRequest.DETECTOR_NAMES) {
+		for (String name : RadiusAuditRequest.TYPE_NAMES) {
 			assertDoesNotThrow(
 					() -> RadiusAuditRequest.of(16, name),
 					"suggestion '" + name + "' is offered but rejected");
@@ -62,27 +91,27 @@ class RadiusAuditRequestTest {
 				() -> RadiusAuditRequest.of(16, "warden"));
 
 		assertTrue(problem.getMessage().contains("warden"), problem.getMessage());
-		for (String name : RadiusAuditRequest.DETECTOR_NAMES) {
+		for (String name : RadiusAuditRequest.TYPE_NAMES) {
 			assertTrue(problem.getMessage().contains(name), problem.getMessage());
 		}
 	}
 
 	@Test
-	void theEmptyStringIsNotAnOmittedArgument() {
+	void theEmptyStringIsRejected() {
 		assertThrows(RadiusAuditArgumentException.class, () -> RadiusAuditRequest.of(16, ""));
 	}
 
 	@ParameterizedTest
 	@ValueSource(ints = {RadiusAuditRequest.MIN_RADIUS, 64, RadiusAuditRequest.MAX_RADIUS})
 	void radiiInsideTheRangeAreAccepted(int radius) throws Exception {
-		assertEquals(radius, RadiusAuditRequest.of(radius, null).radius());
+		assertEquals(radius, RadiusAuditRequest.of(radius, "all").radius());
 	}
 
 	@ParameterizedTest
 	@ValueSource(ints = {Integer.MIN_VALUE, -1, 0, RadiusAuditRequest.MAX_RADIUS + 1, Integer.MAX_VALUE})
 	void radiiOutsideTheRangeAreRejected(int radius) {
 		RadiusAuditArgumentException problem = assertThrows(RadiusAuditArgumentException.class,
-				() -> RadiusAuditRequest.of(radius, null));
+				() -> RadiusAuditRequest.of(radius, "all"));
 
 		assertTrue(problem.getMessage().contains(String.valueOf(radius)), problem.getMessage());
 	}
@@ -103,7 +132,7 @@ class RadiusAuditRequestTest {
 
 	@Test
 	void descriptionDistinguishesOneDetectorFromAll() throws Exception {
-		assertEquals("radius 64, all detectors", RadiusAuditRequest.of(64, null).describe());
+		assertEquals("radius 64, all detectors", RadiusAuditRequest.of(64, "all").describe());
 		assertEquals("radius 64, detector calibrated",
 				RadiusAuditRequest.of(64, "calibrated").describe());
 	}
@@ -121,7 +150,7 @@ class RadiusAuditRequestTest {
 
 			assertEquals(Optional.of(type), RadiusAuditRequest.of(16, name).detector(),
 					"detector " + type + " does not round trip through its own name");
-			assertTrue(RadiusAuditRequest.DETECTOR_NAMES.contains(name),
+			assertTrue(RadiusAuditRequest.TYPE_NAMES.contains(name),
 					"detector " + type + " describes itself as '" + name
 							+ "', which is not offered as a completion");
 		}

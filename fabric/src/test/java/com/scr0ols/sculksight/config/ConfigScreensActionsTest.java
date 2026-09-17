@@ -6,10 +6,13 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import com.scr0ols.sculksight.audit.RadiusAuditController;
 import com.scr0ols.sculksight.client.ClientPlatform;
 import com.scr0ols.sculksight.client.Environment;
+import com.scr0ols.sculksight.client.SensorKey;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -22,9 +25,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * only because Cloth Config batched every edit behind one distant save. Removing Cloth removed the
  * batching along with it: there is no draft state left to reconcile, no mid-screen-drop bug for a
  * save to reintroduce, and so no reflection either. {@link ConfigScreens#renameSensor},
- * {@link ConfigScreens#setSensorEnabled}, {@link ConfigScreens#removeSensor},
- * {@link ConfigScreens#setShellOpacityPercent} and {@link ConfigScreens#setRenderPolicy} are called
- * directly, the same package-private methods {@link SettingsScreen}'s widgets call.
+ * {@link ConfigScreens#setSensorEnabled}, {@link ConfigScreens#setAuditSensorHidden},
+ * {@link ConfigScreens#removeSensor}, {@link ConfigScreens#setShellOpacityPercent} and
+ * {@link ConfigScreens#setRenderPolicy} are called directly, the same package-private methods
+ * {@link SettingsScreen}'s widgets call.
  *
  * <p>{@code ConfigScreens} lives in {@code common}'s {@code src/client/java}, which is a plain
  * source artifact rather than a compiled sourceSet of {@code common} itself (see
@@ -108,6 +112,35 @@ class ConfigScreensActionsTest {
 		ConfigScreens.removeSensor(1, 2, 3);
 
 		assertEquals(List.of(retained), ClientConfig.get().trackedSensors());
+	}
+
+	/**
+	 * The audit section's own toggle, and the one action here that deliberately persists nothing:
+	 * an audited position is not in {@code trackedSensors()} at all, so its visibility lives in
+	 * {@link RadiusAuditController}'s session-only set. {@code RadiusAuditControllerTest} covers
+	 * that set's own behaviour; what this checks is that {@code ConfigScreens} reaches it with the
+	 * position the clicked row named, and leaves the saved config alone doing so.
+	 */
+	@Test
+	void setAuditSensorHiddenTogglesSessionStateWithoutTouchingTheSavedConfig() {
+		ClientPlatform.set(new TestEnvironment(tempDir));
+		ClientConfig.load();
+
+		TrackedSensor untouched = new TrackedSensor(1, 2, 3, "Tracked", true);
+		ClientConfig.set(new SculkSightConfig(SculkSightConfig.DEFAULT_SHELL_OPACITY_PERCENT,
+				RenderPolicy.UNION, List.of(untouched)));
+		try {
+			ConfigScreens.setAuditSensorHidden(7, 8, 9, true);
+			assertTrue(RadiusAuditController.isHidden(new SensorKey(7, 8, 9)));
+
+			ConfigScreens.setAuditSensorHidden(7, 8, 9, false);
+			assertFalse(RadiusAuditController.isHidden(new SensorKey(7, 8, 9)));
+
+			assertEquals(List.of(untouched), ClientConfig.get().trackedSensors(),
+					"hiding an audited sensor must not rewrite the player's tracked list");
+		} finally {
+			RadiusAuditController.clear();
+		}
 	}
 
 	@Test

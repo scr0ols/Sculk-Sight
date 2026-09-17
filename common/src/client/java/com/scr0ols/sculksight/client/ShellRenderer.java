@@ -229,12 +229,25 @@ public final class ShellRenderer {
 	private static long lastFlushNanos;
 
 	/**
-	 * TEMPORARY - round 4 diagnostics for the still-open Bug A/Bug B re-investigation (loop file
-	 * "Round 4"). Throttles {@link #mergeAuditedEntries}'s log line to once per 20 ticks so an
-	 * active audit does not spam the log every tick. Remove this field and every log line it gates
-	 * once Bug A/Bug B are confirmed fixed or root-caused some other way.
+	 * Set when {@link #reconcileEntries} drops an entry, so the shared union mesh is re-encoded
+	 * without that entry's contribution even though no <em>new</em> entry needs solving.
+	 *
+	 * <p><b>Without this the union would keep drawing a sensor that is no longer selected.</b>
+	 * {@link #dispatchBudgetedSolves} is the only thing that ever re-encodes the union, and it used
+	 * to run only when {@link #pendingSolve} was non-empty - which a pure removal never makes it.
+	 * That gap was invisible for as long as every per-sensor settings change called
+	 * {@link #onConfigChanged} and cleared the whole cache, because a wholesale rebuild always
+	 * re-encoded the union on the way back. Dropping that clear (it re-solved every selected sensor
+	 * over several ticks for a change that only ever removed one, which is the flicker the author
+	 * reported on 2026-09-17) is what makes this flag load-bearing rather than redundant.
+	 *
+	 * <p>Only {@link RenderPolicy#UNION} actually reads a shared mesh, but the flag is set
+	 * regardless of policy: a dispatch with nothing to solve costs one worker hand-off that the
+	 * per-sensor branch of {@link #solveAndEncode} iterates zero times, and not tracking the policy
+	 * here keeps the invalidation rule independent of a setting the player can change between the
+	 * removal and the dispatch.
 	 */
-	private static int diagnosticTickCounter;
+	private static boolean unionNeedsRebuild;
 
 	private ShellRenderer() {
 	}
@@ -351,6 +364,7 @@ public final class ShellRenderer {
 		}
 		entries.clear();
 		pendingSolve.clear();
+		unionNeedsRebuild = false;
 		if (unionEntry != null) {
 			unionEntry.close();
 			unionEntry = null;
@@ -397,9 +411,21 @@ public final class ShellRenderer {
 	 * The player saved new settings: forget the style built from the old ones, and drop the cached
 	 * shell that was encoded at the old alpha.
 	 *
-	 * <p>Called from the config screen's own save, which runs on the client thread - also the
-	 * render thread (R13 point 4), which is what makes closing this entry's GPU resources legal
-	 * here, exactly as in {@link #onLevelChanged()}.
+	 * <p>Called from the config screen, which runs on the client thread - also the render thread
+	 * (R13 point 4), which is what makes closing this entry's GPU resources legal here, exactly as
+	 * in {@link #onLevelChanged()}.
+	 *
+	 * <p><b>Only by the two controls that actually invalidate an encoded mesh</b>, since
+	 * 2026-09-17: the opacity slider (the mesh carries the encoded alpha, which is this method's
+	 * whole subject) and the render-policy button (union and per-sensor meshes are encoded against
+	 * different origins and cannot be reinterpreted as each other). The per-sensor controls -
+	 * rename, the enabled toggle, remove - used to call it too, and that was the flicker the author
+	 * reported: each click dropped every selected sensor's buffer, and {@link
+	 * #dispatchBudgetedSolves} then re-solved the whole selection at
+	 * {@link #PER_TICK_AUDIT_SOLVE_BUDGET} sensors per tick, so a 27-sensor audit visibly rebuilt
+	 * itself over seven ticks in answer to a change that removed one shell. None of those three
+	 * changes what a mesh was encoded at, and {@link #syncEntries} already reconciles the selection
+	 * they do change on the very next tick, per-sensor cache intact ({@link #reconcileEntries}).
 	 *
 	 * <p><b>Dropping rather than re-modulating is the deliberate choice</b>, and dropping is all
 	 * this method does: the shell disappears on save and comes back on the player's next keypress.
@@ -477,7 +503,7 @@ public final class ShellRenderer {
 
 		reconcileEntries(desired);
 
-		if (!pendingSolve.isEmpty()) {
+		if (!pendingSolve.isEmpty() || unionNeedsRebuild) {
 			dispatchBudgetedSolves(client.level);
 		}
 	}
@@ -516,6 +542,20 @@ public final class ShellRenderer {
 	 * this one" - it says nothing about the audit). Without this check, disabling a sensor that an
 	 * active audit also selects only removed it for as long as it took the very same tick's audit
 	 * half to add it straight back, which read as the toggle flashing off and immediately on again.
+	 *
+	 * <p><b>So does a position the player hid in the settings screen's own audit section</b>, which
+	 * is the far commoner case and the one the check above does not reach. An audited position is
+	 * not in the tracked list at all, so it has no {@code enabled} flag to clear - hiding it is
+	 * {@link RadiusAuditController#setHidden}'s session-only set instead, and this is where that set
+	 * takes effect. Until it existed there was no way at all to switch off one render out of an
+	 * audit's selection: the tracked list's own toggles could only reach the handful of positions
+	 * the player had separately pressed K on, which on a 27-sensor audit was every render but the
+	 * ones on screen (the 2026-09-17 report, whose logs show `skippedAsHidden=0` against five
+	 * disabled tracked sensors - the two sets were disjoint).
+	 *
+	 * <p><b>Publishes the selection before filtering it.</b> The settings screen lists what the
+	 * audit picked, hidden entries included, because a hidden entry still needs a row to carry the
+	 * control that brings it back - see {@link RadiusAuditController#publishSelection}.
 	 */
 	private static void mergeAuditedEntries(Minecraft client, Map<SensorKey, ShellEntry> desired) {
 		RadiusAuditRequest request = RadiusAuditController.activeRequest();
@@ -531,24 +571,15 @@ public final class ShellRenderer {
 				centre.getX(), centre.getY(), centre.getZ(), request, candidates,
 				ClientConfig.get().radiusAuditCap());
 
-		int skippedAsHidden = 0;
+		RadiusAuditController.publishSelection(selection.selected());
+
 		for (AuditedSensor sensor : selection.selected()) {
-			if (explicitlyHidden.contains(sensor.position())) {
-				skippedAsHidden++;
+			if (explicitlyHidden.contains(sensor.position())
+					|| RadiusAuditController.isHidden(sensor.position())) {
 				continue;
 			}
 			desired.putIfAbsent(sensor.position(),
 					new ShellEntry(sensor.position(), sensor.listenerRadius(), sensor.type()));
-		}
-
-		// TEMPORARY - round 4 diagnostics, see diagnosticTickCounter's javadoc. Remove with it.
-		if (diagnosticTickCounter++ % 20 == 0) {
-			SculkSight.LOGGER.info(
-					"[sculksight-diag] audit radius={} type={} candidates={} selected={} capped={} "
-							+ "explicitlyHidden={} skippedAsHidden={} desiredAfterMerge={}",
-					request.radius(), request.detector(), candidates.size(),
-					selection.selected().size(), selection.capped(), explicitlyHidden,
-					skippedAsHidden, desired.size());
 		}
 	}
 
@@ -568,7 +599,9 @@ public final class ShellRenderer {
 	 * are unchanged is left exactly as it is - untouched buffer, untouched cache, no re-queue -
 	 * which is the whole of ARCHITECTURE.md section 12.3's per-sensor cache. Only new or changed
 	 * keys join {@link #pendingSolve}; keys no longer desired are closed and dropped, per
-	 * ARCHITECTURE.md section 5's rule 2.
+	 * ARCHITECTURE.md section 5's rule 2 - which also marks the shared union stale, since a removal
+	 * changes what the union should contain without putting anything on {@link #pendingSolve}
+	 * ({@link #unionNeedsRebuild}).
 	 */
 	private static void reconcileEntries(Map<SensorKey, ShellEntry> desired) {
 		for (Iterator<Map.Entry<SensorKey, ShellEntry>> iterator = entries.entrySet().iterator();
@@ -577,6 +610,7 @@ public final class ShellRenderer {
 			if (!desired.containsKey(current.getKey())) {
 				current.getValue().close();
 				iterator.remove();
+				unionNeedsRebuild = true;
 			}
 		}
 
@@ -599,6 +633,9 @@ public final class ShellRenderer {
 				unionEntry = null;
 			}
 			pendingSolve.clear();
+			// Nothing left to encode a union from, and no union entry to encode into: the removal
+			// that set this has already been answered by dropping the entry outright.
+			unionNeedsRebuild = false;
 			flushFrames();
 			lastFlushNanos = 0L;
 		} else if (unionEntry == null) {
@@ -614,6 +651,12 @@ public final class ShellRenderer {
 	 * all of them in the one tick the selection changed. Every other current entry - already
 	 * solved or still queued for a later tick - is left alone and, if already solved, still folds
 	 * into a rebuilt union through {@link CachedContribution}, at no re-solve cost.
+	 *
+	 * <p><b>Also runs with nothing to solve at all</b>, when {@link #unionNeedsRebuild} says an
+	 * entry was dropped: {@code toSolve} is then empty, every surviving entry arrives as a
+	 * {@link CachedContribution}, and {@link #solveAndEncode} re-encodes the union from those alone
+	 * - no snapshot, no solve, no ray cast. That is the cheap half of what the removed
+	 * {@link #onConfigChanged} call used to achieve by re-solving everything.
 	 */
 	private static void dispatchBudgetedSolves(ClientLevel level) {
 		List<ShellEntry> toSolve = new ArrayList<>();
@@ -629,9 +672,13 @@ public final class ShellRenderer {
 			}
 		}
 
-		if (toSolve.isEmpty()) {
+		if (toSolve.isEmpty() && !unionNeedsRebuild) {
 			return;
 		}
+
+		// Cleared whether or not this dispatch is the one that was queued for the rebuild: either
+		// way the union about to be encoded is built from the current entry set.
+		unionNeedsRebuild = false;
 
 		List<ShellEntry> alreadySolved = new ArrayList<>();
 		for (ShellEntry entry : entries.values()) {

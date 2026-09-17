@@ -14,9 +14,28 @@ Aim at a sculk sensor, calibrated sculk sensor, or sculk shrieker and press **K*
 
 The shell reflects the sensor's radius and vibration-dampening blocks such as wool and wool carpet, so dampened positions are absent rather than merely hidden. It is rendered with both see-through and depth-tested passes to remain readable in terrain.
 
-Press **K** on another sensor to track it too, up to eight at once. Each tracked sensor's name, enabled toggle, and **Remove tracked render** control live in the settings screen below.
+Press **K** on another sensor to track it too, up to 32 at once. Each tracked sensor's name, enabled toggle, and **Remove tracked render** control live in the settings screen below.
 
 With sensor rendering active, press **H** to show the travel delay in ticks for the first enabled tracked sensor. Labels use the player's current view for visibility; sensor-occluded positions show no label, since the sensor cannot detect a vibration there.
+
+### Mode B — find sensors around you
+
+Run `/sculksight find <type> <radius> <mode>` to draw every detector around you at once, without aiming at each one. It is a client-side command: it is typed in chat like any other, but never reaches the server, so it works on a vanilla server exactly as it does in single-player.
+
+| Argument | Values |
+|---|---|
+| `type` | `all`, `sensor`, `calibrated`, `shrieker` |
+| `radius` | 1 to 512 blocks |
+| `mode` | `static` or `live` |
+
+All three are required, and the mode is the important one, because it picks between two different jobs:
+
+- **`static`** — finds the sensors once, where you are standing, and adds them to the **Tracked sensors** list, exactly as if you had aimed at each one and pressed **K**. They are saved to `config/sculksight.json`, they each get a name and their own Enabled and Remove controls, and they stay put when you walk away. This is the one for auditing a redstone build you are working on.
+- **`live`** — an x-ray that follows you. It re-selects every tick against wherever you are now, so shells appear and disappear as you move. Nothing is saved; leaving the world or running another find clears it.
+
+A live find appears in the settings screen under a **Live find** heading, one row per sensor with a **Shown** toggle, so you can switch off an individual shell without cancelling the whole find. Those toggles last for the session. The heading also carries a **Pin all** button, which turns the current selection into tracked sensors and ends the live find — the same result as having run the find with `static`, for when you would rather walk around and look first. A sensor you have separately tracked with **K** and then disabled stays hidden even when a live find selects it too.
+
+How many sensors one find may draw is capped (32 by default) so a large radius in a busy world cannot ask for an unbounded amount of work; the command says so when it truncates.
 
 ### Mode C — detection indicator
 
@@ -26,7 +45,7 @@ This mode answers “am I detected?” without drawing a shell. It only knows ab
 
 ### Settings
 
-Sculk Sight has an in-game settings screen with a **Shell opacity** slider, a **Mode** choice (Union or Split) for multi-sensor rendering, **Global render**/**Delay overlay**/**Detection indicator** toggles, and a bounded **Tracked sensors** list whose compact sensor cards keep identity, naming, enabled state, and removal together. Settings are saved between sessions in `config/sculksight.json`.
+Sculk Sight has an in-game settings screen with a **Shell opacity** slider, a **Mode** choice (Union or Split) for multi-sensor rendering, **Global render**/**Delay overlay**/**Detection indicator** toggles, and a bounded **Tracked sensors** list whose compact sensor cards keep identity, naming, enabled state, and removal together. While a `live` find is running, a **Live find** section lists its current selection below the tracked sensors, with a per-sensor **Shown** toggle and a **Pin all** button. Settings are saved between sessions in `config/sculksight.json`; the live-find section is session-only and saves nothing until you pin it.
 
 - Press **B** (rebindable) to open the settings screen directly from gameplay, on either loader.
 - On **NeoForge**, you can also open the mod’s configuration from the Mods screen.
@@ -80,7 +99,7 @@ Built jars are written to `fabric/build/libs/` and `neoforge/build/libs/`.
 
 ## Known limitations
 
-- Mode A tracks at most eight sensors at once (`MAX_TRACKED_SENSORS`); tracking a ninth is refused rather than replacing an existing one.
+- The tracked-sensor list holds at most 32 sensors (`MAX_TRACKED_SENSORS`); tracking one more is refused rather than replacing an existing one, and a `static` find that selects more than will fit says how many it had to leave out.
 - The delay overlay (**H**) shows travel-delay labels for only the first enabled tracked sensor, even when several are tracked and enabled at once.
 - Mode C reports whether any indexed, loaded sensor can detect you; it does not identify a particular sensor.
 - The released mod is client-only. Development-only verification commands are not included in normal production use.

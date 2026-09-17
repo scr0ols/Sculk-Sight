@@ -45,8 +45,25 @@ public record SculkSightConfig(int shellOpacityPercent, RenderPolicy renderPolic
 	/** ADR-051's fixed default: union, not per-sensor. */
 	public static final RenderPolicy DEFAULT_RENDER_POLICY = RenderPolicy.UNION;
 
-	/** Safety bound for selection, solving, and the union mesh. */
-	public static final int MAX_TRACKED_SENSORS = 8;
+	/**
+	 * Safety bound for selection, solving, and the union mesh.
+	 *
+	 * <p><b>Was 8 until 2026-09-17, and raised to match {@link #DEFAULT_RADIUS_AUDIT_CAP} when
+	 * {@code /sculksight find ... static} gave the audit a way to write into this list.</b> A static
+	 * find pins what it selected, and the audit's own cap already bounds that at 32 - so a list
+	 * capped at 8 would have silently dropped most of a typical find, which is the one thing the
+	 * feature exists to avoid. Raising it makes "a full find always fits" true by construction
+	 * rather than by the player happening to search a sparse area.
+	 *
+	 * <p><b>8 was not load-bearing for rendering by the time it moved</b>, which is what made this
+	 * safe rather than hopeful. It predates mode B: the renderer already drew a 27-sensor selection
+	 * through {@code ShellRenderer}'s per-tick solve budget and per-sensor cache, and the 2026-09-17
+	 * live run measured that union's draw at mean 0.005-0.028 ms against a 0.5 ms budget, with 0-2
+	 * frames over it across roughly 2000 sampled frames. The real bound on how much is solved and
+	 * drawn is that budget plus {@link #radiusAuditCap}, not this number; this one bounds how much a
+	 * player may curate by hand and how large the settings screen's own list may grow.
+	 */
+	public static final int MAX_TRACKED_SENSORS = 32;
 
 	/**
 	 * ARCHITECTURE.md section 12.4's cap, enforced in {@code RadiusAudit} before anything is solved

@@ -14,7 +14,7 @@ import com.scr0ols.sculksight.client.SensorKey;
  *
  * <p><b>Layer 1, like {@link com.scr0ols.sculksight.solver.SensorDetector}.</b> This class takes
  * sensor positions as plain integers, the way that one does, so the whole of "which sensors does
- * {@code /sculksight radius 64} mean" is reachable from a plain JVM test with no {@code
+ * {@code /sculksight find all 64 live} mean" is reachable from a plain JVM test with no {@code
  * ClientLevel} anywhere. The conversion from {@link com.scr0ols.sculksight.client.SensorIndex}'s
  * snapshot into {@link AuditedSensor} is the client-side half section 12.1 calls "trivial by
  * construction" and does not ask to be unit-tested.
@@ -52,8 +52,9 @@ public final class RadiusAudit {
 	 * for {@link com.scr0ols.sculksight.solver.SensorDetector#isInRange}: a sensor at exactly
 	 * {@code distance == radius} qualifies.
 	 *
-	 * <p>An absent {@link RadiusAuditRequest#detector()} means every type, matching {@link
-	 * RadiusAuditRequest}'s own javadoc for the omitted argument.
+	 * <p>An absent {@link RadiusAuditRequest#detector()} means every type - it is what the
+	 * {@code all} argument parses to, not a missing value; see {@link RadiusAuditRequest}'s own
+	 * javadoc.
 	 *
 	 * <p><b>The defined order is nearest-first</b>, by squared distance from the centre, with a
 	 * position-coordinate tie-break so two sensors at the same distance still sort the same way on
