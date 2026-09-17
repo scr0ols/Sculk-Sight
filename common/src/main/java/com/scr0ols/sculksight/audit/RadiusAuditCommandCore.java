@@ -18,12 +18,18 @@ import com.scr0ols.sculksight.audit.RadiusAudit.AuditedSensor;
  * {@code common/src/main} rather than {@code common/src/client} and therefore inside the reach of
  * the JUnit suite.
  *
- * <p><b>What this still does not do.</b> The async solve, the per-sensor cache and the per-tick
- * budget remain later work; section 12.5 lists what this module does not own. The centre position,
- * the candidate set and the configured cap itself are built by the client-side caller (section
- * 12.1's "trivial by construction" half, reading {@code SensorIndex} and {@code ClientConfig}),
- * never by this class - which is also why the cap arrives here as a plain {@code int} rather than
- * this class naming the config type.
+ * <p><b>What this still does not do.</b> The async solve itself is unchanged from mode A's own
+ * (ARCHITECTURE.md section 6.2); section 12.5 lists what this module never owns. The centre
+ * position, the candidate set and the configured cap itself are built by the client-side caller
+ * (section 12.1's "trivial by construction" half, reading {@code SensorIndex} and
+ * {@code ClientConfig}), never by this class - which is also why the cap arrives here as a plain
+ * {@code int} rather than this class naming the config type.
+ *
+ * <p><b>A successful run activates {@link RadiusAuditController}</b>, so the renderer keeps
+ * re-selecting against the player's current position every tick rather than this one invocation
+ * being a one-off report. The per-sensor cache and the per-tick population budget that makes a
+ * large, continuously-refreshed selection affordable live in {@code ShellRenderer} (client
+ * source set), reusing {@code ShellEntry} exactly as ARCHITECTURE.md section 12.3 describes.
  */
 public final class RadiusAuditCommandCore {
 
@@ -66,6 +72,10 @@ public final class RadiusAuditCommandCore {
 
 		RadiusAudit.CappedSelection selection =
 				RadiusAudit.selectWithCap(centreX, centreY, centreZ, request, candidates, cap);
+
+		// A successful audit becomes the active one: the renderer re-runs this same selection
+		// every tick against the player's current position, per RadiusAuditController's javadoc.
+		RadiusAuditController.activate(request);
 
 		report.accept("Radius audit accepted: " + request.describe() + ".");
 		report.accept(describeSelection(selection.selected().size()));

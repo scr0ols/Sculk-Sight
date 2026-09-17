@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import com.scr0ols.sculksight.audit.RadiusAudit.AuditedSensor;
@@ -27,6 +28,12 @@ class RadiusAuditCommandCoreTest {
 
 	/** Generous enough that none of the tests not concerned with the cap ever reach it. */
 	private static final int GENEROUS_CAP = 100;
+
+	/** A successful run activates RadiusAuditController; it is global state, so tests do not leak into each other. */
+	@AfterEach
+	void clearActiveAudit() {
+		RadiusAuditController.clear();
+	}
 
 	@Test
 	void acceptedArgumentsSucceedAndSayWhatWasUnderstood() {

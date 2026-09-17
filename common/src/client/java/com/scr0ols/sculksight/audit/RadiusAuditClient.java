@@ -64,8 +64,12 @@ public final class RadiusAuditClient {
 	 * already reads it - the seam ARCHITECTURE.md section 12.3 names as already matching this
 	 * shape. A position that no longer classifies - the block changed since indexing, and this
 	 * loader's reconciliation has not caught up yet - is skipped rather than guessed at.
+	 *
+	 * <p><b>Public</b> so {@code ShellRenderer} can build the same candidate set when a radius
+	 * audit is active, rather than this class and that one each reading {@code SensorIndex}
+	 * differently.
 	 */
-	private static List<AuditedSensor> candidatesFrom(ClientLevel level) {
+	public static List<AuditedSensor> candidatesFrom(ClientLevel level) {
 		List<AuditedSensor> candidates = new ArrayList<>();
 
 		for (Map.Entry<BlockPos, Integer> sensor : SensorIndex.snapshot().entrySet()) {
