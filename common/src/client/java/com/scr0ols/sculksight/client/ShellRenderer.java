@@ -3,9 +3,12 @@ package com.scr0ols.sculksight.client;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import com.mojang.blaze3d.PrimitiveTopology;
 import com.mojang.blaze3d.buffers.GpuBuffer;
@@ -23,6 +26,7 @@ import com.mojang.blaze3d.vertex.MeshData;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.DynamicUniforms;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.culling.Frustum;
@@ -43,6 +47,11 @@ import org.joml.Vector4f;
 import org.jspecify.annotations.Nullable;
 
 import com.scr0ols.sculksight.SculkSight;
+import com.scr0ols.sculksight.audit.RadiusAudit;
+import com.scr0ols.sculksight.audit.RadiusAudit.AuditedSensor;
+import com.scr0ols.sculksight.audit.RadiusAuditClient;
+import com.scr0ols.sculksight.audit.RadiusAuditController;
+import com.scr0ols.sculksight.audit.RadiusAuditRequest;
 import com.scr0ols.sculksight.config.ClientConfig;
 import com.scr0ols.sculksight.config.SculkSightConfig;
 import com.scr0ols.sculksight.config.TrackedSensor;
@@ -94,6 +103,16 @@ import com.scr0ols.sculksight.solver.WorldDetectionSet;
  * single builder shared across solves would be written by the worker while the render thread frees
  * results from it - a native-memory race, not merely a stale read. {@link ShellSolveResult} is the
  * pair's shape and DECISIONS.md ADR-048 is the decision.
+ *
+ * <p><b>Mode B feeds the same {@link #entries} cache, ARCHITECTURE.md section 12.3.</b>
+ * {@link #syncEntries} now reconciles two sources - {@code ClientConfig.trackedSensors()} and, if
+ * one is active, {@link RadiusAuditController}'s selection - against the same per-sensor cache,
+ * keeping an unchanged entry's buffer untouched rather than rebuilding the whole set on any
+ * change (ARCHITECTURE.md section 12.3). {@link #dispatchBudgetedSolves} then bounds how many of
+ * those new or changed entries a single tick may snapshot and dispatch (section 12.4's per-tick
+ * budget), so a full recompute at mode B's scale (20+ sensors) spends that client-thread cost
+ * over several ticks instead of stalling one; every other current entry keeps drawing what it
+ * already has and still folds into a rebuilt union unchanged.
  *
  * <p><b>Loader-neutral since DECISIONS.md ADR-043's follow-up split.</b> {@link #ACTIVATE_KEY} is
  * constructed here but not registered - vanilla's {@code KeyMapping} constructor touches no
@@ -158,6 +177,28 @@ public final class ShellRenderer {
 
 	private static final Map<SensorKey, ShellEntry> entries = new LinkedHashMap<>();
 
+	/**
+	 * Section 12.4's per-tick budget, applied to whichever entries are new or changed this tick -
+	 * tracked-sensor activations and mode B's audited selection both go through this same queue.
+	 * Only the client-thread snapshot phase of {@link #runSolves} is what this bounds per tick
+	 * (ARCHITECTURE.md section 6.2's fourth phase); an entry already solved keeps drawing its
+	 * existing buffer and is never re-queued just because something else changed (section 12.3's
+	 * per-sensor cache).
+	 *
+	 * <p>Not yet measured against a live scene - {@code TESTING-STRATEGY.md} section 4's profiling
+	 * pass is where this constant should be revisited, the same way {@code ADR-036} treats the
+	 * tier budgets themselves.
+	 */
+	private static final int PER_TICK_AUDIT_SOLVE_BUDGET = 4;
+
+	/**
+	 * Keys in {@link #entries} whose current {@link ShellEntry} has never been solved (or just
+	 * replaced one that was), waiting for a future tick's share of {@link #PER_TICK_AUDIT_SOLVE_BUDGET}.
+	 * A {@link LinkedHashSet} rather than a queue so a key changing twice before its turn comes up
+	 * is only ever solved once, for whichever entry is current when that happens.
+	 */
+	private static final Set<SensorKey> pendingSolve = new LinkedHashSet<>();
+
 	private static @Nullable ShellEntry unionEntry;
 
 	private static boolean renderingEnabled = true;
@@ -186,6 +227,27 @@ public final class ShellRenderer {
 	 * second addendum, which is the run that showed it).
 	 */
 	private static long lastFlushNanos;
+
+	/**
+	 * Set when {@link #reconcileEntries} drops an entry, so the shared union mesh is re-encoded
+	 * without that entry's contribution even though no <em>new</em> entry needs solving.
+	 *
+	 * <p><b>Without this the union would keep drawing a sensor that is no longer selected.</b>
+	 * {@link #dispatchBudgetedSolves} is the only thing that ever re-encodes the union, and it used
+	 * to run only when {@link #pendingSolve} was non-empty - which a pure removal never makes it.
+	 * That gap was invisible for as long as every per-sensor settings change called
+	 * {@link #onConfigChanged} and cleared the whole cache, because a wholesale rebuild always
+	 * re-encoded the union on the way back. Dropping that clear (it re-solved every selected sensor
+	 * over several ticks for a change that only ever removed one, which is the flicker the author
+	 * reported on 2026-09-17) is what makes this flag load-bearing rather than redundant.
+	 *
+	 * <p>Only {@link RenderPolicy#UNION} actually reads a shared mesh, but the flag is set
+	 * regardless of policy: a dispatch with nothing to solve costs one worker hand-off that the
+	 * per-sensor branch of {@link #solveAndEncode} iterates zero times, and not tracking the policy
+	 * here keeps the invalidation rule independent of a setting the player can change between the
+	 * removal and the dispatch.
+	 */
+	private static boolean unionNeedsRebuild;
 
 	private ShellRenderer() {
 	}
@@ -301,11 +363,12 @@ public final class ShellRenderer {
 			entry.close();
 		}
 		entries.clear();
+		pendingSolve.clear();
+		unionNeedsRebuild = false;
 		if (unionEntry != null) {
 			unionEntry.close();
 			unionEntry = null;
 		}
-		solveGeneration++;
 
 		// The shell going away is the natural end of a tier 3 sample run: the frames it covers are
 		// exactly the frames this shell was drawn for (DECISIONS.md ADR-031).
@@ -348,9 +411,21 @@ public final class ShellRenderer {
 	 * The player saved new settings: forget the style built from the old ones, and drop the cached
 	 * shell that was encoded at the old alpha.
 	 *
-	 * <p>Called from the config screen's own save, which runs on the client thread - also the
-	 * render thread (R13 point 4), which is what makes closing this entry's GPU resources legal
-	 * here, exactly as in {@link #onLevelChanged()}.
+	 * <p>Called from the config screen, which runs on the client thread - also the render thread
+	 * (R13 point 4), which is what makes closing this entry's GPU resources legal here, exactly as
+	 * in {@link #onLevelChanged()}.
+	 *
+	 * <p><b>Only by the two controls that actually invalidate an encoded mesh</b>, since
+	 * 2026-09-17: the opacity slider (the mesh carries the encoded alpha, which is this method's
+	 * whole subject) and the render-policy button (union and per-sensor meshes are encoded against
+	 * different origins and cannot be reinterpreted as each other). The per-sensor controls -
+	 * rename, the enabled toggle, remove - used to call it too, and that was the flicker the author
+	 * reported: each click dropped every selected sensor's buffer, and {@link
+	 * #dispatchBudgetedSolves} then re-solved the whole selection at
+	 * {@link #PER_TICK_AUDIT_SOLVE_BUDGET} sensors per tick, so a 27-sensor audit visibly rebuilt
+	 * itself over seven ticks in answer to a change that removed one shell. None of those three
+	 * changes what a mesh was encoded at, and {@link #syncEntries} already reconciles the selection
+	 * they do change on the very next tick, per-sensor cache intact ({@link #reconcileEntries}).
 	 *
 	 * <p><b>Dropping rather than re-modulating is the deliberate choice</b>, and dropping is all
 	 * this method does: the shell disappears on save and comes back on the player's next keypress.
@@ -379,6 +454,7 @@ public final class ShellRenderer {
 	 */
 	public static void onLevelChanged() {
 		clearRenderCaches();
+		RadiusAuditController.clear();
 	}
 
 	/**
@@ -402,54 +478,216 @@ public final class ShellRenderer {
 			VolumeSnapshot snapshot, long snapshotNanos, ShellStyle shellStyle) {
 	}
 
-	/** Reconciles persisted selections with live detector block entities and dispatches a new batch. */
+	/**
+	 * One already-solved entry's contribution to a rebuilt union, captured on the client thread
+	 * (ARCHITECTURE.md section 12.3's per-sensor cache) so {@link #solveAndEncode} does not have to
+	 * re-solve an entry just because some other entry changed. {@code set} is read from
+	 * {@link ShellEntry#set()}, which is {@code volatile} precisely so a thread other than the one
+	 * that solved it - here, the worker rebuilding the union - may read it safely.
+	 */
+	private record CachedContribution(DetectionSet set, int occludedOut, SensorKey sensor, DetectorType detector) {
+	}
+
+	/**
+	 * Reconciles both entry sources - the tracked-sensor list and, if one is active, mode B's
+	 * radius audit (ARCHITECTURE.md section 12.3) - against live detector block entities, then
+	 * dispatches whatever share of this tick's budget the result leaves pending.
+	 */
 	private static void syncEntries(Minecraft client) {
 		if (!renderingEnabled || client.level == null) {
 			return;
 		}
 
+		Map<SensorKey, ShellEntry> desired = desiredTrackedEntries(client.level);
+		mergeAuditedEntries(client, desired);
+
+		reconcileEntries(desired);
+
+		if (!pendingSolve.isEmpty() || unionNeedsRebuild) {
+			dispatchBudgetedSolves(client.level);
+		}
+	}
+
+	/** The player-curated half of {@code desired}: {@code ClientConfig.trackedSensors()}, live-checked. */
+	private static Map<SensorKey, ShellEntry> desiredTrackedEntries(ClientLevel level) {
 		Map<SensorKey, ShellEntry> desired = new LinkedHashMap<>();
 		for (TrackedSensor tracked : ClientConfig.get().trackedSensors()) {
 			if (!tracked.enabled()) {
 				continue;
 			}
 			BlockPos pos = new BlockPos(tracked.x(), tracked.y(), tracked.z());
-			BlockEntity blockEntity = client.level.getBlockEntity(pos);
+			BlockEntity blockEntity = level.getBlockEntity(pos);
 			if (!(blockEntity instanceof GameEventListener.Provider<?> provider)) {
 				continue;
 			}
-			Optional<DetectorType> detector = DetectorType.of(client.level.getBlockState(pos).getBlock());
+			Optional<DetectorType> detector = DetectorType.of(level.getBlockState(pos).getBlock());
 			if (detector.isEmpty()) {
 				continue;
 			}
 			SensorKey key = SensorKey.of(pos);
 			desired.put(key, new ShellEntry(key, provider.getListener().getListenerRadius(), detector.orElseThrow()));
 		}
+		return desired;
+	}
 
-		if (sameEntries(desired)) {
+	/**
+	 * Mode B's half: if {@link RadiusAuditController} has an active request, re-runs it against
+	 * the player's current position and adds its selection to {@code desired} - ARCHITECTURE.md
+	 * section 12.3's seam, "the audit's result is a set of entries like any other". A key the
+	 * tracked list already claimed wins the collision, since it is the more deliberate of the two.
+	 *
+	 * <p><b>A position the player explicitly disabled in the tracked-sensor menu stays hidden</b>,
+	 * even though {@link #desiredTrackedEntries} already left it out of {@code desired} (a
+	 * disabled entry is simply skipped there, which only says "the tracked list is not asking for
+	 * this one" - it says nothing about the audit). Without this check, disabling a sensor that an
+	 * active audit also selects only removed it for as long as it took the very same tick's audit
+	 * half to add it straight back, which read as the toggle flashing off and immediately on again.
+	 *
+	 * <p><b>So does a position the player hid in the settings screen's own audit section</b>, which
+	 * is the far commoner case and the one the check above does not reach. An audited position is
+	 * not in the tracked list at all, so it has no {@code enabled} flag to clear - hiding it is
+	 * {@link RadiusAuditController#setHidden}'s session-only set instead, and this is where that set
+	 * takes effect. Until it existed there was no way at all to switch off one render out of an
+	 * audit's selection: the tracked list's own toggles could only reach the handful of positions
+	 * the player had separately pressed K on, which on a 27-sensor audit was every render but the
+	 * ones on screen (the 2026-09-17 report, whose logs show `skippedAsHidden=0` against five
+	 * disabled tracked sensors - the two sets were disjoint).
+	 *
+	 * <p><b>Publishes the selection before filtering it.</b> The settings screen lists what the
+	 * audit picked, hidden entries included, because a hidden entry still needs a row to carry the
+	 * control that brings it back - see {@link RadiusAuditController#publishSelection}.
+	 */
+	private static void mergeAuditedEntries(Minecraft client, Map<SensorKey, ShellEntry> desired) {
+		RadiusAuditRequest request = RadiusAuditController.activeRequest();
+		LocalPlayer player = client.player;
+		if (request == null || player == null) {
 			return;
 		}
-		clearRenderCaches();
-		entries.putAll(desired);
-		if (!entries.isEmpty()) {
-			unionEntry = new ShellEntry(entries.values().iterator().next().sensor(), 0,
-					DetectorType.NORMAL_SENSOR);
-			runSolves(client.level);
+
+		Set<SensorKey> explicitlyHidden = explicitlyDisabledTrackedKeys();
+		BlockPos centre = player.blockPosition();
+		List<AuditedSensor> candidates = RadiusAuditClient.candidatesFrom(client.level);
+		RadiusAudit.CappedSelection selection = RadiusAudit.selectWithCap(
+				centre.getX(), centre.getY(), centre.getZ(), request, candidates,
+				ClientConfig.get().radiusAuditCap());
+
+		RadiusAuditController.publishSelection(selection.selected());
+
+		for (AuditedSensor sensor : selection.selected()) {
+			if (explicitlyHidden.contains(sensor.position())
+					|| RadiusAuditController.isHidden(sensor.position())) {
+				continue;
+			}
+			desired.putIfAbsent(sensor.position(),
+					new ShellEntry(sensor.position(), sensor.listenerRadius(), sensor.type()));
 		}
 	}
 
-	private static boolean sameEntries(Map<SensorKey, ShellEntry> desired) {
-		if (!entries.keySet().equals(desired.keySet())) {
-			return false;
-		}
-		for (SensorKey key : desired.keySet()) {
-			ShellEntry current = entries.get(key);
-			ShellEntry next = desired.get(key);
-			if (current.radius() != next.radius() || current.detector() != next.detector()) {
-				return false;
+	/** Positions the tracked-sensor list itself holds with {@code enabled() == false}. */
+	private static Set<SensorKey> explicitlyDisabledTrackedKeys() {
+		Set<SensorKey> hidden = new LinkedHashSet<>();
+		for (TrackedSensor tracked : ClientConfig.get().trackedSensors()) {
+			if (!tracked.enabled()) {
+				hidden.add(new SensorKey(tracked.x(), tracked.y(), tracked.z()));
 			}
 		}
-		return true;
+		return hidden;
+	}
+
+	/**
+	 * Diffs {@code desired} against {@link #entries} in place. An entry whose radius and detector
+	 * are unchanged is left exactly as it is - untouched buffer, untouched cache, no re-queue -
+	 * which is the whole of ARCHITECTURE.md section 12.3's per-sensor cache. Only new or changed
+	 * keys join {@link #pendingSolve}; keys no longer desired are closed and dropped, per
+	 * ARCHITECTURE.md section 5's rule 2 - which also marks the shared union stale, since a removal
+	 * changes what the union should contain without putting anything on {@link #pendingSolve}
+	 * ({@link #unionNeedsRebuild}).
+	 */
+	private static void reconcileEntries(Map<SensorKey, ShellEntry> desired) {
+		for (Iterator<Map.Entry<SensorKey, ShellEntry>> iterator = entries.entrySet().iterator();
+				iterator.hasNext();) {
+			Map.Entry<SensorKey, ShellEntry> current = iterator.next();
+			if (!desired.containsKey(current.getKey())) {
+				current.getValue().close();
+				iterator.remove();
+				unionNeedsRebuild = true;
+			}
+		}
+
+		for (Map.Entry<SensorKey, ShellEntry> wanted : desired.entrySet()) {
+			ShellEntry current = entries.get(wanted.getKey());
+			ShellEntry spec = wanted.getValue();
+			if (current != null && current.radius() == spec.radius() && current.detector() == spec.detector()) {
+				continue;
+			}
+			if (current != null) {
+				current.close();
+			}
+			entries.put(wanted.getKey(), spec);
+			pendingSolve.add(wanted.getKey());
+		}
+
+		if (entries.isEmpty()) {
+			if (unionEntry != null) {
+				unionEntry.close();
+				unionEntry = null;
+			}
+			pendingSolve.clear();
+			// Nothing left to encode a union from, and no union entry to encode into: the removal
+			// that set this has already been answered by dropping the entry outright.
+			unionNeedsRebuild = false;
+			flushFrames();
+			lastFlushNanos = 0L;
+		} else if (unionEntry == null) {
+			unionEntry = new ShellEntry(entries.values().iterator().next().sensor(), 0,
+					DetectorType.NORMAL_SENSOR);
+		}
+	}
+
+	/**
+	 * Section 12.4's per-tick budget: takes at most {@link #PER_TICK_AUDIT_SOLVE_BUDGET} keys off
+	 * {@link #pendingSolve} and dispatches only those, so a full recompute at mode B's scale (20+
+	 * sensors) spends the client-thread snapshot cost of a handful of entries per tick rather than
+	 * all of them in the one tick the selection changed. Every other current entry - already
+	 * solved or still queued for a later tick - is left alone and, if already solved, still folds
+	 * into a rebuilt union through {@link CachedContribution}, at no re-solve cost.
+	 *
+	 * <p><b>Also runs with nothing to solve at all</b>, when {@link #unionNeedsRebuild} says an
+	 * entry was dropped: {@code toSolve} is then empty, every surviving entry arrives as a
+	 * {@link CachedContribution}, and {@link #solveAndEncode} re-encodes the union from those alone
+	 * - no snapshot, no solve, no ray cast. That is the cheap half of what the removed
+	 * {@link #onConfigChanged} call used to achieve by re-solving everything.
+	 */
+	private static void dispatchBudgetedSolves(ClientLevel level) {
+		List<ShellEntry> toSolve = new ArrayList<>();
+		Iterator<SensorKey> queued = pendingSolve.iterator();
+		while (queued.hasNext() && toSolve.size() < PER_TICK_AUDIT_SOLVE_BUDGET) {
+			SensorKey key = queued.next();
+			queued.remove();
+			ShellEntry entry = entries.get(key);
+			// A key can outlive its turn in the queue if the entry it named was replaced or
+			// dropped by a later reconcile before this tick's budget reached it.
+			if (entry != null) {
+				toSolve.add(entry);
+			}
+		}
+
+		if (toSolve.isEmpty() && !unionNeedsRebuild) {
+			return;
+		}
+
+		// Cleared whether or not this dispatch is the one that was queued for the rebuild: either
+		// way the union about to be encoded is built from the current entry set.
+		unionNeedsRebuild = false;
+
+		List<ShellEntry> alreadySolved = new ArrayList<>();
+		for (ShellEntry entry : entries.values()) {
+			if (!toSolve.contains(entry)) {
+				alreadySolved.add(entry);
+			}
+		}
+
+		runSolves(level, toSolve, alreadySolved);
 	}
 
 	/**
@@ -470,21 +708,39 @@ public final class ShellRenderer {
 	 * race with no happens-before edge - OPEN-QUESTIONS.md section 22.1. Capturing it beside the
 	 * snapshot means the instance the worker encodes at is the instance that was current when the
 	 * solve was dispatched, by construction rather than by timing.
+	 *
+	 * <p><b>{@code toSolve} is only this tick's budgeted share</b> ({@link #dispatchBudgetedSolves}),
+	 * not necessarily every current entry, so {@link #solveGeneration} is bumped here rather than
+	 * on a full clear - each dispatch needs its own strictly-increasing revision or
+	 * {@link ShellUploadSlot#offer} would reject every batch after the first as stale
+	 * (ShellUploadSlot's own javadoc). {@code alreadySolved} carries every other current entry
+	 * so a union rebuild reflects the whole selection, not only what this call is solving; entries
+	 * that have never been solved yet (still queued) are simply absent from the union until their
+	 * own turn comes.
 	 */
-	private static void runSolves(ClientLevel level) {
-		long generation = solveGeneration;
+	private static void runSolves(ClientLevel level, List<ShellEntry> toSolve, List<ShellEntry> alreadySolved) {
+		long generation = ++solveGeneration;
 		List<PendingSolve> pending = new ArrayList<>();
-		for (ShellEntry target : entries.values()) {
+		for (ShellEntry target : toSolve) {
 			SensorKey sensor = target.sensor();
 			long snapshotStart = TierTiming.start();
 			VolumeSnapshot snapshot = VolumeSnapshot.of(level, sensor.x(), sensor.y(), sensor.z(), target.radius());
 			pending.add(new PendingSolve(target, sensor, target.radius(), snapshot,
 					TierTiming.since(snapshotStart), style(target.detector())));
 		}
+
+		List<CachedContribution> cached = new ArrayList<>();
+		for (ShellEntry entry : alreadySolved) {
+			DetectionSet set = entry.set();
+			if (set != null) {
+				cached.add(new CachedContribution(set, entry.occludedOut(), entry.sensor(), entry.detector()));
+			}
+		}
+
 		ShellStyle unionStyle = style(DetectorType.NORMAL_SENSOR);
 		ShellEntry unionTarget = unionEntry;
 		RenderPolicy policy = ClientConfig.get().renderPolicy();
-		WORKER.execute(() -> solveAndEncode(generation, pending, policy, unionTarget, unionStyle));
+		WORKER.execute(() -> solveAndEncode(generation, pending, policy, unionTarget, unionStyle, cached));
 	}
 
 	/**
@@ -512,11 +768,16 @@ public final class ShellRenderer {
 	 * {@link #style} deliberately: the field is not reachable from this body by name, which is
 	 * OPEN-QUESTIONS.md section 22.1's fix made structural rather than remembered.
 	 *
+	 * <p><b>{@code cached} is this tick's other entries, folded into the union unchanged.</b> Each
+	 * one already carries a solved {@link DetectionSet} from a previous dispatch
+	 * (ARCHITECTURE.md section 12.3's per-sensor cache); merging its bitset back in costs one
+	 * iteration over its own accepted positions, not a re-solve.
+	 *
 	 * @param style the union appearance captured on the client thread in {@link #runSolves}, and the same
 	 *        instance the draw will modulate against - never re-read from the field here
 	 */
 	private static void solveAndEncode(long generation, List<PendingSolve> pending,
-			RenderPolicy policy, ShellEntry unionTarget, ShellStyle style) {
+			RenderPolicy policy, ShellEntry unionTarget, ShellStyle style, List<CachedContribution> cached) {
 		long encodeStart = TierTiming.start();
 		WorldDetectionSet union = new WorldDetectionSet();
 		List<ShellSolution> solutions = new ArrayList<>();
@@ -528,14 +789,25 @@ public final class ShellRenderer {
 			union.add(solution.accepted(), solve.sensor().x(), solve.sensor().y(), solve.sensor().z(),
 					solve.target().detector());
 		}
+		for (CachedContribution contribution : cached) {
+			union.add(contribution.set(), contribution.sensor().x(), contribution.sensor().y(),
+					contribution.sensor().z(), contribution.detector());
+		}
 
 		long encodeNanos = TierTiming.since(encodeStart);
 		if (policy == RenderPolicy.UNION) {
-			if (unionTarget == null || pending.isEmpty()) {
+			if (unionTarget == null || (pending.isEmpty() && cached.isEmpty())) {
 				return;
 			}
 			ShellEntry target = unionTarget;
-			SensorKey origin = pending.getFirst().sensor();
+			// The mesh's vertex origin must be target.sensor() and nothing else: draw() always
+			// translates by target.sensor() (fixed for the union entry's whole lifetime, set once
+			// in reconcileEntries), so encoding relative to any other point - such as whichever
+			// entry happened to be first in this particular incremental batch - drew the shell
+			// offset by the difference between the two the moment a later, budgeted dispatch's
+			// first entry differed from the first entry overall. That mismatch is what the author
+			// saw as the union rendering centred on the player rather than on the sensors.
+			SensorKey origin = target.sensor();
 			target.setWorldSolution(union);
 			ByteBufferBuilder storage = new ByteBufferBuilder(INITIAL_STORAGE_BYTES);
 			MeshData mesh = ShellMeshBuilder.build(union, origin.x(), origin.y(), origin.z(),
@@ -545,7 +817,8 @@ public final class ShellRenderer {
 				return;
 			}
 			int faces = ShellMeshBuilder.countBoundaryFaces(union);
-			int occluded = solutions.stream().mapToInt(solution -> solution.occludedOut().size()).sum();
+			int occluded = solutions.stream().mapToInt(solution -> solution.occludedOut().size()).sum()
+					+ cached.stream().mapToInt(CachedContribution::occludedOut).sum();
 			target.slot().offer(generation, new ShellSolveResult(mesh, storage,
 					new ShellStats(0, union.size(), occluded, faces), 0L, encodeNanos));
 			return;

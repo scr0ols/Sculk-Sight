@@ -11,6 +11,9 @@ import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 
+import com.scr0ols.sculksight.audit.AuditPin;
+import com.scr0ols.sculksight.audit.RadiusAuditController;
+import com.scr0ols.sculksight.client.SensorKey;
 import com.scr0ols.sculksight.client.ShellRenderer;
 
 /**
@@ -23,13 +26,19 @@ import com.scr0ols.sculksight.client.ShellRenderer;
  * UX problem in its own right (a rename or a removal a player just clicked did not visibly happen
  * until they found and pressed Save), so the replacement removes both the dependency and the
  * batching at once: {@link SettingsScreen} is a hand-rolled vanilla {@link Screen}, and every
- * action below applies to {@link ClientConfig} - and asks {@link ShellRenderer#onConfigChanged()}
- * to forget the old style - the instant it runs, not on some later save.
+ * action below applies to {@link ClientConfig} the instant it runs, not on some later save.
+ *
+ * <p><b>Two of the actions below also drop the renderer's cache, and the rest deliberately do
+ * not.</b> {@link ShellRenderer#onConfigChanged()} forgets the cached style and every encoded mesh
+ * with it, which is what the opacity slider and the render-policy button need and what nothing else
+ * here does: the renderer's own per-tick reconcile already notices a changed selection without
+ * being told. Calling it from the per-sensor actions too - as this class did until 2026-09-17 - is
+ * what made one click re-solve an entire radius audit; that method's javadoc carries the detail.
  *
  * <p><b>Loader-independent, and in {@code common}'s client source set for that reason.</b> Nothing
  * here names a Cloth or ModMenu type, but the class still lives beside the vanilla {@code Screen}
  * types it does name, which are identical across both loaders' own Minecraft artifacts - so each
- * loader module recompiles this file (and {@link SettingsScreen}, {@link TrackedSensorListWidget})
+ * loader module recompiles this file (and {@link SettingsScreen}, {@link SensorListWidget})
  * against its own Minecraft jar the same way it already recompiles the rest of {@code common}. What
  * is per loader is only how the screen is reached: a ModMenu entrypoint on Fabric, an
  * {@code IConfigScreenFactory} extension point on NeoForge - both untouched by this change, since
@@ -122,10 +131,56 @@ public final class ConfigScreens {
 		replaceSensor(live, current.withEnabled(enabled));
 	}
 
+	/**
+	 * Shows or hides one sensor the active radius audit selected - the audit section's equivalent of
+	 * {@link #setSensorEnabled} above, and the only way to switch off a single audited render.
+	 *
+	 * <p><b>Writes no config and saves nothing</b>, unlike every other action on this class. A live
+	 * find's position is not in {@code ClientConfig.trackedSensors()} - a live find is a query, not
+	 * a curated list - so there is no persisted entry to carry an {@code enabled} flag, and
+	 * manufacturing one would make looking at an area rewrite {@code config/sculksight.json}.
+	 * {@link RadiusAuditController#setHidden} holds it for the session instead, exactly as the three
+	 * keybind toggles on {@link SettingsScreen}'s own header row hold theirs. {@link
+	 * #pinAuditSelection} is how a player asks for the persisted form instead.
+	 *
+	 * <p>No {@link ShellRenderer#onConfigChanged()} either, and for the reason that method's own
+	 * javadoc now gives: nothing here invalidates an encoded mesh, and the renderer's next-tick
+	 * reconcile picks the change up on its own.
+	 */
+	static void setAuditSensorHidden(int x, int y, int z, boolean hidden) {
+		RadiusAuditController.setHidden(new SensorKey(x, y, z), hidden);
+	}
+
+	/**
+	 * Promotes the live find's whole current selection into the tracked-sensor list, then ends the
+	 * find - the settings-screen half of what {@code /sculksight find <type> <n> static} does as it
+	 * runs, for a player who wanted to walk around and look first.
+	 *
+	 * <p><b>The find has to end here, not merely be left running.</b> Its sensors are now tracked
+	 * entries, and an audit still re-selecting the same area would draw them a second time by a
+	 * second route - so the settings screen would show one row per sensor while a control the player
+	 * could not see governed an identical shell. {@link RadiusAuditController#clear} is what keeps
+	 * "pinned" and "being audited" mutually exclusive, the same way
+	 * {@code RadiusAuditCommandCore.runStatic} does for the command.
+	 *
+	 * <p>Positions the player hid in the audit section are pinned along with the rest, and
+	 * deliberately: hiding was a visibility choice about a transient query, and the tracked row that
+	 * replaces it carries its own Enabled toggle to express the same thing in a form that persists.
+	 * Hiding something is not asking for it to be forgotten.
+	 *
+	 * @return {@link AuditPin#describe}'s one line about what was pinned, for the caller to show -
+	 *     the identical wording the command reports, since both route through {@link AuditPin}
+	 */
+	static String pinAuditSelection() {
+		AuditPin.Result result = AuditPin.pin(ClientConfig.get(), RadiusAuditController.selection());
+		ClientConfig.set(result.config());
+		RadiusAuditController.clear();
+		return AuditPin.describe(result);
+	}
+
 	/** Removes a tracked sensor immediately - no confirmation, no save button, per the redesign. */
 	static void removeSensor(int x, int y, int z) {
 		ClientConfig.set(ClientConfig.get().untrack(x, y, z));
-		ShellRenderer.onConfigChanged();
 	}
 
 	/** Applies a new shell opacity immediately, the same instant a slider drag changes it. */
@@ -148,7 +203,6 @@ public final class ConfigScreens {
 		}
 
 		ClientConfig.set(live.withTrackedSensors(sensors));
-		ShellRenderer.onConfigChanged();
 	}
 
 	private static @Nullable TrackedSensor findSensor(SculkSightConfig config, int x, int y, int z) {

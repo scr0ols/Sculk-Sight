@@ -76,7 +76,7 @@ public class SculkSightClient implements ClientModInitializer {
 		// sensor index above, independent of ShellRenderer's mode A shell.
 		registerDetectionIndicator();
 
-		// Mode B (PLAN.md section 5, ARCHITECTURE.md section 12): /sculksight radius <n> [type].
+		// Mode B (PLAN.md section 5, ARCHITECTURE.md section 12): /sculksight find <type> <n> <mode>.
 		// A client command, so it resolves locally and works on a vanilla server. Registered
 		// unconditionally, outside the ADR-019 gate below, because it is a player-facing feature
 		// rather than a development mechanism. Only its arguments are implemented so far; the

@@ -22,10 +22,16 @@ import com.scr0ols.sculksight.client.ShellRenderer;
  * <p><b>Layout only, no mutation logic.</b> Every control below calls straight through to one of
  * {@link ConfigScreens}'s static action methods and then refreshes whatever on screen needs to
  * reflect the new state - the render policy button re-labels itself, the opacity slider re-labels
- * itself, and {@link #sensorList} rebuilds its rows from live {@link ClientConfig} state. None of
- * that logic lives here twice; this class only knows where things sit on screen.
+ * itself, and {@link #sensorList} rebuilds its rows from live {@link ClientConfig} and
+ * {@link com.scr0ols.sculksight.audit.RadiusAuditController} state. None of that logic lives here
+ * twice; this class only knows where things sit on screen.
  *
- * <p><b>Header carries the appearance controls, contents carries the tracked-sensors list, footer
+ * <p><b>The sensor list is built once per {@link #init()} and after each of its own clicks, not
+ * every tick.</b> The audit half of it is re-derived by the renderer against the player's position,
+ * which cannot change while this screen has focus - a player reading the list is standing still -
+ * so a per-tick rebuild would churn every row's widgets for a set that is already correct.
+ *
+ * <p><b>Header carries the appearance controls, contents carries the sensor list, footer
  * carries Done</b> - the same {@link HeaderAndFooterLayout} three-band shape vanilla's own
  * {@code OptionsSubScreen}/{@code KeyBindsScreen} use, and for the reason theirs does: a list that
  * fills the space between a fixed header and a fixed footer needs to be told its own height once
@@ -62,7 +68,7 @@ final class SettingsScreen extends Screen {
 
 	private AbstractSliderButton opacitySlider;
 	private CycleButton<RenderPolicy> renderPolicyButton;
-	private TrackedSensorListWidget sensorList;
+	private SensorListWidget sensorList;
 
 	SettingsScreen(Screen parent) {
 		super(Component.translatable("sculksight.config.title"));
@@ -79,7 +85,7 @@ final class SettingsScreen extends Screen {
 		header.addChild(buildOpacitySlider(config.shellOpacityPercent()));
 		buildToggleRow(header, config.renderPolicy());
 
-		sensorList = layout.addToContents(new TrackedSensorListWidget(
+		sensorList = layout.addToContents(new SensorListWidget(
 				minecraft, width, layout.getContentHeight(), layout.getHeaderHeight()));
 
 		layout.addToFooter(Button.builder(Component.translatable("sculksight.config.done"),
@@ -140,7 +146,7 @@ final class SettingsScreen extends Screen {
 	 * ({@link #TOGGLE_BUTTON_WIDTH}) and share the same {@value CONTROL_WIDTH}px total the opacity
 	 * slider above them uses, rather than each getting its own full-width row. Every button keeps
 	 * its full tooltip, matching the Remove button's own short-caption-plus-tooltip pattern in
-	 * {@link TrackedSensorListWidget}.
+	 * {@link SensorListWidget}.
 	 *
 	 * <p>Unlike the opacity slider above, none of the three session toggles are persisted
 	 * {@link SculkSightConfig} settings - they reset to their defaults every session, exactly as they
