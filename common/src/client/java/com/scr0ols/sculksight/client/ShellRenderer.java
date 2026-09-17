@@ -108,9 +108,11 @@ import com.scr0ols.sculksight.solver.WorldDetectionSet;
  * {@link #syncEntries} now reconciles two sources - {@code ClientConfig.trackedSensors()} and, if
  * one is active, {@link RadiusAuditController}'s selection - against the same per-sensor cache,
  * keeping an unchanged entry's buffer untouched rather than rebuilding the whole set on any
- * change (ARCHITECTURE.md section 12.3). {@link #dispatchPendingSolves} is what actually
- * (re)solves the new or changed entries that leaves in {@link #pendingSolve}; every other current
- * entry keeps drawing what it already has and still folds into a rebuilt union unchanged.
+ * change (ARCHITECTURE.md section 12.3). {@link #dispatchBudgetedSolves} then bounds how many of
+ * those new or changed entries a single tick may snapshot and dispatch (section 12.4's per-tick
+ * budget), so a full recompute at mode B's scale (20+ sensors) spends that client-thread cost
+ * over several ticks instead of stalling one; every other current entry keeps drawing what it
+ * already has and still folds into a rebuilt union unchanged.
  *
  * <p><b>Loader-neutral since DECISIONS.md ADR-043's follow-up split.</b> {@link #ACTIVATE_KEY} is
  * constructed here but not registered - vanilla's {@code KeyMapping} constructor touches no
@@ -176,10 +178,24 @@ public final class ShellRenderer {
 	private static final Map<SensorKey, ShellEntry> entries = new LinkedHashMap<>();
 
 	/**
+	 * Section 12.4's per-tick budget, applied to whichever entries are new or changed this tick -
+	 * tracked-sensor activations and mode B's audited selection both go through this same queue.
+	 * Only the client-thread snapshot phase of {@link #runSolves} is what this bounds per tick
+	 * (ARCHITECTURE.md section 6.2's fourth phase); an entry already solved keeps drawing its
+	 * existing buffer and is never re-queued just because something else changed (section 12.3's
+	 * per-sensor cache).
+	 *
+	 * <p>Not yet measured against a live scene - {@code TESTING-STRATEGY.md} section 4's profiling
+	 * pass is where this constant should be revisited, the same way {@code ADR-036} treats the
+	 * tier budgets themselves.
+	 */
+	private static final int PER_TICK_AUDIT_SOLVE_BUDGET = 4;
+
+	/**
 	 * Keys in {@link #entries} whose current {@link ShellEntry} has never been solved (or just
-	 * replaced one that was), awaiting the next dispatch. A {@link LinkedHashSet} rather than a
-	 * queue so a key changing twice before it is dispatched is only ever solved once, for
-	 * whichever entry is current when that happens.
+	 * replaced one that was), waiting for a future tick's share of {@link #PER_TICK_AUDIT_SOLVE_BUDGET}.
+	 * A {@link LinkedHashSet} rather than a queue so a key changing twice before its turn comes up
+	 * is only ever solved once, for whichever entry is current when that happens.
 	 */
 	private static final Set<SensorKey> pendingSolve = new LinkedHashSet<>();
 
@@ -441,7 +457,7 @@ public final class ShellRenderer {
 	/**
 	 * Reconciles both entry sources - the tracked-sensor list and, if one is active, mode B's
 	 * radius audit (ARCHITECTURE.md section 12.3) - against live detector block entities, then
-	 * dispatches whatever the result left pending.
+	 * dispatches whatever share of this tick's budget the result leaves pending.
 	 */
 	private static void syncEntries(Minecraft client) {
 		if (!renderingEnabled || client.level == null) {
@@ -454,7 +470,7 @@ public final class ShellRenderer {
 		reconcileEntries(desired);
 
 		if (!pendingSolve.isEmpty()) {
-			dispatchPendingSolves(client.level);
+			dispatchBudgetedSolves(client.level);
 		}
 	}
 
@@ -550,23 +566,26 @@ public final class ShellRenderer {
 	}
 
 	/**
-	 * Dispatches every key {@link #reconcileEntries} just queued: the new or changed entries are
-	 * solved, and every other current entry - already solved - still folds into a rebuilt union
-	 * through {@link CachedContribution}, at no re-solve cost. ARCHITECTURE.md section 12.3's
-	 * per-sensor cache is what makes that folding correct; nothing here yet limits how many new
-	 * entries a single tick may dispatch - that is section 12.4's per-tick budget, later work.
+	 * Section 12.4's per-tick budget: takes at most {@link #PER_TICK_AUDIT_SOLVE_BUDGET} keys off
+	 * {@link #pendingSolve} and dispatches only those, so a full recompute at mode B's scale (20+
+	 * sensors) spends the client-thread snapshot cost of a handful of entries per tick rather than
+	 * all of them in the one tick the selection changed. Every other current entry - already
+	 * solved or still queued for a later tick - is left alone and, if already solved, still folds
+	 * into a rebuilt union through {@link CachedContribution}, at no re-solve cost.
 	 */
-	private static void dispatchPendingSolves(ClientLevel level) {
+	private static void dispatchBudgetedSolves(ClientLevel level) {
 		List<ShellEntry> toSolve = new ArrayList<>();
-		for (SensorKey key : pendingSolve) {
+		Iterator<SensorKey> queued = pendingSolve.iterator();
+		while (queued.hasNext() && toSolve.size() < PER_TICK_AUDIT_SOLVE_BUDGET) {
+			SensorKey key = queued.next();
+			queued.remove();
 			ShellEntry entry = entries.get(key);
-			// A key can outlive its place in the queue if the entry it named was replaced or
-			// dropped by a later reconcile before this dispatch reached it.
+			// A key can outlive its turn in the queue if the entry it named was replaced or
+			// dropped by a later reconcile before this tick's budget reached it.
 			if (entry != null) {
 				toSolve.add(entry);
 			}
 		}
-		pendingSolve.clear();
 
 		if (toSolve.isEmpty()) {
 			return;
@@ -601,13 +620,14 @@ public final class ShellRenderer {
 	 * snapshot means the instance the worker encodes at is the instance that was current when the
 	 * solve was dispatched, by construction rather than by timing.
 	 *
-	 * <p><b>{@code toSolve} is only what {@link #dispatchPendingSolves} just queued</b>, not
-	 * necessarily every current entry, so {@link #solveGeneration} is bumped here rather than on a
-	 * full clear - each dispatch needs its own strictly-increasing revision or
+	 * <p><b>{@code toSolve} is only this tick's budgeted share</b> ({@link #dispatchBudgetedSolves}),
+	 * not necessarily every current entry, so {@link #solveGeneration} is bumped here rather than
+	 * on a full clear - each dispatch needs its own strictly-increasing revision or
 	 * {@link ShellUploadSlot#offer} would reject every batch after the first as stale
 	 * (ShellUploadSlot's own javadoc). {@code alreadySolved} carries every other current entry
-	 * so a union rebuild reflects the whole selection, not only what this call is solving; an
-	 * entry that has never been solved yet is simply absent from the union until it is.
+	 * so a union rebuild reflects the whole selection, not only what this call is solving; entries
+	 * that have never been solved yet (still queued) are simply absent from the union until their
+	 * own turn comes.
 	 */
 	private static void runSolves(ClientLevel level, List<ShellEntry> toSolve, List<ShellEntry> alreadySolved) {
 		long generation = ++solveGeneration;
