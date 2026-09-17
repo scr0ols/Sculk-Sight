@@ -37,7 +37,7 @@ import java.util.List;
  * own report - see {@link ConfigCodec#read}.
  */
 public record SculkSightConfig(int shellOpacityPercent, RenderPolicy renderPolicy,
-		List<TrackedSensor> trackedSensors) {
+		List<TrackedSensor> trackedSensors, int radiusAuditCap) {
 
 	/** ADR-022's depth-tested alpha of 0.25, as the percentage this record stores. */
 	public static final int DEFAULT_SHELL_OPACITY_PERCENT = 25;
@@ -47,6 +47,20 @@ public record SculkSightConfig(int shellOpacityPercent, RenderPolicy renderPolic
 
 	/** Safety bound for selection, solving, and the union mesh. */
 	public static final int MAX_TRACKED_SENSORS = 8;
+
+	/**
+	 * ARCHITECTURE.md section 12.4's cap, enforced in {@code RadiusAudit} before anything is solved
+	 * or uploaded. Plan section 5 sizes mode B's scale estimate at 20+ sensors within radius 64;
+	 * this default sits comfortably above that so a typical audit is never truncated, while still
+	 * bounding the worst case the cap exists for.
+	 */
+	public static final int DEFAULT_RADIUS_AUDIT_CAP = 32;
+
+	/** The audit must select at least one sensor to be worth running. */
+	public static final int MIN_RADIUS_AUDIT_CAP = 1;
+
+	/** An arbitrary but generous ceiling; nothing in plan section 5's scale estimate approaches it. */
+	public static final int MAX_RADIUS_AUDIT_CAP = 256;
 
 	/**
 	 * Fully transparent. Permitted: a player may turn the fill off and keep the mod loaded.
@@ -74,12 +88,19 @@ public record SculkSightConfig(int shellOpacityPercent, RenderPolicy renderPolic
 
 	/** The authored configuration: what ADR-022 and ADR-023 decided, with nothing overridden. */
 	public static SculkSightConfig defaults() {
-		return new SculkSightConfig(DEFAULT_SHELL_OPACITY_PERCENT, DEFAULT_RENDER_POLICY, List.of());
+		return new SculkSightConfig(DEFAULT_SHELL_OPACITY_PERCENT, DEFAULT_RENDER_POLICY, List.of(),
+				DEFAULT_RADIUS_AUDIT_CAP);
 	}
 
 	/** Compatibility constructor for callers that only set the appearance. */
 	public SculkSightConfig(int shellOpacityPercent, RenderPolicy renderPolicy) {
 		this(shellOpacityPercent, renderPolicy, List.of());
+	}
+
+	/** Compatibility constructor for callers that predate the radius audit cap. */
+	public SculkSightConfig(int shellOpacityPercent, RenderPolicy renderPolicy,
+			List<TrackedSensor> trackedSensors) {
+		this(shellOpacityPercent, renderPolicy, trackedSensors, DEFAULT_RADIUS_AUDIT_CAP);
 	}
 
 	public SculkSightConfig {
@@ -88,6 +109,12 @@ public record SculkSightConfig(int shellOpacityPercent, RenderPolicy renderPolic
 			throw new IllegalArgumentException("shellOpacityPercent must be "
 					+ MIN_SHELL_OPACITY_PERCENT + ".." + MAX_SHELL_OPACITY_PERCENT
 					+ ", got " + shellOpacityPercent);
+		}
+
+		if (radiusAuditCap < MIN_RADIUS_AUDIT_CAP || radiusAuditCap > MAX_RADIUS_AUDIT_CAP) {
+			throw new IllegalArgumentException("radiusAuditCap must be "
+					+ MIN_RADIUS_AUDIT_CAP + ".." + MAX_RADIUS_AUDIT_CAP
+					+ ", got " + radiusAuditCap);
 		}
 
 		Objects.requireNonNull(renderPolicy, "renderPolicy");
@@ -112,6 +139,11 @@ public record SculkSightConfig(int shellOpacityPercent, RenderPolicy renderPolic
 	/** The nearest permitted percentage to the given one. Used when repairing a read value. */
 	public static int clampShellOpacityPercent(int percent) {
 		return Math.max(MIN_SHELL_OPACITY_PERCENT, Math.min(MAX_SHELL_OPACITY_PERCENT, percent));
+	}
+
+	/** The nearest permitted cap to the given one. Used when repairing a read value. */
+	public static int clampRadiusAuditCap(int cap) {
+		return Math.max(MIN_RADIUS_AUDIT_CAP, Math.min(MAX_RADIUS_AUDIT_CAP, cap));
 	}
 
 	/**
@@ -157,16 +189,21 @@ public record SculkSightConfig(int shellOpacityPercent, RenderPolicy renderPolic
 
 	/** A copy with a different opacity, since a record component cannot be assigned in place. */
 	public SculkSightConfig withShellOpacityPercent(int percent) {
-		return new SculkSightConfig(percent, renderPolicy, trackedSensors);
+		return new SculkSightConfig(percent, renderPolicy, trackedSensors, radiusAuditCap);
 	}
 
 	/** A copy with a different render policy, since a record component cannot be assigned in place. */
 	public SculkSightConfig withRenderPolicy(RenderPolicy policy) {
-		return new SculkSightConfig(shellOpacityPercent, policy, trackedSensors);
+		return new SculkSightConfig(shellOpacityPercent, policy, trackedSensors, radiusAuditCap);
 	}
 
 	public SculkSightConfig withTrackedSensors(List<TrackedSensor> sensors) {
-		return new SculkSightConfig(shellOpacityPercent, renderPolicy, sensors);
+		return new SculkSightConfig(shellOpacityPercent, renderPolicy, sensors, radiusAuditCap);
+	}
+
+	/** A copy with a different cap, since a record component cannot be assigned in place. */
+	public SculkSightConfig withRadiusAuditCap(int cap) {
+		return new SculkSightConfig(shellOpacityPercent, renderPolicy, trackedSensors, cap);
 	}
 
 	/** Adds a position once, preserving an existing name and toggle state on repeat selection. */

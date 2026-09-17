@@ -18,12 +18,12 @@ import com.scr0ols.sculksight.audit.RadiusAudit.AuditedSensor;
  * {@code common/src/main} rather than {@code common/src/client} and therefore inside the reach of
  * the JUnit suite.
  *
- * <p><b>What this still does not do.</b> {@link RadiusAudit#select} enforces no cap yet - section
- * 12.4 is that separate task - so a very large candidate set is reported in full. The async solve,
- * the per-sensor cache, the per-tick budget and the cap warning remain later work too; section
- * 12.5 lists what this module does not own. The centre position and the candidate set themselves
- * are built by the client-side caller (section 12.1's "trivial by construction" half, reading
- * {@code SensorIndex}), never by this class.
+ * <p><b>What this still does not do.</b> The async solve, the per-sensor cache and the per-tick
+ * budget remain later work; section 12.5 lists what this module does not own. The centre position,
+ * the candidate set and the configured cap itself are built by the client-side caller (section
+ * 12.1's "trivial by construction" half, reading {@code SensorIndex} and {@code ClientConfig}),
+ * never by this class - which is also why the cap arrives here as a plain {@code int} rather than
+ * this class naming the config type.
  */
 public final class RadiusAuditCommandCore {
 
@@ -49,10 +49,12 @@ public final class RadiusAuditCommandCore {
 	 * @param centreZ see {@code centreX}
 	 * @param candidates every sensor the caller's {@code SensorIndex} snapshot resolved to a
 	 *     type; this class filters and orders them, it does not enumerate them
+	 * @param cap section 12.4's cap, read by the caller from {@code ClientConfig} - the largest
+	 *     number of sensors a single audit reports, nearest first
 	 * @return {@link #SUCCESS} when the arguments are accepted, {@link #FAILURE} when they are not
 	 */
 	public static int run(Consumer<String> report, int radius, @Nullable String detectorName,
-			int centreX, int centreY, int centreZ, List<AuditedSensor> candidates) {
+			int centreX, int centreY, int centreZ, List<AuditedSensor> candidates, int cap) {
 
 		RadiusAuditRequest request;
 		try {
@@ -62,11 +64,14 @@ public final class RadiusAuditCommandCore {
 			return FAILURE;
 		}
 
-		List<AuditedSensor> selected =
-				RadiusAudit.select(centreX, centreY, centreZ, request, candidates);
+		RadiusAudit.CappedSelection selection =
+				RadiusAudit.selectWithCap(centreX, centreY, centreZ, request, candidates, cap);
 
 		report.accept("Radius audit accepted: " + request.describe() + ".");
-		report.accept(describeSelection(selected.size()));
+		report.accept(describeSelection(selection.selected().size()));
+		if (selection.capped()) {
+			report.accept(describeCapWarning(selection.matchedCount(), cap));
+		}
 		return SUCCESS;
 	}
 
@@ -76,5 +81,9 @@ public final class RadiusAuditCommandCore {
 			case 1 -> "1 sensor found in range.";
 			default -> count + " sensors found in range.";
 		};
+	}
+
+	private static String describeCapWarning(int matchedCount, int cap) {
+		return "Cap reached: " + matchedCount + " sensors matched, showing the nearest " + cap + ".";
 	}
 }

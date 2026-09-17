@@ -16,6 +16,7 @@ import com.scr0ols.sculksight.audit.RadiusAudit.AuditedSensor;
 import com.scr0ols.sculksight.client.DetectorType;
 import com.scr0ols.sculksight.client.SensorIndex;
 import com.scr0ols.sculksight.client.SensorKey;
+import com.scr0ols.sculksight.config.ClientConfig;
 
 /**
  * Mode B's client-side half: turns {@link SensorIndex#snapshot()} and the player's own position
@@ -52,7 +53,8 @@ public final class RadiusAuditClient {
 		BlockPos centre = player.blockPosition();
 
 		return RadiusAuditCommandCore.run(report, radius, detectorName,
-				centre.getX(), centre.getY(), centre.getZ(), candidatesFrom(level));
+				centre.getX(), centre.getY(), centre.getZ(), candidatesFrom(level),
+				ClientConfig.get().radiusAuditCap());
 	}
 
 	/**

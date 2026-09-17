@@ -19,9 +19,9 @@ import com.scr0ols.sculksight.client.SensorKey;
  * snapshot into {@link AuditedSensor} is the client-side half section 12.1 calls "trivial by
  * construction" and does not ask to be unit-tested.
  *
- * <p><b>What this does not yet do.</b> The cap named in section 12.1's own sentence is a separate
- * task (section 12.4): this class selects and orders, and enforces no limit on how many results it
- * returns.
+ * <p><b>The cap.</b> Section 12.1's own sentence names one, and section 12.4 commits to it being
+ * enforced here, at this layer, before anything is solved or uploaded. {@link #select} itself
+ * stays uncapped and ordered; {@link #selectWithCap} is the wrapper that truncates to it.
  */
 public final class RadiusAudit {
 
@@ -88,6 +88,33 @@ public final class RadiusAudit {
 				.thenComparingInt(sensor -> sensor.position().z()));
 
 		return List.copyOf(selected);
+	}
+
+	/**
+	 * Section 12.4's cap, as this class's own result: the nearest-first selection {@link #select}
+	 * produces, truncated to {@code cap} entries, plus whether truncation actually happened and how
+	 * many candidates qualified before it did. The caller (the command core) uses {@link #capped}
+	 * to decide whether a warning belongs in its report, and {@link #matchedCount} to say what was
+	 * truncated away.
+	 */
+	public record CappedSelection(List<AuditedSensor> selected, boolean capped, int matchedCount) {
+	}
+
+	/**
+	 * {@link #select}, with section 12.4's cap enforced before the result leaves this class - "at
+	 * layer 1, before anything is solved or uploaded." The nearest {@code cap} sensors are kept,
+	 * which is exactly what {@link #select}'s nearest-first order exists to make meaningful.
+	 */
+	public static CappedSelection selectWithCap(int centreX, int centreY, int centreZ,
+			RadiusAuditRequest request, List<AuditedSensor> candidates, int cap) {
+
+		List<AuditedSensor> matched = select(centreX, centreY, centreZ, request, candidates);
+
+		if (matched.size() <= cap) {
+			return new CappedSelection(matched, false, matched.size());
+		}
+
+		return new CappedSelection(List.copyOf(matched.subList(0, cap)), true, matched.size());
 	}
 
 	private static long distanceSquared(int x, int y, int z, SensorKey pos) {

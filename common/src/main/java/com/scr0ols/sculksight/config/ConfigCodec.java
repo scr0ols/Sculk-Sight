@@ -40,6 +40,8 @@ public final class ConfigCodec {
 
 	static final String KEY_TRACKED_SENSORS = "trackedSensors";
 
+	static final String KEY_RADIUS_AUDIT_CAP = "radiusAuditCap";
+
 	/** {@link RenderPolicy#UNION}, as the string this schema writes and reads. */
 	static final String VALUE_RENDER_POLICY_UNION = "union";
 
@@ -55,6 +57,7 @@ public final class ConfigCodec {
 
 		object.put(KEY_SHELL_OPACITY_PERCENT, Integer.valueOf(config.shellOpacityPercent()));
 		object.put(KEY_RENDER_POLICY, writeRenderPolicy(config.renderPolicy()));
+		object.put(KEY_RADIUS_AUDIT_CAP, Integer.valueOf(config.radiusAuditCap()));
 		if (!config.trackedSensors().isEmpty()) {
 			List<Map<String, Object>> sensors = new ArrayList<>();
 			for (TrackedSensor sensor : config.trackedSensors()) {
@@ -99,8 +102,9 @@ public final class ConfigCodec {
 		int percent = readPercent(object, repairs);
 		RenderPolicy policy = readRenderPolicy(object, repairs);
 		List<TrackedSensor> sensors = readTrackedSensors(object, repairs);
+		int cap = readRadiusAuditCap(object, repairs);
 
-		return new SculkSightConfig(percent, policy, sensors);
+		return new SculkSightConfig(percent, policy, sensors, cap);
 	}
 
 	private static List<TrackedSensor> readTrackedSensors(Map<?, ?> object, Consumer<String> repairs) {
@@ -195,6 +199,43 @@ public final class ConfigCodec {
 		}
 
 		return percent;
+	}
+
+	private static int readRadiusAuditCap(Map<?, ?> object, Consumer<String> repairs)
+			throws JsonParseException {
+		int fallback = SculkSightConfig.DEFAULT_RADIUS_AUDIT_CAP;
+
+		if (!object.containsKey(KEY_RADIUS_AUDIT_CAP)) {
+			repairs.accept(KEY_RADIUS_AUDIT_CAP + " is missing; using the default, " + fallback);
+			return fallback;
+		}
+
+		Object raw = object.get(KEY_RADIUS_AUDIT_CAP);
+
+		if (!(raw instanceof Number number)) {
+			throw new JsonParseException(
+					KEY_RADIUS_AUDIT_CAP + " must be a number, not " + describe(raw));
+		}
+
+		double value = number.doubleValue();
+		double bounded = Double.isNaN(value)
+				? SculkSightConfig.MIN_RADIUS_AUDIT_CAP
+				: Math.max(SculkSightConfig.MIN_RADIUS_AUDIT_CAP,
+						Math.min(SculkSightConfig.MAX_RADIUS_AUDIT_CAP, value));
+
+		int cap = (int) Math.round(bounded);
+
+		if (bounded != value) {
+			repairs.accept(KEY_RADIUS_AUDIT_CAP + " must be "
+					+ SculkSightConfig.MIN_RADIUS_AUDIT_CAP + ".."
+					+ SculkSightConfig.MAX_RADIUS_AUDIT_CAP + "; " + value
+					+ " was moved to " + cap);
+		} else if (cap != value) {
+			repairs.accept(KEY_RADIUS_AUDIT_CAP + " is a whole number; "
+					+ value + " was rounded to " + cap);
+		}
+
+		return cap;
 	}
 
 	/**
