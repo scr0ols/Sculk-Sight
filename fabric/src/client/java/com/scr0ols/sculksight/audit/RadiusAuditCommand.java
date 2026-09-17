@@ -14,9 +14,10 @@ import net.minecraft.network.chat.Component;
 /**
  * Mode B's entry point on Fabric: {@code /sculksight radius <n> [type]}. ARCHITECTURE.md section 12.
  *
- * <p><b>A thin Brigadier shim over {@link RadiusAuditCommandCore}</b>, the same split the three
+ * <p><b>A thin Brigadier shim over {@link RadiusAuditClient}</b>, the same split the three
  * verification commands already use. Everything this class knows is how to reach Fabric's client
- * command API; everything about what the arguments mean is in {@code common}.
+ * command API; everything about what the arguments mean, and about turning the sensor index into
+ * those arguments' candidate set, is in {@code common}.
  *
  * <p><b>A client command, so it works on a vanilla server.</b>
  * {@code ClientCommandRegistrationCallback} registers into the client's own dispatcher, which
@@ -63,7 +64,7 @@ public final class RadiusAuditCommand {
 	}
 
 	private static int run(FabricClientCommandSource source, int radius, String type) {
-		return RadiusAuditCommandCore.run(
+		return RadiusAuditClient.run(
 				message -> source.sendFeedback(Component.literal(message)),
 				radius,
 				type);
