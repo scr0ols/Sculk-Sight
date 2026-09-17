@@ -16,6 +16,11 @@ No code changed for this release. The itemised entries below were left under `[U
 
 ## [Unreleased]
 
+### Added
+
+- **The first half of the radius audit command, `/sculksight radius <n> [type]`.** It takes a radius in blocks and, optionally, which kind of detector to look at, and it is client-side: it is typed in chat like any other command but never reaches the server, so it works on a vanilla server the same as in single-player. The game's own command support gives it autocomplete as you type and tells you straight away when an argument is wrong — a radius outside the allowed range, or a detector type that is not one of the ones offered — rather than failing after the fact.
+- **What it does not do yet is the audit.** Everything above is the command itself: the name, the arguments, the completion and the checking. Run it with valid arguments and it replies that the audit is not implemented, and nothing is scanned, counted or drawn. The part that goes and looks at the detectors around you is still to come.
+
 ## [0.2.0] - 2026-09-16
 
 ### Added
