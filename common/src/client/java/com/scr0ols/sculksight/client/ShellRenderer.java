@@ -501,6 +501,13 @@ public final class ShellRenderer {
 	 * the player's current position and adds its selection to {@code desired} - ARCHITECTURE.md
 	 * section 12.3's seam, "the audit's result is a set of entries like any other". A key the
 	 * tracked list already claimed wins the collision, since it is the more deliberate of the two.
+	 *
+	 * <p><b>A position the player explicitly disabled in the tracked-sensor menu stays hidden</b>,
+	 * even though {@link #desiredTrackedEntries} already left it out of {@code desired} (a
+	 * disabled entry is simply skipped there, which only says "the tracked list is not asking for
+	 * this one" - it says nothing about the audit). Without this check, disabling a sensor that an
+	 * active audit also selects only removed it for as long as it took the very same tick's audit
+	 * half to add it straight back, which read as the toggle flashing off and immediately on again.
 	 */
 	private static void mergeAuditedEntries(Minecraft client, Map<SensorKey, ShellEntry> desired) {
 		RadiusAuditRequest request = RadiusAuditController.activeRequest();
@@ -509,6 +516,7 @@ public final class ShellRenderer {
 			return;
 		}
 
+		Set<SensorKey> explicitlyHidden = explicitlyDisabledTrackedKeys();
 		BlockPos centre = player.blockPosition();
 		List<AuditedSensor> candidates = RadiusAuditClient.candidatesFrom(client.level);
 		RadiusAudit.CappedSelection selection = RadiusAudit.selectWithCap(
@@ -516,9 +524,23 @@ public final class ShellRenderer {
 				ClientConfig.get().radiusAuditCap());
 
 		for (AuditedSensor sensor : selection.selected()) {
+			if (explicitlyHidden.contains(sensor.position())) {
+				continue;
+			}
 			desired.putIfAbsent(sensor.position(),
 					new ShellEntry(sensor.position(), sensor.listenerRadius(), sensor.type()));
 		}
+	}
+
+	/** Positions the tracked-sensor list itself holds with {@code enabled() == false}. */
+	private static Set<SensorKey> explicitlyDisabledTrackedKeys() {
+		Set<SensorKey> hidden = new LinkedHashSet<>();
+		for (TrackedSensor tracked : ClientConfig.get().trackedSensors()) {
+			if (!tracked.enabled()) {
+				hidden.add(new SensorKey(tracked.x(), tracked.y(), tracked.z()));
+			}
+		}
+		return hidden;
 	}
 
 	/**
