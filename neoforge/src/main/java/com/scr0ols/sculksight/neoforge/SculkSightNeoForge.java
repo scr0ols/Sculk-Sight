@@ -296,7 +296,22 @@ public final class SculkSightNeoForge {
 
 		swept.forEach((pos, radius) -> truth.put(new BlockPos(pos.x(), pos.y(), pos.z()), radius));
 
+		// TEMPORARY - round 4 diagnostics for the still-open Bug A re-investigation (loop file
+		// "Round 4"). Only logs while a radius audit is active, so it says nothing under ordinary
+		// play. Remove once Bug A is confirmed fixed or root-caused some other way.
+		if (RadiusAuditController.activeRequest() != null) {
+			SculkSight.LOGGER.info(
+					"[sculksight-diag] neoforge resync: center={} radiusChunks={} sweptCount={} "
+							+ "indexSizeBefore={}",
+					center, radiusChunks, swept.size(), SensorIndex.snapshot().size());
+		}
+
 		SensorIndex.reconcile(truth, pos -> IndexSweep.withinSweep(pos, center, radiusChunks));
+
+		if (RadiusAuditController.activeRequest() != null) {
+			SculkSight.LOGGER.info("[sculksight-diag] neoforge resync: indexSizeAfter={}",
+					SensorIndex.snapshot().size());
+		}
 	}
 
 	/**

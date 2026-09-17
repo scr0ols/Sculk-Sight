@@ -228,6 +228,14 @@ public final class ShellRenderer {
 	 */
 	private static long lastFlushNanos;
 
+	/**
+	 * TEMPORARY - round 4 diagnostics for the still-open Bug A/Bug B re-investigation (loop file
+	 * "Round 4"). Throttles {@link #mergeAuditedEntries}'s log line to once per 20 ticks so an
+	 * active audit does not spam the log every tick. Remove this field and every log line it gates
+	 * once Bug A/Bug B are confirmed fixed or root-caused some other way.
+	 */
+	private static int diagnosticTickCounter;
+
 	private ShellRenderer() {
 	}
 
@@ -523,12 +531,24 @@ public final class ShellRenderer {
 				centre.getX(), centre.getY(), centre.getZ(), request, candidates,
 				ClientConfig.get().radiusAuditCap());
 
+		int skippedAsHidden = 0;
 		for (AuditedSensor sensor : selection.selected()) {
 			if (explicitlyHidden.contains(sensor.position())) {
+				skippedAsHidden++;
 				continue;
 			}
 			desired.putIfAbsent(sensor.position(),
 					new ShellEntry(sensor.position(), sensor.listenerRadius(), sensor.type()));
+		}
+
+		// TEMPORARY - round 4 diagnostics, see diagnosticTickCounter's javadoc. Remove with it.
+		if (diagnosticTickCounter++ % 20 == 0) {
+			SculkSight.LOGGER.info(
+					"[sculksight-diag] audit radius={} type={} candidates={} selected={} capped={} "
+							+ "explicitlyHidden={} skippedAsHidden={} desiredAfterMerge={}",
+					request.radius(), request.detector(), candidates.size(),
+					selection.selected().size(), selection.capped(), explicitlyHidden,
+					skippedAsHidden, desired.size());
 		}
 	}
 

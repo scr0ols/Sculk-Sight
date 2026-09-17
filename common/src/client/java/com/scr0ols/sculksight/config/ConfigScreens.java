@@ -11,6 +11,7 @@ import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 
+import com.scr0ols.sculksight.SculkSight;
 import com.scr0ols.sculksight.client.ShellRenderer;
 
 /**
@@ -118,6 +119,12 @@ public final class ConfigScreens {
 		if (current == null) {
 			return;
 		}
+
+		// TEMPORARY - round 4 diagnostics for the still-open Bug B re-investigation (loop file
+		// "Round 4"). Fires only on a player click, so no spam concern. Remove once Bug B is
+		// confirmed fixed or root-caused some other way.
+		SculkSight.LOGGER.info("[sculksight-diag] setSensorEnabled pos=({},{},{}) enabled={}",
+				x, y, z, enabled);
 
 		replaceSensor(live, current.withEnabled(enabled));
 	}
