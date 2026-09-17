@@ -711,7 +711,14 @@ public final class ShellRenderer {
 				return;
 			}
 			ShellEntry target = unionTarget;
-			SensorKey origin = pending.isEmpty() ? cached.getFirst().sensor() : pending.getFirst().sensor();
+			// The mesh's vertex origin must be target.sensor() and nothing else: draw() always
+			// translates by target.sensor() (fixed for the union entry's whole lifetime, set once
+			// in reconcileEntries), so encoding relative to any other point - such as whichever
+			// entry happened to be first in this particular incremental batch - drew the shell
+			// offset by the difference between the two the moment a later, budgeted dispatch's
+			// first entry differed from the first entry overall. That mismatch is what the author
+			// saw as the union rendering centred on the player rather than on the sensors.
+			SensorKey origin = target.sensor();
 			target.setWorldSolution(union);
 			ByteBufferBuilder storage = new ByteBufferBuilder(INITIAL_STORAGE_BYTES);
 			MeshData mesh = ShellMeshBuilder.build(union, origin.x(), origin.y(), origin.z(),
