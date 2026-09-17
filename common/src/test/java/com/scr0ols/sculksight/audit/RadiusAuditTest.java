@@ -99,4 +99,36 @@ class RadiusAuditTest {
 
 		assertTrue(selected.isEmpty(), selected.toString());
 	}
+
+	@Test
+	void aSelectionAtOrUnderTheCapIsNotMarkedCapped() {
+		AuditedSensor sensor = sensorAt(1, 0, 0, DetectorType.NORMAL_SENSOR);
+		RadiusAuditRequest request = new RadiusAuditRequest(10, Optional.empty());
+
+		RadiusAudit.CappedSelection selection =
+				RadiusAudit.selectWithCap(0, 0, 0, request, List.of(sensor), 1);
+
+		assertEquals(List.of(sensor), selection.selected());
+		assertTrue(!selection.capped());
+		assertEquals(1, selection.matchedCount());
+	}
+
+	/**
+	 * Section 12.4: the cap keeps the nearest entries, which is what makes {@link #select}'s
+	 * nearest-first order a meaningful truncation rather than an arbitrary one.
+	 */
+	@Test
+	void aSelectionOverTheCapKeepsOnlyTheNearestEntries() {
+		AuditedSensor near = sensorAt(1, 0, 0, DetectorType.NORMAL_SENSOR);
+		AuditedSensor middle = sensorAt(5, 0, 0, DetectorType.NORMAL_SENSOR);
+		AuditedSensor far = sensorAt(9, 0, 0, DetectorType.NORMAL_SENSOR);
+		RadiusAuditRequest request = new RadiusAuditRequest(10, Optional.empty());
+
+		RadiusAudit.CappedSelection selection =
+				RadiusAudit.selectWithCap(0, 0, 0, request, List.of(far, near, middle), 2);
+
+		assertEquals(List.of(near, middle), selection.selected());
+		assertTrue(selection.capped());
+		assertEquals(3, selection.matchedCount());
+	}
 }

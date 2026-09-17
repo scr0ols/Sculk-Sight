@@ -25,9 +25,13 @@ class RadiusAuditCommandCoreTest {
 
 	private final List<String> reported = new ArrayList<>();
 
+	/** Generous enough that none of the tests not concerned with the cap ever reach it. */
+	private static final int GENEROUS_CAP = 100;
+
 	@Test
 	void acceptedArgumentsSucceedAndSayWhatWasUnderstood() {
-		int result = RadiusAuditCommandCore.run(reported::add, 64, "calibrated", 0, 0, 0, List.of());
+		int result = RadiusAuditCommandCore.run(reported::add, 64, "calibrated", 0, 0, 0, List.of(),
+				GENEROUS_CAP);
 
 		assertEquals(RadiusAuditCommandCore.SUCCESS, result);
 		assertTrue(reported.stream().anyMatch(line -> line.contains("radius 64")),
@@ -38,7 +42,7 @@ class RadiusAuditCommandCoreTest {
 
 	@Test
 	void anEmptyCandidateSetReportsNoSensorsFound() {
-		RadiusAuditCommandCore.run(reported::add, 64, null, 0, 0, 0, List.of());
+		RadiusAuditCommandCore.run(reported::add, 64, null, 0, 0, 0, List.of(), GENEROUS_CAP);
 
 		assertTrue(reported.stream().anyMatch(line -> line.contains("No sensors found in range.")),
 				reported.toString());
@@ -48,7 +52,8 @@ class RadiusAuditCommandCoreTest {
 	void aQualifyingCandidateIsCountedInTheReport() {
 		AuditedSensor sensor = new AuditedSensor(new SensorKey(10, 0, 0), 8, DetectorType.NORMAL_SENSOR);
 
-		int result = RadiusAuditCommandCore.run(reported::add, 64, null, 0, 0, 0, List.of(sensor));
+		int result = RadiusAuditCommandCore.run(reported::add, 64, null, 0, 0, 0, List.of(sensor),
+				GENEROUS_CAP);
 
 		assertEquals(RadiusAuditCommandCore.SUCCESS, result);
 		assertTrue(reported.stream().anyMatch(line -> line.contains("1 sensor found in range.")),
@@ -57,7 +62,8 @@ class RadiusAuditCommandCoreTest {
 
 	@Test
 	void anUnknownDetectorFailsAndReportsTheProblemRatherThanThrowing() {
-		int result = RadiusAuditCommandCore.run(reported::add, 64, "warden", 0, 0, 0, List.of());
+		int result = RadiusAuditCommandCore.run(reported::add, 64, "warden", 0, 0, 0, List.of(),
+				GENEROUS_CAP);
 
 		assertEquals(RadiusAuditCommandCore.FAILURE, result);
 		assertEquals(1, reported.size(), reported.toString());
@@ -72,10 +78,40 @@ class RadiusAuditCommandCoreTest {
 	@Test
 	void anOutOfRangeRadiusFailsWithoutClaimingToHaveBeenAccepted() {
 		int result = RadiusAuditCommandCore.run(reported::add, RadiusAuditRequest.MAX_RADIUS + 1,
-				null, 0, 0, 0, List.of());
+				null, 0, 0, 0, List.of(), GENEROUS_CAP);
 
 		assertEquals(RadiusAuditCommandCore.FAILURE, result);
 		assertTrue(reported.stream().noneMatch(line -> line.contains("accepted")),
 				reported.toString());
+	}
+
+	/** Section 12.4: below the cap, nothing about it is ever mentioned. */
+	@Test
+	void aSelectionUnderTheCapReportsNoWarning() {
+		AuditedSensor sensor = new AuditedSensor(new SensorKey(1, 0, 0), 8, DetectorType.NORMAL_SENSOR);
+
+		RadiusAuditCommandCore.run(reported::add, 64, null, 0, 0, 0, List.of(sensor), 1);
+
+		assertTrue(reported.stream().noneMatch(line -> line.contains("Cap reached")),
+				reported.toString());
+	}
+
+	/**
+	 * Section 12.4's commitment: exceeding the cap truncates the report to the cap and adds a
+	 * visible warning, rather than either silently dropping sensors or reporting every match.
+	 */
+	@Test
+	void aSelectionOverTheCapIsTruncatedAndWarnsVisibly() {
+		AuditedSensor near = new AuditedSensor(new SensorKey(1, 0, 0), 8, DetectorType.NORMAL_SENSOR);
+		AuditedSensor far = new AuditedSensor(new SensorKey(2, 0, 0), 8, DetectorType.NORMAL_SENSOR);
+
+		int result = RadiusAuditCommandCore.run(reported::add, 64, null, 0, 0, 0,
+				List.of(far, near), 1);
+
+		assertEquals(RadiusAuditCommandCore.SUCCESS, result);
+		assertTrue(reported.stream().anyMatch(line -> line.contains("1 sensor found in range.")),
+				reported.toString());
+		assertTrue(reported.stream().anyMatch(line -> line.contains("Cap reached")
+				&& line.contains("2") && line.contains("1")), reported.toString());
 	}
 }
