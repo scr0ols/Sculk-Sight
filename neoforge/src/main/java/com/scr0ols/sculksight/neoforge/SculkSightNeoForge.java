@@ -24,6 +24,7 @@ import net.neoforged.neoforge.event.level.ChunkEvent;
 import net.neoforged.neoforge.event.level.LevelEvent;
 
 import com.scr0ols.sculksight.SculkSight;
+import com.scr0ols.sculksight.audit.RadiusAuditCommand;
 import com.scr0ols.sculksight.client.ClientPlatform;
 import com.scr0ols.sculksight.client.DetectionIndicator;
 import com.scr0ols.sculksight.client.SensorIndex;
@@ -294,6 +295,13 @@ public final class SculkSightNeoForge {
 	 */
 	@SubscribeEvent
 	static void onRegisterClientCommands(RegisterClientCommandsEvent event) {
+		// Mode B (PLAN.md section 5, ARCHITECTURE.md section 12): /sculksight radius <n> [type].
+		// A client command, so it resolves locally and works on a vanilla server. Registered
+		// unconditionally, outside the ADR-019 gate below, because it is a player-facing feature
+		// rather than a development mechanism. Only its arguments are implemented so far; the
+		// audit behind them is later work, and the command says so when it runs.
+		RadiusAuditCommand.register(event.getDispatcher());
+
 		if (!FMLEnvironment.isProduction()) {
 			VerificationCommand.register(event.getDispatcher());
 
