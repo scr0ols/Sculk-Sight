@@ -13,7 +13,7 @@ import net.minecraft.network.chat.Component;
  * Mode B's entry point on NeoForge: {@code /sculksight radius <n> [type]}. ARCHITECTURE.md
  * section 12.
  *
- * <p><b>A thin Brigadier shim over {@link RadiusAuditCommandCore}</b>, the NeoForge counterpart of
+ * <p><b>A thin Brigadier shim over {@link RadiusAuditClient}</b>, the NeoForge counterpart of
  * {@code fabric}'s own {@code RadiusAuditCommand}. The two files share no logic and are not meant
  * to: everything they would have shared is in {@code common} already.
  *
@@ -53,7 +53,7 @@ public final class RadiusAuditCommand {
 	}
 
 	private static int run(CommandSourceStack source, int radius, String type) {
-		return RadiusAuditCommandCore.run(
+		return RadiusAuditClient.run(
 				message -> source.sendSuccess(() -> Component.literal(message), false),
 				radius,
 				type);
