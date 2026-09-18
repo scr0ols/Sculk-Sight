@@ -3,6 +3,7 @@ package com.scr0ols.sculksight.client;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -114,6 +115,17 @@ import com.scr0ols.sculksight.solver.WorldDetectionSet;
  * over several ticks instead of stalling one; every other current entry keeps drawing what it
  * already has and still folds into a rebuilt union unchanged.
  *
+ * <p><b>{@link #onRender}'s {@code PER_SENSOR} draw list is sorted back-to-front by camera
+ * distance, ARCHITECTURE.md section 12.4 sub-problem 3.</b> {@link #entries} is a {@code
+ * LinkedHashMap} in selection order, which has nothing to do with the camera, and overlapping
+ * translucent shells composite in draw order (ADR-022's two low-alpha tiers are not
+ * order-independent). {@link DrawOrder#backToFront} sorts farthest first so the nearest shell
+ * draws last and composites on top, re-evaluated every frame since the camera moves. {@code
+ * RenderPolicy.UNION} draws a single merged buffer and is untouched by this - there is nothing to
+ * order among one buffer. The same section's sub-problem 1 (per-sensor draw cost, additive across
+ * that loop) is what {@link DrawLoopTiming} measures, flushed alongside the existing tier 3
+ * samples whenever {@link TimingGate#ENABLED}.
+ *
  * <p><b>Loader-neutral since DECISIONS.md ADR-043's follow-up split.</b> {@link #ACTIVATE_KEY} is
  * constructed here but not registered - vanilla's {@code KeyMapping} constructor touches no
  * loader API, only a loader's own key-mapping registry does. {@link #onRender} takes the camera
@@ -217,6 +229,14 @@ public final class ShellRenderer {
 
 	/** Tier 3 samples for as long as the current shell is up. ADR-031. */
 	private static final TierTiming.Frames FRAMES = new TierTiming.Frames();
+
+	/**
+	 * Section 12.4 sub-problem 1's per-frame draw-loop samples: the whole {@code PER_SENSOR} loop
+	 * in {@link #onRender} (upload plus draw, summed across every currently-drawn entry), not just
+	 * a single draw call. See {@link DrawLoopTiming}'s own javadoc for why this is kept as ongoing
+	 * profiling rather than torn out before this task's PR merges.
+	 */
+	private static final DrawLoopTiming DRAW_LOOP = new DrawLoopTiming();
 
 	/**
 	 * When the current run of tier 3 samples started reporting, so that the periodic flush is paced
@@ -860,8 +880,24 @@ public final class ShellRenderer {
 			return;
 		}
 
-		List<ShellEntry> toDraw = ClientConfig.get().renderPolicy() == RenderPolicy.UNION
+		RenderPolicy policy = ClientConfig.get().renderPolicy();
+		List<ShellEntry> toDraw = policy == RenderPolicy.UNION
 				? (unionEntry == null ? List.of() : List.of(unionEntry)) : new ArrayList<>(entries.values());
+
+		if (policy != RenderPolicy.UNION) {
+			// ARCHITECTURE.md section 12.4 sub-problem 3: overlapping translucent shells composite
+			// in draw order (ADR-022's two low-alpha tiers are not order-independent), and entries
+			// is a LinkedHashMap in selection order, not draw order. Sorting back-to-front by
+			// squared distance from the camera - farthest first, nearest last - is the standard
+			// technique for correct alpha compositing of overlapping translucent geometry: the
+			// nearest shell draws last and composites on top of everything behind it. Re-sorted
+			// every frame since the camera moves. UNION draws a single merged buffer, so ordering
+			// does not apply there, and sorting an immutable single-element List.of() would throw.
+			toDraw.sort(Comparator.comparing(ShellEntry::sensor,
+					DrawOrder.backToFront(cameraPos.x, cameraPos.y, cameraPos.z)));
+		}
+
+		long loopStart = TierTiming.start();
 		for (ShellEntry current : toDraw) {
 			consumePending(current);
 			ShellBuffer faces = current.buffer();
@@ -871,13 +907,24 @@ public final class ShellRenderer {
 			long drawStart = TierTiming.start();
 			draw(current, faces, cameraPos);
 			if (TimingGate.ENABLED) {
-				long now = System.nanoTime();
-				FRAMES.record(now - drawStart);
-				if (lastFlushNanos == 0L) {
-					lastFlushNanos = now;
-				} else if (now - lastFlushNanos >= TierTiming.FLUSH_INTERVAL_NANOS) {
-					flushFrames();
-				}
+				FRAMES.record(TierTiming.since(drawStart));
+			}
+		}
+
+		// ARCHITECTURE.md section 12.4 sub-problem 1: the per-sensor draw cost is additive across
+		// this loop (consumePending's upload plus draw, per entry), and nothing before this task
+		// measured the whole loop at mode B's scale - only a single draw call, and only ever for
+		// one sensor. DRAW_LOOP's summary, flushed alongside FRAMES's, is what lets the author read
+		// back real numbers against the v0.3 exit criterion at a live N of 20+; see DrawLoopTiming's
+		// own javadoc for why this instrument is kept rather than removed before merge.
+		if (TimingGate.ENABLED && !toDraw.isEmpty()) {
+			DRAW_LOOP.record(toDraw.size(), TierTiming.since(loopStart));
+
+			long now = System.nanoTime();
+			if (lastFlushNanos == 0L) {
+				lastFlushNanos = now;
+			} else if (now - lastFlushNanos >= TierTiming.FLUSH_INTERVAL_NANOS) {
+				flushFrames();
 			}
 		}
 	}
@@ -1022,12 +1069,20 @@ public final class ShellRenderer {
 	 * Client thread, which is where every one of its samples was taken.
 	 */
 	private static void flushFrames() {
-		if (!TimingGate.ENABLED || FRAMES.isEmpty()) {
+		if (!TimingGate.ENABLED || (FRAMES.isEmpty() && DRAW_LOOP.isEmpty())) {
 			return;
 		}
 
-		say(Minecraft.getInstance(), FRAMES.summary());
-		FRAMES.reset();
+		if (!FRAMES.isEmpty()) {
+			say(Minecraft.getInstance(), FRAMES.summary());
+			FRAMES.reset();
+		}
+
+		if (!DRAW_LOOP.isEmpty()) {
+			say(Minecraft.getInstance(), DRAW_LOOP.summary());
+			DRAW_LOOP.reset();
+		}
+
 		lastFlushNanos = System.nanoTime();
 	}
 
