@@ -24,6 +24,9 @@ import net.neoforged.neoforge.event.level.ChunkEvent;
 import net.neoforged.neoforge.event.level.LevelEvent;
 
 import com.scr0ols.sculksight.SculkSight;
+import com.scr0ols.sculksight.audit.RadiusAuditCommand;
+import com.scr0ols.sculksight.audit.RadiusAuditController;
+import com.scr0ols.sculksight.audit.RadiusAuditRequest;
 import com.scr0ols.sculksight.client.ClientPlatform;
 import com.scr0ols.sculksight.client.DetectionIndicator;
 import com.scr0ols.sculksight.client.SensorIndex;
@@ -111,13 +114,27 @@ public final class SculkSightNeoForge {
 	private static final int SENSOR_INDEX_RESYNC_INTERVAL_TICKS = 20;
 
 	/**
-	 * How far {@link #resyncSensorIndexNearPlayer} looks around the player, in chunks. Vanilla's
-	 * two sculk sensor variants top out at listener radius 16; a player standing at the edge of
-	 * that range can be up to one more chunk away from the sensor itself, so 2 chunks of margin on
-	 * every side of the player's own chunk - a 5x5 chunk square - covers the whole reachable area
-	 * with room to spare.
+	 * How far {@link #resyncSensorIndexNearPlayer} looks around the player, in chunks, with no
+	 * radius audit active. Vanilla's two sculk sensor variants top out at listener radius 16; a
+	 * player standing at the edge of that range can be up to one more chunk away from the sensor
+	 * itself, so 2 chunks of margin on every side of the player's own chunk - a 5x5 chunk square -
+	 * covers the whole reachable area with room to spare.
+	 *
+	 * <p><b>Mode B needs more.</b> {@code /sculksight find <type> <n> live} can ask up to
+	 * {@link RadiusAuditRequest#MAX_RADIUS} blocks away, far past this default - and a sensor
+	 * placed fresh, in the current session, beyond this sweep is exactly the gap this whole
+	 * mechanism exists to close (this class's own javadoc, the 2026-09-08 report). {@link
+	 * #resyncRadiusChunks()} widens the swept radius to cover an active request's own radius
+	 * instead of this constant, so a freshly-placed sensor a radius audit is querying for is not
+	 * silently invisible on this loader while Fabric's live block-entity events find it instantly.
 	 */
 	private static final int SENSOR_INDEX_RESYNC_RADIUS_CHUNKS = 2;
+
+	/**
+	 * Vanilla chunk width, for converting {@link RadiusAuditRequest#radius()} (blocks) into a
+	 * chunk count for {@link IndexSweep#sweep}.
+	 */
+	private static final int BLOCKS_PER_CHUNK = 16;
 
 	private static int sensorIndexResyncCountdown;
 
@@ -273,12 +290,30 @@ public final class SculkSightNeoForge {
 		}
 
 		BlockPos center = player.blockPosition();
-		Map<WorldPosition, Integer> swept = IndexSweep.sweep(level, center, SENSOR_INDEX_RESYNC_RADIUS_CHUNKS);
+		int radiusChunks = resyncRadiusChunks();
+		Map<WorldPosition, Integer> swept = IndexSweep.sweep(level, center, radiusChunks);
 		Map<BlockPos, Integer> truth = new HashMap<>();
 
 		swept.forEach((pos, radius) -> truth.put(new BlockPos(pos.x(), pos.y(), pos.z()), radius));
 
-		SensorIndex.reconcile(truth, pos -> IndexSweep.withinSweep(pos, center, SENSOR_INDEX_RESYNC_RADIUS_CHUNKS));
+		SensorIndex.reconcile(truth, pos -> IndexSweep.withinSweep(pos, center, radiusChunks));
+	}
+
+	/**
+	 * {@link #SENSOR_INDEX_RESYNC_RADIUS_CHUNKS} with no radius audit active; otherwise wide enough
+	 * to cover {@link RadiusAuditController}'s active request, so a sensor placed this session
+	 * beyond the default sweep still reaches {@link SensorIndex} before a mode B query for it. The
+	 * radius is rounded up to whole chunks, plus the same one-chunk margin the default already
+	 * budgets for a listener radius that does not align to a chunk boundary.
+	 */
+	private static int resyncRadiusChunks() {
+		RadiusAuditRequest active = RadiusAuditController.activeRequest();
+		if (active == null) {
+			return SENSOR_INDEX_RESYNC_RADIUS_CHUNKS;
+		}
+
+		int chunksForRequest = (active.radius() + BLOCKS_PER_CHUNK - 1) / BLOCKS_PER_CHUNK + 1;
+		return Math.max(SENSOR_INDEX_RESYNC_RADIUS_CHUNKS, chunksForRequest);
 	}
 
 	// ---------------------------------------------------------------- dev-only verify commands
@@ -294,6 +329,13 @@ public final class SculkSightNeoForge {
 	 */
 	@SubscribeEvent
 	static void onRegisterClientCommands(RegisterClientCommandsEvent event) {
+		// Mode B (PLAN.md section 5, ARCHITECTURE.md section 12): /sculksight find <type> <n> <mode>.
+		// A client command, so it resolves locally and works on a vanilla server. Registered
+		// unconditionally, outside the ADR-019 gate below, because it is a player-facing feature
+		// rather than a development mechanism. Only its arguments are implemented so far; the
+		// audit behind them is later work, and the command says so when it runs.
+		RadiusAuditCommand.register(event.getDispatcher());
+
 		if (!FMLEnvironment.isProduction()) {
 			VerificationCommand.register(event.getDispatcher());
 

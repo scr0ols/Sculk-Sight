@@ -11,6 +11,7 @@ import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents;
 import net.fabricmc.loader.api.FabricLoader;
 
 import com.scr0ols.sculksight.SculkSight;
+import com.scr0ols.sculksight.audit.RadiusAuditCommand;
 import com.scr0ols.sculksight.config.ClientConfig;
 import com.scr0ols.sculksight.config.ConfigScreens;
 import com.scr0ols.sculksight.verify.DetectionVerificationCommand;
@@ -74,6 +75,13 @@ public class SculkSightClient implements ClientModInitializer {
 		// Mode C (PLAN.md section 3.4, ADR-039): a toggle key and a per-tick check against the
 		// sensor index above, independent of ShellRenderer's mode A shell.
 		registerDetectionIndicator();
+
+		// Mode B (PLAN.md section 5, ARCHITECTURE.md section 12): /sculksight find <type> <n> <mode>.
+		// A client command, so it resolves locally and works on a vanilla server. Registered
+		// unconditionally, outside the ADR-019 gate below, because it is a player-facing feature
+		// rather than a development mechanism. Only its arguments are implemented so far; the
+		// audit behind them is later work, and the command says so when it runs.
+		RadiusAuditCommand.register();
 
 		// DECISIONS.md ADR-019 permits the verification mechanism to reach server-side state
 		// only in a development environment, and requires that the dev-only status be real
