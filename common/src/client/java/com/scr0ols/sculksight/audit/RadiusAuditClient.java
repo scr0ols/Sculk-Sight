@@ -14,6 +14,7 @@ import net.minecraft.core.BlockPos;
 
 import com.scr0ols.sculksight.audit.RadiusAudit.AuditedSensor;
 import com.scr0ols.sculksight.client.DetectorType;
+import com.scr0ols.sculksight.client.EventAwareQueryClient;
 import com.scr0ols.sculksight.client.SensorIndex;
 import com.scr0ols.sculksight.client.SensorKey;
 import com.scr0ols.sculksight.config.ClientConfig;
@@ -71,6 +72,7 @@ public final class RadiusAuditClient {
 
 		BlockPos centre = player.blockPosition();
 		List<AuditedSensor> candidates = candidatesFrom(level);
+		report.accept(EventAwareQueryClient.describe(level, player, candidates));
 		int cap = ClientConfig.get().radiusAuditCap();
 
 		return switch (mode) {
