@@ -16,6 +16,8 @@ No code changed for this release. The itemised entries below were left under `[U
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-18
+
 ### Added
 
 - **The find command, `/sculksight find <type> <radius> <mode>`.** It takes which kind of detector to look at — `all`, or one of `sensor`, `calibrated` and `shrieker` — a radius in blocks, and what to do with what it finds. It is client-side: typed in chat like any other command but never sent to the server, so it works on a vanilla server the same as in single-player. The game's own command support gives it autocomplete as you type and tells you straight away when an argument is wrong — a radius outside the allowed range, a detector type that is not one of the ones offered, a mode that is not `static` or `live` — rather than failing after the fact.
@@ -35,6 +37,7 @@ No code changed for this release. The itemised entries below were left under `[U
 - **A tracked sensor you disable stays hidden even if a live find also selects it.** The find half of the selection added the position straight back in the same tick the tracked half dropped it, which read as the toggle flashing off and immediately on again.
 - **A freshly placed sensor is now found by a find on NeoForge.** NeoForge has no live block-entity add/remove event, so a sensor placed during the current session only reaches the sensor index through a periodic resync that swept two chunks around the player — far short of the 512 blocks a find may ask about. The resync now widens its sweep to cover an active live find's own radius.
 - **The merged union shell is drawn where its sensors are, not offset towards the player.** The union mesh was encoded relative to whichever sensor happened to be first in a given tick's batch, while the draw always translated by the union's own fixed anchor; the two drifted apart as soon as a later, budgeted batch started with a different sensor, offsetting the whole shell by the difference.
+- **Overlapping shells in Split mode now composite in the right order.** They used to draw in whatever order the find happened to select them, which is visibly wrong for overlapping low-opacity geometry; the per-frame draw list is now sorted back-to-front by distance from the camera, re-evaluated every frame, so the nearest shell always reads on top. Union mode is unaffected — it draws one merged buffer, so there is nothing to order.
 
 ## [0.2.0] - 2026-09-16
 

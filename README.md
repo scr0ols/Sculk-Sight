@@ -2,7 +2,7 @@
 
 Sculk Sight is a client-side Minecraft mod that makes sculk-sensor detection easier to understand. It can draw the effective area from which a vibration can reach a sensor and tell you when your current position can be detected by a nearby sensor.
 
-Current pre-release: **v0.2.0** for **Minecraft 26.2**, with **Fabric and NeoForge** support.
+Current pre-release: **v0.3.0** for **Minecraft 26.2**, with **Fabric and NeoForge** support.
 
 Licence: **GPL-3.0-or-later**. See [LICENSE](LICENSE).
 
@@ -66,9 +66,9 @@ Sculk Sight is **client-side only**. Do not install it on a server.
 
 1. Install Minecraft 26.2, Java 25, and either Fabric or NeoForge.
 2. **Fabric only:** install Fabric API. NeoForge needs no extra dependency.
-3. Download the matching v0.2.0 jar from [Releases](https://github.com/scr0ols/Sculk-Sight/releases) and place it in your instance's `mods` directory:
-   - `fabric-sculksight-0.2.0+26.2.jar` for Fabric.
-   - `neoforge-sculksight-0.2.0+26.2.jar` for NeoForge.
+3. Download the matching v0.3.0 jar from [Releases](https://github.com/scr0ols/Sculk-Sight/releases) and place it in your instance's `mods` directory:
+   - `fabric-sculksight-0.3.0+26.2.jar` for Fabric.
+   - `neoforge-sculksight-0.3.0+26.2.jar` for NeoForge.
 4. Launch the game. Aim at detectors and use **K** to track them, **G** to toggle rendering, then **H** for delay labels, or press **J** for the detection indicator. Press **B** to open the settings screen directly.
 
 ## Build from source
