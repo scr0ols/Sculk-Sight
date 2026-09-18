@@ -17,8 +17,9 @@ class ConfigCodecTest {
 	private final List<String> repairs = new ArrayList<>();
 
 	@Test
-	void writesBothKeysTheSchemaHas() {
-		assertEquals("{\n\t\"shellOpacityPercent\": 25,\n\t\"renderPolicy\": \"union\"\n}\n",
+	void writesEveryKeyTheSchemaAlwaysHas() {
+		assertEquals("{\n\t\"shellOpacityPercent\": 25,\n\t\"renderPolicy\": \"union\",\n"
+						+ "\t\"radiusAuditCap\": 32\n}\n",
 				ConfigCodec.write(SculkSightConfig.defaults()));
 	}
 
@@ -35,8 +36,8 @@ class ConfigCodecTest {
 	@Test
 	void aFileWrittenByALaterVersionStillLoads() throws JsonParseException {
 		SculkSightConfig config = ConfigCodec.read(
-				"{\"shellOpacityPercent\": 40, \"renderPolicy\": \"union\", "
-						+ "\"somethingFromV03\": [1, 2], \"note\": \"mine\"}",
+				"{\"shellOpacityPercent\": 40, \"renderPolicy\": \"union\", \"radiusAuditCap\": 32, "
+						+ "\"somethingFromV04\": [1, 2], \"note\": \"mine\"}",
 				repairs::add);
 
 		assertEquals(40, config.shellOpacityPercent());
@@ -49,9 +50,11 @@ class ConfigCodecTest {
 
 		assertEquals(SculkSightConfig.DEFAULT_SHELL_OPACITY_PERCENT, config.shellOpacityPercent());
 		assertEquals(SculkSightConfig.DEFAULT_RENDER_POLICY, config.renderPolicy());
-		assertEquals(2, repairs.size());
+		assertEquals(SculkSightConfig.DEFAULT_RADIUS_AUDIT_CAP, config.radiusAuditCap());
+		assertEquals(3, repairs.size());
 		assertTrue(repairs.stream().anyMatch(r -> r.contains("shellOpacityPercent") && r.contains("missing")));
 		assertTrue(repairs.stream().anyMatch(r -> r.contains("renderPolicy") && r.contains("missing")));
+		assertTrue(repairs.stream().anyMatch(r -> r.contains("radiusAuditCap") && r.contains("missing")));
 	}
 
 	/**
@@ -60,7 +63,8 @@ class ConfigCodecTest {
 	 */
 	@Test
 	void aLegacyFileWithoutTheRenderPolicyKeyDecodesToTheDefault() throws JsonParseException {
-		SculkSightConfig config = ConfigCodec.read("{\"shellOpacityPercent\": 40}", repairs::add);
+		SculkSightConfig config = ConfigCodec.read(
+				"{\"shellOpacityPercent\": 40, \"radiusAuditCap\": 32}", repairs::add);
 
 		assertEquals(RenderPolicy.UNION, config.renderPolicy());
 		assertEquals(1, repairs.size());
@@ -72,7 +76,8 @@ class ConfigCodecTest {
 	@ValueSource(strings = {"union", "per_sensor"})
 	void bothRenderPolicyValuesRoundTrip(String value) throws JsonParseException {
 		SculkSightConfig config = ConfigCodec.read(
-				"{\"shellOpacityPercent\": 25, \"renderPolicy\": \"" + value + "\"}", repairs::add);
+				"{\"shellOpacityPercent\": 25, \"renderPolicy\": \"" + value
+						+ "\", \"radiusAuditCap\": 32}", repairs::add);
 
 		assertEquals(value.equals("union") ? RenderPolicy.UNION : RenderPolicy.PER_SENSOR,
 				config.renderPolicy());
@@ -89,7 +94,8 @@ class ConfigCodecTest {
 	@ValueSource(strings = {"Union", "PER_SENSOR", "unoin", "", "per-sensor", "radius_audit"})
 	void anUnrecognisedRenderPolicyStringFailsClosedToTheDefault(String value) throws JsonParseException {
 		SculkSightConfig config = ConfigCodec.read(
-				"{\"shellOpacityPercent\": 25, \"renderPolicy\": \"" + value + "\"}", repairs::add);
+				"{\"shellOpacityPercent\": 25, \"renderPolicy\": \"" + value
+						+ "\", \"radiusAuditCap\": 32}", repairs::add);
 
 		assertEquals(SculkSightConfig.DEFAULT_RENDER_POLICY, config.renderPolicy());
 		assertEquals(1, repairs.size());
@@ -106,7 +112,8 @@ class ConfigCodecTest {
 			throws JsonParseException {
 
 		SculkSightConfig config = ConfigCodec.read(
-				"{\"shellOpacityPercent\": 25, \"renderPolicy\": " + rawValue + "}", repairs::add);
+				"{\"shellOpacityPercent\": 25, \"renderPolicy\": " + rawValue
+						+ ", \"radiusAuditCap\": 32}", repairs::add);
 
 		assertEquals(SculkSightConfig.DEFAULT_RENDER_POLICY, config.renderPolicy());
 		assertEquals(1, repairs.size());
@@ -117,7 +124,8 @@ class ConfigCodecTest {
 	@ValueSource(strings = {"-30", "101", "1000"})
 	void anOutOfRangeValueIsMovedIntoRangeAndSaysSo(String value) throws JsonParseException {
 		SculkSightConfig config = ConfigCodec.read(
-				"{\"shellOpacityPercent\": " + value + ", \"renderPolicy\": \"union\"}", repairs::add);
+				"{\"shellOpacityPercent\": " + value
+						+ ", \"renderPolicy\": \"union\", \"radiusAuditCap\": 32}", repairs::add);
 
 		assertEquals(SculkSightConfig.clampShellOpacityPercent(Integer.parseInt(value)),
 				config.shellOpacityPercent());
@@ -128,7 +136,8 @@ class ConfigCodecTest {
 	@Test
 	void aFractionalValueIsRoundedAndSaysSo() throws JsonParseException {
 		SculkSightConfig config = ConfigCodec.read(
-				"{\"shellOpacityPercent\": 30.4, \"renderPolicy\": \"union\"}", repairs::add);
+				"{\"shellOpacityPercent\": 30.4, \"renderPolicy\": \"union\", \"radiusAuditCap\": 32}",
+				repairs::add);
 
 		assertEquals(30, config.shellOpacityPercent());
 		assertEquals(1, repairs.size());
@@ -148,7 +157,8 @@ class ConfigCodecTest {
 			throws JsonParseException {
 
 		SculkSightConfig config = ConfigCodec.read(
-				"{\"shellOpacityPercent\": " + value + ", \"renderPolicy\": \"union\"}", repairs::add);
+				"{\"shellOpacityPercent\": " + value
+						+ ", \"renderPolicy\": \"union\", \"radiusAuditCap\": 32}", repairs::add);
 
 		assertEquals(SculkSightConfig.MAX_SHELL_OPACITY_PERCENT, config.shellOpacityPercent(),
 				"an absurdly high opacity is the most opaque shell, not the least");
@@ -161,7 +171,8 @@ class ConfigCodecTest {
 	@ValueSource(strings = {"-2147483649", "-1e300", "-1e400"})
 	void aValueTooSmallForAnIntIsStillTheMinimum(String value) throws JsonParseException {
 		SculkSightConfig config = ConfigCodec.read(
-				"{\"shellOpacityPercent\": " + value + ", \"renderPolicy\": \"union\"}", repairs::add);
+				"{\"shellOpacityPercent\": " + value
+						+ ", \"renderPolicy\": \"union\", \"radiusAuditCap\": 32}", repairs::add);
 
 		assertEquals(SculkSightConfig.MIN_SHELL_OPACITY_PERCENT, config.shellOpacityPercent());
 		assertEquals(1, repairs.size());
@@ -177,6 +188,40 @@ class ConfigCodecTest {
 			"{\"shellOpacityPercent\": {\"value\": 25}}",
 	})
 	void aWrongTypedValueIsAnError(String text) {
+		assertThrows(JsonParseException.class, () -> ConfigCodec.read(text, repairs::add));
+	}
+
+	@Test
+	void aMissingRadiusAuditCapBecomesTheDefaultAndSaysSo() throws JsonParseException {
+		SculkSightConfig config = ConfigCodec.read(
+				"{\"shellOpacityPercent\": 25, \"renderPolicy\": \"union\"}", repairs::add);
+
+		assertEquals(SculkSightConfig.DEFAULT_RADIUS_AUDIT_CAP, config.radiusAuditCap());
+		assertEquals(1, repairs.size());
+		assertTrue(repairs.getFirst().contains("radiusAuditCap") && repairs.getFirst().contains("missing"),
+				repairs.getFirst());
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = {"0", "257", "1000"})
+	void anOutOfRangeRadiusAuditCapIsMovedIntoRangeAndSaysSo(String value) throws JsonParseException {
+		SculkSightConfig config = ConfigCodec.read(
+				"{\"shellOpacityPercent\": 25, \"renderPolicy\": \"union\", \"radiusAuditCap\": "
+						+ value + "}", repairs::add);
+
+		assertEquals(SculkSightConfig.clampRadiusAuditCap(Integer.parseInt(value)), config.radiusAuditCap());
+		assertEquals(1, repairs.size());
+		assertTrue(repairs.getFirst().contains("radiusAuditCap") && repairs.getFirst().contains("moved to"),
+				repairs.getFirst());
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = {
+			"{\"shellOpacityPercent\": 25, \"renderPolicy\": \"union\", \"radiusAuditCap\": \"32\"}",
+			"{\"shellOpacityPercent\": 25, \"renderPolicy\": \"union\", \"radiusAuditCap\": true}",
+			"{\"shellOpacityPercent\": 25, \"renderPolicy\": \"union\", \"radiusAuditCap\": null}",
+	})
+	void aWrongTypedRadiusAuditCapIsAnError(String text) {
 		assertThrows(JsonParseException.class, () -> ConfigCodec.read(text, repairs::add));
 	}
 

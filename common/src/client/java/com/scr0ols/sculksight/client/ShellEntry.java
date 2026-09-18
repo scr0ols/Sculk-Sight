@@ -54,6 +54,14 @@ final class ShellEntry implements AutoCloseable {
 
 	private volatile @Nullable DetectionSet set;
 
+	/**
+	 * The occluded-out count from the same solve that produced {@link #set}, cached alongside it
+	 * so a union rebuilt from several already-solved entries (ARCHITECTURE.md section 12.3's
+	 * per-sensor cache, {@code ShellRenderer.CachedContribution}) can still report an accurate
+	 * total without re-solving anything just to recount it.
+	 */
+	private volatile int occludedOut;
+
 	private volatile @Nullable WorldDetectionSet worldSet;
 
 	private volatile @Nullable DelayOverlay delayOverlay;
@@ -109,6 +117,12 @@ final class ShellEntry implements AutoCloseable {
 		delayOverlay = DelayOverlay.from(sensor, solved);
 		worldSet = null;
 		set = solved.accepted();
+		occludedOut = solved.occludedOut().size();
+	}
+
+	/** The occluded-out count from the solve that produced the current {@link #set}. */
+	int occludedOut() {
+		return occludedOut;
 	}
 
 	void setWorldSolution(WorldDetectionSet solved) {

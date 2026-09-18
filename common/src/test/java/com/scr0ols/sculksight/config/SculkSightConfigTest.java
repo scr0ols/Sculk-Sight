@@ -34,6 +34,13 @@ class SculkSightConfigTest {
 		assertEquals(RenderPolicy.UNION, SculkSightConfig.DEFAULT_RENDER_POLICY);
 	}
 
+	/** ARCHITECTURE.md section 12.4's cap, at the value this record ships. */
+	@Test
+	void theDefaultRadiusAuditCapIsThirtyTwo() {
+		assertEquals(32, SculkSightConfig.defaults().radiusAuditCap());
+		assertEquals(32, SculkSightConfig.DEFAULT_RADIUS_AUDIT_CAP);
+	}
+
 	@Test
 	void selectionIsDeduplicatedAndBounded() {
 		SculkSightConfig config = SculkSightConfig.defaults();
@@ -97,6 +104,30 @@ class SculkSightConfigTest {
 	void refusesANullRenderPolicy() {
 		assertThrows(NullPointerException.class,
 				() -> new SculkSightConfig(SculkSightConfig.DEFAULT_SHELL_OPACITY_PERCENT, null));
+	}
+
+	@ParameterizedTest
+	@ValueSource(ints = {0, 257, Integer.MIN_VALUE, Integer.MAX_VALUE})
+	void refusesARadiusAuditCapOutsideItsOwnRange(int cap) {
+		assertThrows(IllegalArgumentException.class,
+				() -> SculkSightConfig.defaults().withRadiusAuditCap(cap));
+	}
+
+	@ParameterizedTest
+	@CsvSource({"0, 1", "1, 1", "32, 32", "256, 256", "257, 256", "-2147483648, 1", "2147483647, 256"})
+	void clampingARadiusAuditCapMovesItToTheNearestPermittedOne(int given, int expected) {
+		assertEquals(expected, SculkSightConfig.clampRadiusAuditCap(given));
+	}
+
+	/** {@link SculkSightConfig#withRadiusAuditCap} is the cap's own copy-with, mirroring opacity's. */
+	@Test
+	void changingTheRadiusAuditCapLeavesTheOriginalAlone() {
+		SculkSightConfig original = SculkSightConfig.defaults();
+
+		SculkSightConfig changed = original.withRadiusAuditCap(64);
+
+		assertEquals(32, original.radiusAuditCap());
+		assertEquals(64, changed.radiusAuditCap());
 	}
 
 	@ParameterizedTest
