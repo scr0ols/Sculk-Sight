@@ -30,6 +30,8 @@ displayURL="https://github.com/scr0ols/Sculk-Sight"
 # aspect ~4.53:1; banner-1280x200-neoforge.svg here reshapes the same icon+wordmark layout to
 # 1280x200 (aspect 6.4:1), comfortably past that ratio, so it fills the panel width instead.
 iconFile="sculksight_icon.png"
+# Keep the pre-26.2 logo key for launchers that have not learned iconFile yet.
+logoFile="sculksight_icon.png"
 bannerFile="sculksight_banner.png"
 
 # Not part of NeoForge's mods.toml schema - informal keys, ignored by the loader, kept here

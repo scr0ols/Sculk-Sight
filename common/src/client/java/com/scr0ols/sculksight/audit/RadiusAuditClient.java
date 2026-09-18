@@ -14,8 +14,10 @@ import net.minecraft.core.BlockPos;
 
 import com.scr0ols.sculksight.audit.RadiusAudit.AuditedSensor;
 import com.scr0ols.sculksight.client.DetectorType;
+import com.scr0ols.sculksight.client.EventAwareQueryClient;
 import com.scr0ols.sculksight.client.SensorIndex;
 import com.scr0ols.sculksight.client.SensorKey;
+import com.scr0ols.sculksight.client.ShellRenderer;
 import com.scr0ols.sculksight.config.ClientConfig;
 
 /**
@@ -71,15 +73,23 @@ public final class RadiusAuditClient {
 
 		BlockPos centre = player.blockPosition();
 		List<AuditedSensor> candidates = candidatesFrom(level);
+		report.accept(EventAwareQueryClient.describe(level, player, candidates));
 		int cap = ClientConfig.get().radiusAuditCap();
 
-		return switch (mode) {
+		int result = switch (mode) {
 			case LIVE -> RadiusAuditCommandCore.runLive(report, radius, detectorName,
 					centre.getX(), centre.getY(), centre.getZ(), candidates, cap);
 			case STATIC -> RadiusAuditCommandCore.runStatic(report, radius, detectorName,
 					centre.getX(), centre.getY(), centre.getZ(), candidates, cap,
 					RadiusAuditClient::pinToConfig);
 		};
+		if (result == RadiusAuditCommandCore.SUCCESS) {
+			// The command's candidate query reads the live client level. Drop meshes encoded
+			// before this rerun so a changed wall or other occluder cannot leave a stale shell
+			// visible merely because the sensor identity and radius stayed the same.
+			ShellRenderer.onRadiusAuditRerun();
+		}
+		return result;
 	}
 
 	/**

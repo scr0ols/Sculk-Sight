@@ -466,6 +466,17 @@ public final class ShellRenderer {
 	}
 
 	/**
+	 * Invalidates meshes after a successful radius-audit command rerun. The audit reads the live
+	 * client level, while an existing shell is an encoded snapshot; retaining it when the sensor
+	 * identity and radius are unchanged would show the previous occlusion geometry after a wall was
+	 * placed or removed. The next client tick reconciles the same selection and dispatches fresh
+	 * solves. Called on the client thread by {@link RadiusAuditClient}.
+	 */
+	public static void onRadiusAuditRerun() {
+		clearRenderCaches();
+	}
+
+	/**
 	 * A level change - join, dimension change, or disconnect - drops the cached shell, both of
 	 * whose GPU resources are tied to the level that produced them. Called from a loader's own
 	 * client-level-change event, which runs on the client thread - also the render thread
