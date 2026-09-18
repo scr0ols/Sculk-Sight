@@ -117,6 +117,10 @@ jar {
 	def projectName = project.name
 	inputs.property "projectName", projectName
 
+	manifest {
+		attributes("Implementation-Version": project.version)
+	}
+
 	from(rootProject.file("LICENSE")) {
 		rename { "LICENSE_$projectName" }
 	}
