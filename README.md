@@ -2,7 +2,7 @@
 
 Sculk Sight is a client-side Minecraft mod that makes sculk-sensor detection easier to understand. It can draw the effective area from which a vibration can reach a sensor and tell you when your current position can be detected by a nearby sensor.
 
-Current pre-release: **v0.3.0** for **Minecraft 26.2**, with **Fabric and NeoForge** support.
+Current release: **v0.4.0** for **Minecraft 26.2**, with **Fabric and NeoForge** support.
 
 Licence: **GPL-3.0-or-later**. See [LICENSE](LICENSE).
 
@@ -37,6 +37,8 @@ A live find appears in the settings screen under a **Live find** heading, one ro
 
 How many sensors one find may draw is capped (32 by default) so a large radius in a busy world cannot ask for an unbounded amount of work; the command says so when it truncates.
 
+The find preview is event-aware. It reports geometry blocking separately from whether an event source is valid, whether the listener is inside that event's notification reach, and whether a calibrated sensor's frequency filter matches. Event-specific notification radii are preserved, including the shorter jukebox reach, the wider shriek reach, and the 26.2 `BOUNCE` event. When the client cannot reliably infer a calibrated sensor's current tuning state, the result is shown as **unknown** rather than guessed.
+
 ### Mode C — detection indicator
 
 Press **J** (also rebindable) to toggle the detection indicator. While enabled, it checks the loaded sculk sensors around you and sends a client-side chat message whenever your detected/not-detected state changes.
@@ -66,9 +68,9 @@ Sculk Sight is **client-side only**. Do not install it on a server.
 
 1. Install Minecraft 26.2, Java 25, and either Fabric or NeoForge.
 2. **Fabric only:** install Fabric API. NeoForge needs no extra dependency.
-3. Download the matching v0.3.0 jar from [Releases](https://github.com/scr0ols/Sculk-Sight/releases) and place it in your instance's `mods` directory:
-   - `fabric-sculksight-0.3.0+26.2.jar` for Fabric.
-   - `neoforge-sculksight-0.3.0+26.2.jar` for NeoForge.
+3. Download the matching v0.4.0 jar from [Releases](https://github.com/scr0ols/Sculk-Sight/releases) and place it in your instance's `mods` directory:
+   - `fabric-sculksight-0.4.0+26.2.jar` for Fabric.
+   - `neoforge-sculksight-0.4.0+26.2.jar` for NeoForge.
 4. Launch the game. Aim at detectors and use **K** to track them, **G** to toggle rendering, then **H** for delay labels, or press **J** for the detection indicator. Press **B** to open the settings screen directly.
 
 ## Build from source
