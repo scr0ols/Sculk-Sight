@@ -14,13 +14,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import com.scr0ols.sculksight.client.DetectorType;
 
-/**
- * Argument parsing and validation for {@code /sculksight find <type> <n> <mode>}.
- *
- * <p>These are the tests ARCHITECTURE.md section 12.1 says the layer-1 half of mode B exists to
- * make possible: no {@code ClientLevel}, no dispatcher, no loader. What they do not cover is
- * whether the command is reachable in a running game, which is a live run and not a JUnit test.
- */
 class RadiusAuditRequestTest {
 
 	@Test
@@ -37,12 +30,6 @@ class RadiusAuditRequestTest {
 		assertEquals(Optional.empty(), RadiusAuditRequest.of(16, name).detector());
 	}
 
-	/**
-	 * The regression this pair of assertions exists for: {@code all} parsed but was never offered,
-	 * because the every-detector case used to be "leave the argument out" and the suggestion list
-	 * was three concrete detector names. With the argument required, a value that does not appear in
-	 * the completions is a value most players will never find.
-	 */
 	@Test
 	void theAllNameIsBothOfferedAndAccepted() throws Exception {
 		assertTrue(RadiusAuditRequest.TYPE_NAMES.contains("all"),
@@ -50,11 +37,6 @@ class RadiusAuditRequestTest {
 		assertEquals(Optional.empty(), RadiusAuditRequest.of(16, "all").detector());
 	}
 
-	/**
-	 * The {@code type} argument is required, so nothing can reach the parser having omitted it.
-	 * Reading a {@code null} as {@code all} would turn a caller's mistake into a plausible-looking
-	 * every-detector audit; {@link RadiusAuditMode} rejects its own {@code null} for the same reason.
-	 */
 	@Test
 	void aMissingTypeIsRejectedRatherThanReadAsAll() {
 		assertThrows(RadiusAuditArgumentException.class, () -> RadiusAuditRequest.of(16, null));
@@ -116,12 +98,6 @@ class RadiusAuditRequestTest {
 		assertTrue(problem.getMessage().contains(String.valueOf(radius)), problem.getMessage());
 	}
 
-	/**
-	 * The bounds are handed to Brigadier's own {@code IntegerArgumentType} by both loader classes,
-	 * so an out-of-range radius is normally rejected before {@link RadiusAuditRequest#of} sees it.
-	 * The record checks anyway: a constructor that trusts its caller is one refactor away from
-	 * being wrong, and this is the only place the range is defined.
-	 */
 	@Test
 	void theCanonicalConstructorValidatesToo() {
 		assertThrows(IllegalArgumentException.class,
@@ -137,12 +113,6 @@ class RadiusAuditRequestTest {
 				RadiusAuditRequest.of(64, "calibrated").describe());
 	}
 
-	/**
-	 * Guards the pair of switches in the record against a fourth detector being added to
-	 * {@link DetectorType} and reaching only one of them. Both are exhaustive switches over the
-	 * enum, so the compiler catches the parse side; nothing but this catches a name that parses
-	 * and then describes itself as something the parser would not accept.
-	 */
 	@Test
 	void everyDetectorTypeRoundTripsThroughItsName() throws Exception {
 		for (DetectorType type : DetectorType.values()) {

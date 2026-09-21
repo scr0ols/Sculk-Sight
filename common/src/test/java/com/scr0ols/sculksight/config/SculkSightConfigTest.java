@@ -11,13 +11,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
-/** Tests for the settings record, and for its agreement with ADR-022's authored alphas. */
+/** Tests for the settings record, and for its agreement with the authored alphas. */
 class SculkSightConfigTest {
 
-	/**
-	 * The whole reason the slider stores a percentage rather than a float: at the default position
-	 * the two derived alphas must be exactly the numbers ADR-022 decided, not near them.
-	 */
 	@Test
 	void theDefaultsAreTheAlphasAdr022Chose() {
 		SculkSightConfig config = SculkSightConfig.defaults();
@@ -27,14 +23,12 @@ class SculkSightConfigTest {
 		assertEquals(0.10F, config.seeThroughAlpha(), 1.0E-6F);
 	}
 
-	/** ADR-051 fixed union as the default, and M1 stores that fact rather than repeating the ADR. */
 	@Test
 	void theDefaultRenderPolicyIsUnion() {
 		assertEquals(RenderPolicy.UNION, SculkSightConfig.defaults().renderPolicy());
 		assertEquals(RenderPolicy.UNION, SculkSightConfig.DEFAULT_RENDER_POLICY);
 	}
 
-	/** ARCHITECTURE.md section 12.4's cap, at the value this record ships. */
 	@Test
 	void theDefaultRadiusAuditCapIsThirtyTwo() {
 		assertEquals(32, SculkSightConfig.defaults().radiusAuditCap());
@@ -77,10 +71,6 @@ class SculkSightConfigTest {
 		assertEquals(seeThrough, config.seeThroughAlpha(), 1.0E-6F);
 	}
 
-	/**
-	 * ADR-021's see-through pass is the fainter of the two at every position, which is what makes
-	 * one control legitimate rather than a shortcut - a player cannot invert the two passes.
-	 */
 	@ParameterizedTest
 	@ValueSource(ints = {1, 25, 50, 99, 100})
 	void theSeeThroughPassIsNeverDenserThanTheDepthTestedOne(int percent) {
@@ -99,7 +89,6 @@ class SculkSightConfigTest {
 				() -> new SculkSightConfig(percent, SculkSightConfig.DEFAULT_RENDER_POLICY));
 	}
 
-	/** The other half of "validating, not clamping": a null policy is refused too, not defaulted. */
 	@Test
 	void refusesANullRenderPolicy() {
 		assertThrows(NullPointerException.class,
@@ -119,7 +108,6 @@ class SculkSightConfigTest {
 		assertEquals(expected, SculkSightConfig.clampRadiusAuditCap(given));
 	}
 
-	/** {@link SculkSightConfig#withRadiusAuditCap} is the cap's own copy-with, mirroring opacity's. */
 	@Test
 	void changingTheRadiusAuditCapLeavesTheOriginalAlone() {
 		SculkSightConfig original = SculkSightConfig.defaults();
@@ -137,12 +125,6 @@ class SculkSightConfigTest {
 		assertEquals(expected, SculkSightConfig.clampShellOpacityPercent(given));
 	}
 
-	/**
-	 * The {@code double} overload, and the reason it exists: every one of these is a value that
-	 * {@code (int) Math.round(...)} would have wrapped before any clamp could see it
-	 * (OPEN-QUESTIONS.md section 22.2). The last row is why {@code NaN} is named explicitly rather
-	 * than left to {@code Math.max} and {@code Math.min}, which propagate it.
-	 */
 	@ParameterizedTest
 	@CsvSource({"-1.0, 0.0", "0.0, 0.0", "30.4, 30.4", "100.0, 100.0", "100.6, 100.0",
 			"1.0E300, 100.0", "-1.0E300, 0.0", "Infinity, 100.0", "-Infinity, 0.0", "NaN, 0.0"})
@@ -150,11 +132,6 @@ class SculkSightConfigTest {
 		assertEquals(expected, SculkSightConfig.clampShellOpacityPercent(given));
 	}
 
-	/**
-	 * The property the {@code double} overload is for, stated as the thing that was wrong: after it
-	 * runs, the narrowing cannot lose information, because the value is inside a range an
-	 * {@code int} represents exactly.
-	 */
 	@ParameterizedTest
 	@ValueSource(doubles = {1.0E300, Double.MAX_VALUE, Double.POSITIVE_INFINITY,
 			Double.NEGATIVE_INFINITY, Double.NaN, 2147483648.0})

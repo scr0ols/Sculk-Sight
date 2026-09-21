@@ -11,17 +11,6 @@ import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests for {@link OcclusionTest}, the six-ray rule of R4.
- *
- * <p>Named for the rule rather than for the class because the class is already called
- * "...Test" while being production code.
- *
- * <p><b>Scope, stated so these tests are not over-read.</b> Every test here runs against
- * {@link RecordingWorld}, so what is under test is the composition of the rule and nothing
- * below it. A green run here means the nudge, the snapping, the conjunction and the early
- * return are as R4 describes them. It does not mean the mod agrees with the game.
- */
 class SixRayRuleTest {
 
 	private static final int SOURCE_X = 3;
@@ -60,9 +49,6 @@ class SixRayRuleTest {
 	@Test
 	@DisplayName("one clear ray out of six is enough to be not occluded, wherever it falls")
 	void anySingleClearRayDefeatsOcclusion() {
-		// The rule is a conjunction, so the position of the clear ray must not matter. Running
-		// all six placements is what distinguishes a real conjunction from code that happens
-		// to work for the first one.
 		for (int clearIndex = 0; clearIndex < 6; clearIndex++) {
 			RecordingWorld world = RecordingWorld.allBlockedExceptCall(clearIndex);
 
@@ -79,7 +65,6 @@ class SixRayRuleTest {
 		run(world);
 
 		for (RecordingWorld.Ray ray : world.rays()) {
-			// The destination is the sensor's centre, exactly, with no nudge applied to it.
 			assertEquals(SENSOR_X + 0.5, ray.toX());
 			assertEquals(SENSOR_Y + 0.5, ray.toY());
 			assertEquals(SENSOR_Z + 0.5, ray.toZ());
@@ -95,10 +80,6 @@ class SixRayRuleTest {
 		List<RecordingWorld.Ray> rays = world.rays();
 		assertEquals(6, rays.size());
 
-		// Asserted structurally rather than by recomputing the same expression the production
-		// code uses, which would only prove the expression equals itself. The claims checked
-		// are the ones R4 actually makes: exactly one axis moves, by the nudge distance, and
-		// the six displacements are six distinct directions.
 		Set<String> displacements = new HashSet<>();
 
 		for (RecordingWorld.Ray ray : rays) {
@@ -122,9 +103,6 @@ class SixRayRuleTest {
 	@Test
 	@DisplayName("source and destination are not interchangeable")
 	void endpointOrderMatters() {
-		// Only the source is nudged (R4), so the rule is asymmetric. This test exists because
-		// swapping the arguments is an easy mistake that produces a plausible-looking shell,
-		// and nothing else here would catch it.
 		RecordingWorld forwards = RecordingWorld.allBlocked();
 		OcclusionTest.isOccluded(forwards, SOURCE_X, SOURCE_Y, SOURCE_Z, SENSOR_X, SENSOR_Y, SENSOR_Z);
 
@@ -138,10 +116,6 @@ class SixRayRuleTest {
 	@Test
 	@DisplayName("a position coincident with the sensor is still tested by the rule")
 	void sourceEqualToSensorIsNotSpecialCased() {
-		// The sensor's own position is inside its radius, so the solver will ask about it.
-		// Vanilla applies the same rule there rather than short-cutting, and so does this:
-		// the point of the assertion is that the code contains no special case, not that any
-		// particular answer is right.
 		RecordingWorld world = RecordingWorld.allClear();
 
 		assertFalse(OcclusionTest.isOccluded(world, SENSOR_X, SENSOR_Y, SENSOR_Z, SENSOR_X, SENSOR_Y, SENSOR_Z));

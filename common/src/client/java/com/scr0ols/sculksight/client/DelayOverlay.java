@@ -7,15 +7,6 @@ import com.scr0ols.sculksight.solver.DetectionSet;
 import com.scr0ols.sculksight.solver.ShellSolution;
 import com.scr0ols.sculksight.timing.DelayModel;
 
-/**
- * Immutable, sensor-relative data for one delay-label solve.
- *
- * <p>The solver's two sets are deliberately kept separate in the parallel {@code occluded}
- * array. Occluded entries remain available to the render path so it can suppress their labels,
- * while accepted entries are submitted as ordinary numeric labels. Delays and world anchors are
- * built once when the worker publishes the solve, rather than recomputed while the render thread
- * submits text every frame.
- */
 final class DelayOverlay {
 
 	private final Vec3[] anchors;

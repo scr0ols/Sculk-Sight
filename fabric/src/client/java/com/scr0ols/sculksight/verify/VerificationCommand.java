@@ -11,20 +11,7 @@ import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 
 import net.minecraft.network.chat.Component;
 
-/**
- * The dev-only differential verification command: {@code /sculksight-verify <scene> [samples]}.
- *
- * <p><b>A thin Brigadier shim over {@link VerificationCommandCore}</b>, since DECISIONS.md
- * ADR-043's follow-up split moved everything else - the solve, the probe, the report - into
- * {@code common}, generic over a plain {@code Minecraft} client and a feedback callback rather
- * than tied to {@link FabricClientCommandSource}. This class's own job is exactly two things
- * {@link FabricClientCommandSource} supplies that {@code common} cannot: Fabric's own client
- * command tree, and where its feedback actually goes.
- *
- * <p><b>Registered only in a development environment</b>, per ADR-019 - the gate is a real
- * check rather than an intention, so this command cannot exist in a shipped jar. See
- * {@code SculkSightClient} for where that gate is applied.
- */
+/** The dev-only differential verification command: {@code /sculksight-verify <scene> [samples]}. */
 public final class VerificationCommand {
 
 	private VerificationCommand() {

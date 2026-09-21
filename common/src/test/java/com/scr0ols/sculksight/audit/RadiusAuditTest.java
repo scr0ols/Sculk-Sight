@@ -12,10 +12,6 @@ import com.scr0ols.sculksight.audit.RadiusAudit.AuditedSensor;
 import com.scr0ols.sculksight.client.DetectorType;
 import com.scr0ols.sculksight.client.SensorKey;
 
-/**
- * Section 12.1's selection stage: proximity to a centre, an optional type filter, a defined
- * order. No cap here - that is section 12.4's own task, not this one.
- */
 class RadiusAuditTest {
 
 	private static AuditedSensor sensorAt(int x, int y, int z, DetectorType type) {
@@ -113,10 +109,6 @@ class RadiusAuditTest {
 		assertEquals(1, selection.matchedCount());
 	}
 
-	/**
-	 * Section 12.4: the cap keeps the nearest entries, which is what makes {@link #select}'s
-	 * nearest-first order a meaningful truncation rather than an arbitrary one.
-	 */
 	@Test
 	void aSelectionOverTheCapKeepsOnlyTheNearestEntries() {
 		AuditedSensor near = sensorAt(1, 0, 0, DetectorType.NORMAL_SENSOR);

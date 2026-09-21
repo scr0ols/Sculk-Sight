@@ -14,22 +14,6 @@ import com.scr0ols.sculksight.solver.ShellSolution;
 import com.scr0ols.sculksight.solver.ShellSolver;
 import com.scr0ols.sculksight.solver.WorldView;
 
-/**
- * Tests for {@link DetectionScan}, mode C's predictor for differential verification.
- *
- * <p><b>What a green run here means, and it is the same caveat {@link DifferentialVerifierTest}
- * carries.</b> Every world below is a lambda, not the game, so these tests establish that mode C's
- * scan partitions the cube the way {@code SensorDetector} says it should and that it matches what
- * {@link ShellSolver} produces from the same world. They establish nothing about whether either
- * agrees with Minecraft; TESTING-STRATEGY.md section 1 is why, and only
- * {@code /sculksight-verify-detection} against a running game closes that gap.
- *
- * <p>The agreement-with-{@link ShellSolver} tests are the interesting ones and are worth stating
- * plainly: they are a check of two of this project's own components against each other. ADR-039
- * point 1 made {@code SensorDetector} a separate type from the shell solver deliberately, and a
- * separate type is a type that can drift. These tests are what makes a drift a failing build
- * rather than a surprise in a live run months later.
- */
 class DetectionScanTest {
 
 	private static final int SENSOR_X = -14;
@@ -42,13 +26,6 @@ class DetectionScanTest {
 	private static final WorldView FULLY_ENCLOSED =
 			(fromX, fromY, fromZ, toX, toY, toZ) -> true;
 
-	/**
-	 * Occludes every candidate with a negative x offset from the sensor.
-	 *
-	 * <p>Not how occlusion works in the game, and not trying to be: it is the same fixture
-	 * {@link DifferentialVerifierTest} uses, and it exists to produce an occluded-out class large
-	 * enough to assert against without modelling space.
-	 */
 	private static final WorldView HALF_BLOCKED =
 			(fromX, fromY, fromZ, toX, toY, toZ) -> Math.floor(fromX) - SENSOR_X < 0;
 
@@ -60,7 +37,6 @@ class DetectionScanTest {
 		return ShellSolver.solveDetailed(world, SENSOR_X, SENSOR_Y, SENSOR_Z, radius);
 	}
 
-	/** Every offset in the cube on which the two partitions disagree, as readable keys. */
 	private static Set<String> disagreements(ShellSolution left, ShellSolution right, int radius) {
 		Set<String> found = new java.util.TreeSet<>();
 
@@ -118,13 +94,8 @@ class DetectionScanTest {
 		int radius = 4;
 		ShellSolution scanned = scan(OPEN_AIR, radius);
 
-		// R2 points 1-2: rejection is on strictly greater, so distSqr == radiusSqr passes. A
-		// scan written with < instead of <= would drop exactly this position, which is the
-		// outermost shell the mod exists to draw.
 		assertTrue(scanned.accepted().contains(radius, 0, 0), "distSqr == radiusSqr must be in the set");
 
-		// One further out is out of range, so it is in neither set. ShellSolution documents that
-		// third class as needing no storage of its own.
 		assertFalse(scanned.accepted().contains(radius, 1, 0));
 		assertFalse(scanned.occludedOut().contains(radius, 1, 0));
 		assertTrue(scanned.isOutOfRange(radius, 1, 0));
@@ -133,8 +104,6 @@ class DetectionScanTest {
 	@Test
 	@DisplayName("the scan feeds the verifier unchanged, and a game that agrees produces a clean report")
 	void theScanDrivesTheSharedVerifier() {
-		// The whole point of producing a ShellSolution rather than a shape of its own: mode C
-		// reuses mode A's sampling, comparison and reporting rather than growing a second copy.
 		int radius = 6;
 		ShellSolution scanned = scan(HALF_BLOCKED, radius);
 
@@ -156,11 +125,6 @@ class DetectionScanTest {
 	@Test
 	@DisplayName("a detector that disagrees with the game at one position is caught through the scan")
 	void aDisagreementAtOnePositionIsCaught() {
-		// The failure this mechanism exists to find, expressed against mode C's own predictor:
-		// the detector says the player is detected somewhere the game would not react. Under
-		// PLAN.md section 1 the reverse is equally wrong, and VerificationSample.outcome() is
-		// where that symmetry is tested; here one direction is enough to show the scan's output
-		// reaches the comparison at all.
 		int radius = 6;
 		ShellSolution scanned = scan(OPEN_AIR, radius);
 
@@ -174,8 +138,6 @@ class DetectionScanTest {
 					: Reaction.DID_NOT_REACT;
 		};
 
-		// The in-set class gets a third of the sample, so ask for the class three times over to
-		// guarantee the one bad position is probed rather than hoping the draw reaches it.
 		int everything = 3 * scanned.accepted().size();
 		VerificationReport report = DifferentialVerifier.verify("mode-c-one-bad", scanned,
 				SENSOR_X, SENSOR_Y, SENSOR_Z, silentAtOnePosition, everything, 23L);
@@ -189,9 +151,6 @@ class DetectionScanTest {
 	@Test
 	@DisplayName("radius zero scans exactly the sensor's own position")
 	void radiusZeroIsASinglePosition() {
-		// The degenerate case a loop bound is most likely to get wrong. There is no sensor with
-		// this radius in the game, and that is precisely why it is worth pinning: nothing in a
-		// live run would ever exercise it.
 		ShellSolution scanned = scan(OPEN_AIR, 0);
 
 		assertEquals(1, scanned.accepted().size());

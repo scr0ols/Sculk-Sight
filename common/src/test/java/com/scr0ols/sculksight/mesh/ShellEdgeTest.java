@@ -10,7 +10,6 @@ import org.junit.jupiter.params.provider.EnumSource;
 
 import com.scr0ols.sculksight.solver.Axis;
 
-/** Tests for the crease-edge geometry of ADR-028. */
 class ShellEdgeTest {
 
 	@Test
@@ -27,12 +26,6 @@ class ShellEdgeTest {
 		assertArrayEquals(new float[] {3, -4, 5, 3, -4, 6}, out);
 	}
 
-	/**
-	 * The direction the lines format wants is the unit axis vector, and it has to be unit length
-	 * because the {@code Normal} attribute is {@code RGBA8_SNORM} and clamps outside -1 to 1
-	 * (R15.7). For a one-unit edge the offset between the endpoints is that vector, which is what
-	 * lets the encoder pass the axis steps straight through.
-	 */
 	@ParameterizedTest
 	@EnumSource(Axis.class)
 	void theOffsetBetweenTheEndpointsIsTheUnitAxisVector(Axis axis) {

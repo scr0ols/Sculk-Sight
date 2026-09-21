@@ -26,77 +26,20 @@ import com.scr0ols.sculksight.audit.RadiusAuditMode;
 import com.scr0ols.sculksight.audit.RadiusAuditRequest;
 import com.scr0ols.sculksight.client.SensorKey;
 
-/**
- * The settings screen's sensor list: the player's tracked sensors, and - while a
- * {@code /sculksight find ... live} is active - what that audit currently selects, under a heading
- * of its own. Every control applies the instant the player clicks it; see {@link ConfigScreens}'s
- * own javadoc for why there is no Save button here at all.
- *
- * <p><b>Two sections in one scrolling list rather than two lists.</b> {@link SettingsScreen}'s
- * {@code HeaderAndFooterLayout} gives the contents band to a single widget, and the two sections
- * are read together - "which of these renders is the one I want gone" spans both - so splitting
- * them across two independently-scrolling lists, or behind a button to a second screen, would put a
- * scrollbar between two halves of one question. {@link Row} is therefore the list's element type
- * and has four shapes: {@link SectionRow} for a plain heading or an empty-section line,
- * {@link AuditHeadingRow} for the live find's heading and its Pin control, {@link TrackedRow} for a
- * persisted tracked sensor, and {@link AuditRow} for one of a live find's own hits.
- *
- * <p><b>Why the audit section exists at all.</b> An audited position is not in
- * {@code ClientConfig.trackedSensors()} - the audit is a query, not a curated list - so until this
- * section was added the screen could not show it, and the tracked list's own Enabled toggles could
- * only reach positions the player had separately pressed K on. On the 2026-09-17 report's own scene
- * that was five rows against twenty-seven renders, with no overlap: every toggle in the menu was
- * switching off something that was not on screen, and every render on screen had no row. See
- * {@link RadiusAuditController#setHidden} for where an {@link AuditRow}'s state actually lives.
- *
- * <p><b>{@code ContainerObjectSelectionList}, not the plain {@code ObjectSelectionList}</b> the
- * initial design sketch named: a row here needs three independently clickable buttons and, mid
- * rename, a text field plus two more buttons, and only the "container" flavour of vanilla's
- * selection list gives an {@code Entry} the {@code children()}/{@code narratables()} pair that
- * routes clicks and keyboard focus down into widgets living inside it - plain
- * {@code ObjectSelectionList.Entry} is a bare {@code GuiEventListener} with no such routing.
- * Vanilla's own {@code KeyBindsList} (two {@code Button}s per row, position set and rendered from
- * inside {@code extractContent} every frame, exactly reproduced below) is the precedent this class
- * follows - confirmed against the decompiled 26.2 client (
- * {@code minecraft-clientOnly-*-sources.jar}) this whole redesign was checked against, not assumed
- * from an older Minecraft version's very different {@code render(PoseStack, ...)} widget API.
- *
- * <p><b>Rebuilt from live state after every mutation</b>, rather than patched in place: at most
- * {@link SculkSightConfig#MAX_TRACKED_SENSORS} tracked rows and
- * {@code SculkSightConfig.radiusAuditCap()} audit rows exist, so {@link #refresh()} rebuilding all
- * of them from {@link ClientConfig#get()} and {@link RadiusAuditController#selection()} costs
- * nothing worth avoiding, and it is what keeps a row's own fields (name, enabled, hidden) from ever
- * drifting out of sync with the state a different row's action just wrote.
- */
 final class SensorListWidget extends ContainerObjectSelectionList<SensorListWidget.Row> {
 
 	private static final int ITEM_HEIGHT = 24;
 	private static final int BUTTON_HEIGHT = 20;
-	/**
-	 * Wide enough that "Enabled: Yes"/"Enabled: No" and "Remove tracked render" keep their text
-	 * centred in roughly the same place as their label changes, rather than visibly shifting inside
-	 * a tightly-fitted button.
-	 */
 	private static final int BUTTON_WIDTH = 84;
 	private static final int NAME_FIELD_WIDTH = 140;
 	private static final int SPACING = 4;
 
-	/** Vertical offset that centres one line of text on a {@link #ITEM_HEIGHT}-tall row. */
 	private static final int TEXT_BASELINE_OFFSET = 4;
 
-	/** Section headings, and a section's "nothing here" line, are dimmer than a row's own label. */
 	private static final int HEADING_COLOUR = 0xFFA0A0A0;
 
 	private static final int LABEL_COLOUR = -1;
 
-	/**
-	 * Which row, if any, currently has its rename field open, and what the player has typed into it
-	 * so far. Rows are rebuilt wholesale from live state on every mutation (see {@link #refresh()}'s
-	 * own javadoc), which would otherwise silently discard an in-progress rename on a
-	 * <em>different</em> row the instant the player clicked Enable/Disable or Remove on this one.
-	 * Tracking it here, keyed by position rather than by row index, lets {@link #refresh()} put the
-	 * same row back into edit mode with the same typed text after every rebuild.
-	 */
 	private @Nullable EditingState editing;
 
 	SensorListWidget(Minecraft minecraft, int width, int height, int y) {
@@ -109,31 +52,6 @@ final class SensorListWidget extends ContainerObjectSelectionList<SensorListWidg
 		return Math.min(400, this.width - 20);
 	}
 
-	/**
-	 * Rebuilds every row from live {@link ClientConfig} and {@link RadiusAuditController} state. The
-	 * screen calls this after every button press that reaches {@link ConfigScreens}, immediate-apply's
-	 * replacement for the old screen's single save-time rebuild. Also called directly by a row
-	 * starting or leaving edit mode, so that {@link #editing} stays the single source of truth for
-	 * which row (if any) is mid-rename - opening Rename on one row always closes any other row's open
-	 * field.
-	 *
-	 * <p><b>Not called every tick</b>, even though a live find re-selects every tick: the player is
-	 * standing still while they read this screen, so the selection cannot change under them, and a
-	 * per-tick rebuild would discard and rebuild every row's widgets for a set that was already
-	 * right. {@link SettingsScreen}'s own javadoc carries the same note from the other side.
-	 *
-	 * <p>Scroll position survives a rebuild. {@code AbstractSelectionList.clearEntries} clears the
-	 * children and the selection and does not touch the scroll amount - read from the decompiled 26.2
-	 * client rather than assumed, because a Pin or Shown click on row 20 of 27 silently jumping the
-	 * list back to the top would be its own bug.
-	 *
-	 * <p><b>An empty tracked list gets its heading and nothing else</b> - no placeholder line. The
-	 * heading already says what the section is, so a line underneath saying it is empty only repeats
-	 * what the blank space says, and the how-to it used to carry ("press K") is a keybind the
-	 * Controls screen and the README both document where a player goes looking for it. The audit
-	 * section below is the deliberate exception, for the reason in {@link #addAuditRows}: there,
-	 * empty and absent are two different answers and the section has to tell them apart.
-	 */
 	void refresh() {
 		List<Row> rows = new ArrayList<>();
 
@@ -147,15 +65,6 @@ final class SensorListWidget extends ContainerObjectSelectionList<SensorListWidg
 		replaceEntries(rows);
 	}
 
-	/**
-	 * The audit section, present only while an audit is active - with no audit there is nothing to
-	 * head and nothing to list, and an empty section would suggest the feature had failed rather
-	 * than that it had not been asked for.
-	 *
-	 * <p>A selection that is active but still empty <em>is</em> shown, with its own line: "the
-	 * command ran and found nothing in range here" is a different answer from "no command has run",
-	 * and the heading names the query so the player can see which radius produced it.
-	 */
 	private void addAuditRows(List<Row> rows) {
 		RadiusAuditRequest request = RadiusAuditController.activeRequest();
 		if (request == null) {
@@ -194,19 +103,9 @@ final class SensorListWidget extends ContainerObjectSelectionList<SensorListWidg
 		}
 	}
 
-	/**
-	 * One line in the list. Abstract rather than an interface because
-	 * {@code ContainerObjectSelectionList.Entry} is itself an abstract class, and self-referential
-	 * in its own type parameter - so this type, not each concrete row, is what the list is
-	 * parameterised on, and every row below is substitutable for every other.
-	 */
 	abstract static class Row extends ContainerObjectSelectionList.Entry<Row> {
 	}
 
-	/**
-	 * A heading, or a section's "nothing here" line: text only, no controls. Returns no children,
-	 * so vanilla's own click and focus routing skips it rather than letting a heading be tabbed to.
-	 */
 	final class SectionRow extends Row {
 
 		private final Component label;
@@ -233,22 +132,6 @@ final class SensorListWidget extends ContainerObjectSelectionList<SensorListWidg
 		}
 	}
 
-	/**
-	 * The live find's heading, with the control that turns the whole selection into tracked
-	 * sensors - {@link RadiusAuditMode#STATIC}'s outcome, reached after the fact.
-	 *
-	 * <p><b>On the heading rather than on each sensor row, because it is not a per-sensor act.</b>
-	 * Pinning ends the find, so a Pin button on one row would silently dispose of the other
-	 * twenty-six rows around it; the heading is the one place on screen that already stands for the
-	 * selection as a whole. The button is absent while the selection is empty, there being nothing
-	 * to pin and no useful message to give for pressing it.
-	 *
-	 * <p>Reports through chat rather than on screen: the pinned rows appearing and the find's
-	 * section vanishing is the visible half, but the counts {@link AuditPin#describe} carries - how
-	 * many were already tracked, how many did not fit - need words, and this screen has nowhere to
-	 * put a line of them. Chat is still there when the player closes the screen, and it is the same
-	 * channel the command itself reports through, so both routes read identically.
-	 */
 	final class AuditHeadingRow extends Row {
 
 		private final Component label;
@@ -273,11 +156,6 @@ final class SensorListWidget extends ContainerObjectSelectionList<SensorListWidg
 					.build();
 		}
 
-		/**
-		 * The heading is generated text of a known, short shape ("radius 64, all detectors (27
-		 * selected)"), not a player-chosen name of up to {@link TrackedSensor#MAX_NAME_LENGTH}
-		 * characters - so it is not ellipsised the way {@link TrackedRow}'s own label has to be.
-		 */
 		@Override
 		public void extractContent(GuiGraphicsExtractor graphics, int mouseX, int mouseY,
 				boolean hovered, float partialTick) {
@@ -301,12 +179,6 @@ final class SensorListWidget extends ContainerObjectSelectionList<SensorListWidg
 		}
 	}
 
-	/**
-	 * One sensor the active audit selected, with a single control: show it or hide it. No rename
-	 * (the position has no stored name to rename) and no remove (the audit decides its own
-	 * membership; removing a hit would only last until the next tick re-selected it - hiding is
-	 * what survives, because {@code ShellRenderer} consults the hidden set on every merge).
-	 */
 	final class AuditRow extends Row {
 
 		private final SensorKey position;
@@ -443,13 +315,11 @@ final class SensorListWidget extends ContainerObjectSelectionList<SensorListWidg
 			return Component.translatable("sculksight.config.tracked_sensors.enabled", state);
 		}
 
-		/** Opens this row's rename field, closing any other row's first - see {@link #editing}. */
 		private void startEditing() {
 			SensorListWidget.this.editing = new EditingState(x, y, z, name);
 			SensorListWidget.this.refresh();
 		}
 
-		/** Applies the typed name immediately, matching every other row action's instant-apply. */
 		private void applyRename() {
 			ConfigScreens.renameSensor(x, y, z, nameField.getValue());
 			SensorListWidget.this.editing = null;
@@ -513,12 +383,6 @@ final class SensorListWidget extends ContainerObjectSelectionList<SensorListWidg
 			renameButton.extractRenderState(graphics, mouseX, mouseY, partialTick);
 		}
 
-		/**
-		 * The row's label, shortened with an ellipsis when {@code name} is long enough to run into
-		 * the Rename/Enabled/Remove buttons - up to {@link TrackedSensor#MAX_NAME_LENGTH} characters
-		 * of player-chosen text sharing a 24px-tall row with three buttons is exactly the case a
-		 * fixed-width layout like this one cannot assume away.
-		 */
 		private Component displayName(int maxWidth) {
 			Font font = SensorListWidget.this.minecraft.font;
 			Component full = Component.translatable("sculksight.config.tracked_sensors.name", name, x, y, z);

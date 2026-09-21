@@ -15,33 +15,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/**
- * Coverage for {@link ConfigScreens}'s package-private action methods - the pure mutation logic
- * behind {@link SettingsScreen}'s buttons, now that every one of them applies to
- * {@link ClientConfig} the instant it is clicked instead of waiting for a Save button.
- *
- * <p>Up to v0.2 this class was {@code ConfigScreensSaveTest}, and reached {@code ConfigScreens}'s
- * private {@code save} method and its {@code SensorDraft} holder through reflection - both existed
- * only because Cloth Config batched every edit behind one distant save. Removing Cloth removed the
- * batching along with it: there is no draft state left to reconcile, no mid-screen-drop bug for a
- * save to reintroduce, and so no reflection either. {@link ConfigScreens#renameSensor},
- * {@link ConfigScreens#setSensorEnabled}, {@link ConfigScreens#setAuditSensorHidden},
- * {@link ConfigScreens#removeSensor}, {@link ConfigScreens#setShellOpacityPercent} and
- * {@link ConfigScreens#setRenderPolicy} are called directly, the same package-private methods
- * {@link SettingsScreen}'s widgets call.
- *
- * <p>{@code ConfigScreens} lives in {@code common}'s {@code src/client/java}, which is a plain
- * source artifact rather than a compiled sourceSet of {@code common} itself (see
- * {@code common/build.gradle}'s own comment on {@code commonClientJava}) - so nothing on
- * {@code common}'s test classpath can reach it. This module recompiles that source against a real
- * Minecraft classpath the same way it does for the mod jar itself, which is what lets this test
- * call the real, compiled action methods rather than re-describing their logic here.
- *
- * <p>{@link SculkSightConfig#untrack} already has its own coverage in {@code common}'s
- * {@code SculkSightConfigTest}, so {@link #removeSensorDropsOnlyTheMatchingPosition()} below checks
- * only that {@link ConfigScreens#removeSensor} calls through to it correctly, not {@code untrack}'s
- * own list-preserving behaviour a second time.
- */
 class ConfigScreensActionsTest {
 
 	@TempDir
@@ -114,13 +87,6 @@ class ConfigScreensActionsTest {
 		assertEquals(List.of(retained), ClientConfig.get().trackedSensors());
 	}
 
-	/**
-	 * The audit section's own toggle, and the one action here that deliberately persists nothing:
-	 * an audited position is not in {@code trackedSensors()} at all, so its visibility lives in
-	 * {@link RadiusAuditController}'s session-only set. {@code RadiusAuditControllerTest} covers
-	 * that set's own behaviour; what this checks is that {@code ConfigScreens} reaches it with the
-	 * position the clicked row named, and leaves the saved config alone doing so.
-	 */
 	@Test
 	void setAuditSensorHiddenTogglesSessionStateWithoutTouchingTheSavedConfig() {
 		ClientPlatform.set(new TestEnvironment(tempDir));

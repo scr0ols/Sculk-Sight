@@ -1,24 +1,9 @@
 package com.scr0ols.sculksight.verify;
 
-/**
- * One sampled position: what the solver predicted, and what the game did.
- *
- * <p>Offsets are sensor-relative, matching the solver's frame, because that is the frame a
- * disagreement has to be read in when someone goes to look at it in game.
- */
+/** One sampled position: what the solver predicted, and what the game did. */
 public record VerificationSample(int dx, int dy, int dz, PredictedClass predictedClass, Reaction observed) {
 
-	/**
-	 * Compares the prediction with the observation.
-	 *
-	 * <p>The comparison is symmetric on purpose, and symmetric across both ways of being
-	 * predicted absent. A position the solver excluded - for either reason - and the game
-	 * accepted is exactly as much of a failure as the reverse: it is a hole in the drawn shell
-	 * rather than a bulge, and PLAN.md section 1 ranks a wrong shape as wrong in either
-	 * direction. {@link PredictedClass#OCCLUDED_OUT} and {@link PredictedClass#OUT_OF_RANGE}
-	 * are therefore treated identically here - the distinction exists for sampling and
-	 * reporting (see {@link DifferentialVerifier}), not for judging agreement.
-	 */
+	/** Compares the prediction with the observation. */
 	public Outcome outcome() {
 		boolean predictedInSet = predictedClass == PredictedClass.IN_SET;
 

@@ -18,41 +18,16 @@ import com.scr0ols.sculksight.client.DetectorType;
 import com.scr0ols.sculksight.client.LevelWorldView;
 import com.scr0ols.sculksight.solver.ShellSolution;
 
-/**
- * Mode C's differential verification mechanism, behind {@code /sculksight-verify-detection},
- * split out of the Fabric-only {@code DetectionVerificationCommand} by DECISIONS.md ADR-043's
- * follow-up split.
- *
- * <p>Aim at a sculk sensor, calibrated sculk sensor or sculk shrieker and run it, exactly as for
- * {@link VerificationCommandCore}. What
- * changes is which of this mod's answers is on trial: mode A's command asks {@code ShellSolver},
- * this one asks {@code SensorDetector}, through {@link DetectionScan}. That class's own javadoc
- * carries why the distinction is not pedantic and what a clean run here does and does not
- * establish. TESTING-STRATEGY.md section 4's v0.1 phase gate is what asks for this: it names both
- * modes, and mode A's passing runs say nothing about mode C's own code.
- *
- * <p><b>Everything below the prediction is mode A's mechanism unchanged, deliberately.</b> The
- * sampling, the three-way stratification, the outcome classification and the report are
- * {@link DifferentialVerifier}'s; the trigger and the observation are
- * {@link IntegratedServerSensorProbe}'s, so R14's answer is used rather than re-derived. Extending
- * the pattern rather than writing a second one means a fix to either half reaches both modes, and
- * means the two modes' evidence is comparable because it was produced the same way.
- *
- * <p><b>{@code client} and {@code feedback} stand in for a command source, the same way and for
- * the same reason {@link VerificationCommandCore}'s own javadoc explains.</b>
- */
+/** Mode C's differential verification mechanism, behind {@code /sculksight-verify-detection}. */
 public final class DetectionVerificationCommandCore {
 
 	private DetectionVerificationCommandCore() {
 	}
 
-	/** @return a Brigadier-style status: 1 for a clean run, 0 for anything else. */
+	/** Runs one mode C verification against the targeted detector, returning 1 for a clean run and 0 otherwise. */
 	public static int run(Minecraft client, Consumer<String> feedback, String scene, int samples,
 			Long seedOverride) {
 
-		// ADR-019's first constraint, enforced rather than documented, and hasSingleplayerServer()
-		// for the reason VerificationCommandCore gives: it tests both isLocalServer and the field,
-		// where a bare null check would not (R14 point 1).
 		if (!client.hasSingleplayerServer()) {
 			return fail(feedback, "no integrated server: this command cannot run against a remote server.");
 		}
@@ -73,18 +48,11 @@ public final class DetectionVerificationCommandCore {
 		ClientLevel clientLevel = client.level;
 		BlockEntity blockEntity = clientLevel != null ? clientLevel.getBlockEntity(sensorPos) : null;
 
-		// Any of the three detector types DetectorType.of classifies, matching
-		// VerificationCommandCore's own widening - see that class for why a bare
-		// SculkSensorBlockEntity cast rejected a shrieker.
 		if (!(blockEntity instanceof GameEventListener.Provider<?> provider)
 				|| DetectorType.of(blockEntity.getBlockState().getBlock()).isEmpty()) {
 			return fail(feedback, "the targeted block is not a sculk sensor, calibrated sculk sensor or sculk shrieker.");
 		}
 
-		// Derived through vanilla's own idiom, never from a stored LISTENER_RANGE/LISTENER_RADIUS
-		// constant (R1 point 3) - the same derivation SensorIndex performs at insert time, so this
-		// command and the indicator agree about the radius by construction rather than by
-		// coincidence.
 		GameEventListener listener = provider.getListener();
 		int radius = listener.getListenerRadius();
 
@@ -94,9 +62,6 @@ public final class DetectionVerificationCommandCore {
 			return fail(feedback, "the integrated server has no level for this dimension.");
 		}
 
-		// Scanned here, on the client thread, against the client's own view of the world: the
-		// input the shipped indicator will have, and the thread R16 says a ClientLevel may be read
-		// from. See DetectionScan for why the scan is eager rather than answering during the run.
 		ShellSolution prediction = DetectionScan.scan(new LevelWorldView(clientLevel),
 				sensorPos.getX(), sensorPos.getY(), sensorPos.getZ(), radius);
 
@@ -109,10 +74,6 @@ public final class DetectionVerificationCommandCore {
 
 		IntegratedServerSensorProbe probe = new IntegratedServerSensorProbe(serverLevel);
 
-		// One hop for the whole run, not one per sample, and the second of VerificationCommandCore's
-		// two reasons is the one that matters here too: inside a single server task the run
-		// happens between ticks, so no block entity ticks part-way through and the
-		// in-flight-vibration gate stays open for every sample (R14 point 8).
 		VerificationReport report = server.submit(() -> {
 			Optional<String> blocked = probe.blockedReason(sensorPos);
 

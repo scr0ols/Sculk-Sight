@@ -20,38 +20,13 @@ import com.scr0ols.sculksight.client.SensorKey;
 import com.scr0ols.sculksight.client.ShellRenderer;
 import com.scr0ols.sculksight.config.ClientConfig;
 
-/**
- * Mode B's client-side half: turns {@link SensorIndex#snapshot()} and the player's own position
- * into the plain arguments {@link RadiusAuditCommandCore} takes, so that class can stay in
- * {@code common/src/main} and name no Minecraft type. ARCHITECTURE.md section 12.1's own words for
- * this conversion: "trivial by construction" - the same split {@code DetectionIndicator} draws
- * against {@link com.scr0ols.sculksight.solver.SensorDetector}, and the reason this class carries
- * no test of its own.
- *
- * <p>Both loaders' {@code RadiusAuditCommand} call this instead of {@link RadiusAuditCommandCore}
- * directly, so the conversion lives once rather than being copied into each registration class.
- * Choosing between that class's two mode entry points is part of the same conversion and happens
- * here too, for the same reason.
- */
+/** Turns the sensor index and the player's position into the plain arguments {@link RadiusAuditCommandCore} takes. */
 public final class RadiusAuditClient {
 
 	private RadiusAuditClient() {
 	}
 
-	/**
-	 * Resolves the mode, the centre, the candidate set and the cap, then hands off to whichever of
-	 * {@link RadiusAuditCommandCore}'s two entry points the mode names.
-	 *
-	 * <p><b>The mode is validated here rather than by Brigadier</b>, so an unknown word is reported
-	 * by {@link RadiusAuditMode#of} with a message naming the modes it could have been - see that
-	 * method for why validation sits at layer 1.
-	 *
-	 * @param report where a line of player-facing feedback goes
-	 * @param detectorName the detector name the player typed
-	 * @param radius the radius in blocks, as Brigadier parsed it
-	 * @param modeName the mode the player typed; required, since neither mode is a default
-	 * @return {@link RadiusAuditCommandCore#SUCCESS} or {@link RadiusAuditCommandCore#FAILURE}
-	 */
+	/** Resolves the mode, centre, candidate set and cap, then hands off to the matching entry point. */
 	public static int run(Consumer<String> report, @Nullable String detectorName, int radius,
 			@Nullable String modeName) {
 		RadiusAuditMode mode;
@@ -84,40 +59,18 @@ public final class RadiusAuditClient {
 					RadiusAuditClient::pinToConfig);
 		};
 		if (result == RadiusAuditCommandCore.SUCCESS) {
-			// The command's candidate query reads the live client level. Drop meshes encoded
-			// before this rerun so a changed wall or other occluder cannot leave a stale shell
-			// visible merely because the sensor identity and radius stayed the same.
 			ShellRenderer.onRadiusAuditRerun();
 		}
 		return result;
 	}
 
-	/**
-	 * The {@code ClientConfig} read and write around {@link AuditPin}'s pure operation - the half
-	 * that cannot live in {@code common/src/main} beside the rest of the command's body, because
-	 * {@code ClientConfig} names this mod's logger and so needs a launched game.
-	 *
-	 * <p>Shares {@link AuditPin#describe} with the settings screen's own Pin button, so a static
-	 * find and a pinned live find report the same wording for the same outcome.
-	 */
 	private static String pinToConfig(List<AuditedSensor> selected) {
 		AuditPin.Result result = AuditPin.pin(ClientConfig.get(), selected);
 		ClientConfig.set(result.config());
 		return AuditPin.describe(result);
 	}
 
-	/**
-	 * Every indexed sensor that still resolves to a {@link DetectorType} right now. Reading the
-	 * type at query time, rather than trusting {@code SensorIndex} to have one on hand (ADR-038's
-	 * index stores position to radius only, not type), mirrors how {@code ShellRenderer#syncEntries}
-	 * already reads it - the seam ARCHITECTURE.md section 12.3 names as already matching this
-	 * shape. A position that no longer classifies - the block changed since indexing, and this
-	 * loader's reconciliation has not caught up yet - is skipped rather than guessed at.
-	 *
-	 * <p><b>Public</b> so {@code ShellRenderer} can build the same candidate set when a radius
-	 * audit is active, rather than this class and that one each reading {@code SensorIndex}
-	 * differently.
-	 */
+	/** Every indexed sensor that still resolves to a {@link DetectorType} right now. */
 	public static List<AuditedSensor> candidatesFrom(ClientLevel level) {
 		List<AuditedSensor> candidates = new ArrayList<>();
 
