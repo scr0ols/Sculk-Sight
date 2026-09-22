@@ -8,7 +8,7 @@ Licence: **GPL-3.0-or-later**. See [LICENSE](LICENSE).
 
 ## Features
 
-### Mode A — detection shell
+### Mode A - detection shell
 
 Aim at a sculk sensor, calibrated sculk sensor, or sculk shrieker and press **K** (rebindable under **Options → Controls → Miscellaneous**) to track it. Sculk Sight calculates the effective detection area of each enabled tracked sensor and draws either one bounded union or separate shells, coloured by detector type: amber for a sculk sensor, light blue for a calibrated sculk sensor, and dark red for a shrieker. Press **G** to toggle all sensor rendering without changing per-sensor toggles.
 
@@ -18,7 +18,7 @@ Press **K** on another sensor to track it too, up to 32 at once. Each tracked se
 
 With sensor rendering active, press **H** to show the travel delay in ticks for the first enabled tracked sensor. Labels use the player's current view for visibility; sensor-occluded positions show no label, since the sensor cannot detect a vibration there.
 
-### Mode B — find sensors around you
+### Mode B - find sensors around you
 
 Run `/sculksight find <type> <radius> <mode>` to draw every detector around you at once, without aiming at each one. It is a client-side command: it is typed in chat like any other, but never reaches the server, so it works on a vanilla server exactly as it does in single-player.
 
@@ -30,14 +30,14 @@ Run `/sculksight find <type> <radius> <mode>` to draw every detector around you 
 
 All three are required, and the mode is the important one, because it picks between two different jobs:
 
-- **`static`** — finds the sensors once, where you are standing, and adds them to the **Tracked sensors** list, exactly as if you had aimed at each one and pressed **K**. They are saved to `config/sculksight.json`, they each get a name and their own Enabled and Remove controls, and they stay put when you walk away. This is the one for auditing a redstone build you are working on.
-- **`live`** — an x-ray that follows you. It re-selects every tick against wherever you are now, so shells appear and disappear as you move. Nothing is saved; leaving the world or running another find clears it.
+- **`static`** - finds the sensors once, where you are standing, and adds them to the **Tracked sensors** list, exactly as if you had aimed at each one and pressed **K**. They are saved to `config/sculksight.json`, they each get a name and their own Enabled and Remove controls, and they stay put when you walk away. This is the one for auditing a redstone build you are working on.
+- **`live`** - an x-ray that follows you. It re-selects every tick against wherever you are now, so shells appear and disappear as you move. Nothing is saved; leaving the world or running another find clears it.
 
-A live find appears in the settings screen under a **Live find** heading, one row per sensor with a **Shown** toggle, so you can switch off an individual shell without cancelling the whole find. Those toggles last for the session. The heading also carries a **Pin all** button, which turns the current selection into tracked sensors and ends the live find — the same result as having run the find with `static`, for when you would rather walk around and look first. A sensor you have separately tracked with **K** and then disabled stays hidden even when a live find selects it too.
+A live find appears in the settings screen under a **Live find** heading, one row per sensor with a **Shown** toggle, so you can switch off an individual shell without cancelling the whole find. Those toggles last for the session. The heading also carries a **Pin all** button, which turns the current selection into tracked sensors and ends the live find - the same result as having run the find with `static`, for when you would rather walk around and look first. A sensor you have separately tracked with **K** and then disabled stays hidden even when a live find selects it too.
 
 How many sensors one find may draw is capped (32 by default) so a large radius in a busy world cannot ask for an unbounded amount of work; the command says so when it truncates.
 
-### Mode C — detection indicator
+### Mode C - detection indicator
 
 Press **J** (also rebindable) to toggle the detection indicator. While enabled, it checks the loaded sculk sensors around you and sends a client-side chat message whenever your detected/not-detected state changes.
 
