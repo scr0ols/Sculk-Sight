@@ -19,7 +19,7 @@
 	"sculksight.config.global_render": "Global: %s",
 	"sculksight.config.global_render.tooltip": "Global render: turn all sensor shell rendering on or off at once, without changing which sensors are tracked or their individual Enabled toggles below. Same as pressing G.",
 	"sculksight.config.delay_overlay": "Delay: %s",
-	"sculksight.config.delay_overlay.tooltip": "Delay overlay: show or hide the per-block travel-delay numbers over the active shell. Same as pressing H. Has no effect until at least one sensor is being rendered.",
+	"sculksight.config.delay_overlay.tooltip": "Delay overlay: show or hide the per-block travel-delay numbers over every tracked sensor whose own delay-overlay checkbox (in its Options screen) is on. Same as pressing H. Has no effect until at least one such sensor is being rendered.",
 	"sculksight.config.detection_indicator": "Detect: %s",
 	"sculksight.config.detection_indicator.tooltip": "Detection indicator: report in chat whenever you enter or leave a tracked sensor's detection range. Independent of the shell above. Same as pressing J.",
 	"sculksight.config.tracked_sensors": "Tracked sensors",
@@ -30,11 +30,14 @@
 	"sculksight.config.tracked_sensors.enabled.tooltip": "Toggle whether this sensor's shell is rendered.",
 	"sculksight.config.tracked_sensors.remove": "Remove",
 	"sculksight.config.tracked_sensors.remove.tooltip": "Remove this sensor from the tracked-render list immediately.",
-	"sculksight.config.tracked_sensors.rename": "Rename",
-	"sculksight.config.tracked_sensors.rename.tooltip": "Open a text field to rename this sensor.",
+	"sculksight.config.tracked_sensors.options": "Options",
+	"sculksight.config.tracked_sensors.options.tooltip": "Open this sensor's name, enabled and delay-overlay controls.",
+	"sculksight.config.tracked_sensors.options.title": "Sensor options (%s, %s, %s)",
+	"sculksight.config.tracked_sensors.rename.tooltip": "Apply this name to the sensor.",
 	"sculksight.config.tracked_sensors.rename.field": "Sensor name",
 	"sculksight.config.tracked_sensors.rename.apply": "Apply",
-	"sculksight.config.tracked_sensors.rename.cancel": "Cancel",
+	"sculksight.config.tracked_sensors.delay_overlay": "Delay overlay",
+	"sculksight.config.tracked_sensors.delay_overlay.tooltip": "Show this sensor's per-block travel-delay numbers whenever the delay overlay (H) is on.",
 
 	"sculksight.config.audit_sensors": "Live find — %s (%s selected)",
 	"sculksight.config.audit_sensors.empty": "No sensors in range from where you are standing.",
@@ -44,7 +47,7 @@
 	"sculksight.config.audit_sensors.shown.no": "No",
 	"sculksight.config.audit_sensors.shown.tooltip": "Show or hide this found sensor's shell. A live find saves nothing, so this lasts until you pin it, run another find, or leave the world.",
 	"sculksight.config.audit_sensors.pin": "Pin all",
-	"sculksight.config.audit_sensors.pin.tooltip": "Add every sensor this live find selected to the tracked sensors above, where they are saved and keep their own Rename, Enabled and Remove controls. This ends the live find, so the shells stop following you. Same result as running the find with 'static'.",
+	"sculksight.config.audit_sensors.pin.tooltip": "Add every sensor this live find selected to the tracked sensors above, where they are saved and keep their own Options and Remove controls. This ends the live find, so the shells stop following you. Same result as running the find with 'static'.",
 
 	"sculksight.config.done": "Done"
 }

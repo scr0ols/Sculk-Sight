@@ -14,9 +14,9 @@ Aim at a sculk sensor, calibrated sculk sensor, or sculk shrieker and press **K*
 
 The shell reflects the sensor's radius and vibration-dampening blocks such as wool and wool carpet, so dampened positions are absent rather than merely hidden. It is rendered with both see-through and depth-tested passes to remain readable in terrain.
 
-Press **K** on another sensor to track it too, up to 32 at once. Each tracked sensor's name, enabled toggle, and **Remove tracked render** control live in the settings screen below.
+Press **K** on another sensor to track it too, up to 32 at once. Each tracked sensor gets a **Remove** control on the settings screen below, plus an **Options** button that opens its name, enabled toggle, and delay-overlay checkbox.
 
-With sensor rendering active, press **H** to show the travel delay in ticks for the first enabled tracked sensor. Labels use the player's current view for visibility; sensor-occluded positions show no label, since the sensor cannot detect a vibration there.
+With sensor rendering active, press **H** to show the travel delay in ticks for every tracked sensor whose own delay-overlay checkbox (in its Options screen) is on. Labels use the player's current view for visibility; sensor-occluded positions show no label, since the sensor cannot detect a vibration there.
 
 ### Mode B — find sensors around you
 
@@ -100,6 +100,6 @@ Built jars are written to `fabric/build/libs/` and `neoforge/build/libs/`.
 ## Known limitations
 
 - The tracked-sensor list holds at most 32 sensors (`MAX_TRACKED_SENSORS`); tracking one more is refused rather than replacing an existing one, and a `static` find that selects more than will fit says how many it had to leave out.
-- The delay overlay (**H**) shows travel-delay labels for only the first enabled tracked sensor, even when several are tracked and enabled at once.
+- The delay overlay (**H**) only ever shows labels for tracked sensors; a sensor found through `/sculksight find` and never pinned to the tracked list has no delay-overlay checkbox and shows no labels.
 - Mode C reports whether any indexed, loaded sensor can detect you; it does not identify a particular sensor.
 - The released mod is client-only. Development-only verification commands are not included in normal production use.
