@@ -15,12 +15,7 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/**
- * Tests for the persistence layer itself, against a real directory.
- *
- * <p>This is what PLAN.md section 4 buys by putting the layer in common rather than leaning on
- * Cloth: the whole of saving and loading is exercised with no game, no loader and no Cloth Config.
- */
+/** Tests for the persistence layer itself, against a real directory. */
 class ConfigStoreTest {
 
 	private final List<String> problems = new ArrayList<>();
@@ -79,34 +74,6 @@ class ConfigStoreTest {
 		}
 	}
 
-	/**
-	 * The other half of the test above, and OPEN-QUESTIONS.md section 22's second smaller finding:
-	 * the write can succeed and the move then fail, and the temporary file used to survive that.
-	 *
-	 * <p><b>How the failure is provoked, since that is the part that needed thought.</b> The
-	 * destination is made a directory with something in it. A move onto a non-empty directory
-	 * cannot succeed anywhere - {@code Files.move} with {@code REPLACE_EXISTING} is specified to
-	 * replace an existing <i>empty</i> directory and to fail for a non-empty one - so the
-	 * provocation itself is portable, and the alternatives are not: a read-only parent directory is
-	 * enforced differently on Windows than on POSIX and not at all for an administrator, and
-	 * holding the destination open so the rename fails is a Windows-only sharing rule.
-	 *
-	 * <p><b>Which {@code IOException} arrives is <i>not</i> portable, and this test therefore does
-	 * not assert it.</b> A first draft asserted {@code DirectoryNotEmptyException}, which is what
-	 * {@code Files.move}'s own javadoc names for this input, and it failed here: on Windows,
-	 * 2026-09-07, the move reported {@code AccessDeniedException} instead, with the temporary file
-	 * as the source and the blocked path as the target. The assertions below are on what
-	 * {@code ConfigStore} does about a failed save, which is the finding, rather than on which
-	 * subclass the platform picked to tell it.
-	 *
-	 * <p><b>What it does not prove.</b> That a temporary file ever existed. The move failing tells
-	 * us the write before it returned normally, so it did; but the state this test observes is the
-	 * one after the cleanup, and no seam in {@code ConfigStore} exposes the moment in between.
-	 * Asserting the destination is untouched is what keeps the test honest in the other direction -
-	 * a save that had failed at {@code createDirectories} or at the write would leave the same
-	 * empty-handed directory listing, and the untouched destination is what says the save got as
-	 * far as trying to replace it.
-	 */
 	@Test
 	void aFailedSaveLeavesNoTemporaryFileBehindEither(@TempDir Path directory) throws IOException {
 		blockTheDestination(directory);
@@ -131,7 +98,6 @@ class ConfigStoreTest {
 				"set stores the value in memory whatever the file does");
 	}
 
-	/** Makes the settings file's own path a non-empty directory, which no move can replace. */
 	private static void blockTheDestination(Path directory) throws IOException {
 		Path inTheWay = directory.resolve(ConfigStore.FILE_NAME);
 
@@ -197,14 +163,6 @@ class ConfigStoreTest {
 		assertFalse(problems.isEmpty());
 	}
 
-	/**
-	 * OPEN-QUESTIONS.md section 22.3, asserted where the promise it broke was made. DECISIONS.md
-	 * ADR-055 says a damaged file yields the shipped defaults plus a report; a file of thousands of
-	 * opening brackets used to yield a {@code StackOverflowError} instead, which is an
-	 * {@link Error} and so went straight past {@code load()}'s {@code catch (JsonParseException)}
-	 * and out of the mod's startup. This test would not have failed - it would have errored, which
-	 * is the point.
-	 */
 	@Test
 	void aDeeplyNestedFileFallsBackToTheDefaultsLikeAnyOtherDamagedOne(@TempDir Path directory)
 			throws IOException {
@@ -220,7 +178,6 @@ class ConfigStoreTest {
 				problems.getFirst());
 	}
 
-	/** And it is left on disk, for the same reason every other damaged file is: it is theirs. */
 	@Test
 	void aDeeplyNestedFileIsLeftOnDisk(@TempDir Path directory) throws IOException {
 		String text = "[".repeat(100_000);

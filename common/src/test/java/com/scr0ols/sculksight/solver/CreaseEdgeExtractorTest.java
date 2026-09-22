@@ -11,18 +11,11 @@ import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 
-/** Tests for the crease rule and the sweep that feeds it. c-docs/DECISIONS.md ADR-028. */
 class CreaseEdgeExtractorTest {
 
 	private record Edge(int x, int y, int z, Axis axis) {
 	}
 
-	/**
-	 * The rule, over all sixteen configurations of the four cube positions around one edge.
-	 *
-	 * <p>Exhaustive because there are only sixteen, and because every one of them is a case the
-	 * renderer will meet: a shell of two thousand positions has edges of every kind.
-	 */
 	@Test
 	void theRuleIsExactlyOneThreeOrTwoDiagonal() {
 		for (int mask = 0; mask < 16; mask++) {
@@ -40,7 +33,6 @@ class CreaseEdgeExtractorTest {
 		}
 	}
 
-	/** A flat wall is the case that must not be a crease, or the whole surface gets outlined. */
 	@Test
 	void twoAdjacentMembersAreAFlatSurfaceAndNotACrease() {
 		assertFalse(CreaseEdgeExtractor.isCrease(true, true, false, false));
@@ -55,13 +47,6 @@ class CreaseEdgeExtractorTest {
 		assertFalse(CreaseEdgeExtractor.isCrease(true, true, true, true));
 	}
 
-	/**
-	 * One position is a cube, and a cube has exactly twelve edges, four along each axis.
-	 *
-	 * <p>This is the smallest complete shell there is, so it pins the sweep's ranges: an extractor
-	 * whose lattice loops stopped at the cube's own bounds rather than one past them would miss the
-	 * edges on the far side and return fewer than twelve.
-	 */
 	@Test
 	void aSinglePositionYieldsTheTwelveEdgesOfOneCube() {
 		DetectionSet set = new DetectionSet(2);
@@ -74,8 +59,6 @@ class CreaseEdgeExtractorTest {
 		assertEquals(4, edges.stream().filter(edge -> edge.axis() == Axis.Y).count());
 		assertEquals(4, edges.stream().filter(edge -> edge.axis() == Axis.Z).count());
 
-		// Every edge of the unit cube at the origin runs from a corner in {0,1}^3, and no edge is
-		// emitted twice.
 		Set<Edge> distinct = new HashSet<>(edges);
 		assertEquals(12, distinct.size());
 
@@ -86,14 +69,6 @@ class CreaseEdgeExtractorTest {
 		}
 	}
 
-	/**
-	 * A flat slab, which is where the rule earns its keep: the interior of each face contributes
-	 * nothing and only the rim is a crease.
-	 *
-	 * <p>A 3 by 1 by 3 slab is a box, so its creases are the twelve edges of that box: four of
-	 * length 3 along X, four of length 3 along Z, and four of length 1 along Y. Counting unit
-	 * segments that is 12 + 12 + 4, which is 28.
-	 */
 	@Test
 	void aFlatSlabIsOutlinedOnlyAtItsRim() {
 		DetectionSet set = new DetectionSet(3);
@@ -107,13 +82,6 @@ class CreaseEdgeExtractorTest {
 		assertEquals(28, collect(set).size());
 	}
 
-	/**
-	 * Two cubes touching only along one edge, which is the configuration the rule keeps as a crease
-	 * even though only two of the four positions are members.
-	 *
-	 * <p>Each cube contributes its own twelve edges, and the shared one is emitted once rather than
-	 * twice because the sweep visits each lattice segment once. So 12 + 12 - 1, which is 23.
-	 */
 	@Test
 	void twoDiagonallyTouchingCubesShareOneCreaseRatherThanDuplicatingIt() {
 		DetectionSet set = new DetectionSet(3);
@@ -131,10 +99,6 @@ class CreaseEdgeExtractorTest {
 		assertEquals(0, collect(new DetectionSet(4)).size());
 	}
 
-	/**
-	 * A crease edge always separates a member from a non-member somewhere around it, so the count
-	 * the encoder is told to expect can never exceed what a full sweep finds.
-	 */
 	@Test
 	void theCountAndTheSweepAgreeOnASolidBall() {
 		DetectionSet set = new DetectionSet(5);

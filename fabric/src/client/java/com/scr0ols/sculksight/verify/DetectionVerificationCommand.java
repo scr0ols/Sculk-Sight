@@ -11,21 +11,7 @@ import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 
 import net.minecraft.network.chat.Component;
 
-/**
- * Mode C's differential verification command:
- * {@code /sculksight-verify-detection <scene> [samples] [seed]}.
- *
- * <p><b>A thin Brigadier shim over {@link DetectionVerificationCommandCore}</b>, the same split
- * {@link VerificationCommand}'s own javadoc explains for mode A's command.
- *
- * <p><b>Registered only in a development environment</b>, per ADR-019, through the same gate and
- * the same shape {@code /sculksight-verify} uses. See {@code SculkSightClient}.
- *
- * <p><b>Separate command rather than an argument on the existing one.</b> Mode A's command and its
- * recorded runs are this project's evidence that the shell is correct, and its argument shape is
- * quoted in the archive's evidence tables. A new mode taking a slot in it would change the shape
- * of a command whose past invocations are part of the record, for no benefit over a second name.
- */
+/** Mode C's differential verification command: {@code /sculksight-verify-detection <scene> [samples] [seed]}. */
 public final class DetectionVerificationCommand {
 
 	private DetectionVerificationCommand() {

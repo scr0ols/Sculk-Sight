@@ -19,50 +19,16 @@ import com.scr0ols.sculksight.client.LevelWorldView;
 import com.scr0ols.sculksight.solver.ShellSolution;
 import com.scr0ols.sculksight.solver.ShellSolver;
 
-/**
- * The dev-only differential verification mechanism behind {@code /sculksight-verify}, split out
- * of the Fabric-only {@code VerificationCommand} by DECISIONS.md ADR-043's follow-up split.
- *
- * <p>Aim at a sculk sensor, calibrated sculk sensor or sculk shrieker and run it. The solver
- * predicts, the game is asked, and any
- * disagreement is reported. This is the mechanism PLAN.md §5.1 calls "the single thing standing
- * between this mod and one that lies convincingly", and ADR-007 makes a passing run a v0.0 exit
- * gate.
- *
- * <p><b>The solve reads the client level and the probe reads the server level, and that split
- * is the point rather than an accident.</b> Solving against the server world would test the
- * geometry while quietly assuming the client sees the same blocks. Solving against the client
- * world — which is what the mod will actually ship — means a disagreement catches a wrong shape
- * <em>or</em> a client that does not know what the server knows, and both of those would draw a
- * lie for the player.
- *
- * <p><b>The seed defaults to the sensor's position, and can be overridden.</b> Without an
- * explicit seed, {@link DifferentialVerifier} is seeded from the sensor's own packed block
- * position, so a run against the same sensor is reproducible — and, as a direct consequence,
- * re-running the same scene at the same sensor without an override probes the identical
- * positions rather than fresh ones (`OPEN-QUESTIONS.md` section 13). The optional third argument
- * exists so a scene can be resampled without moving the sensor, which is part of this
- * mechanism's evidentiary value rather than a convenience unrelated to it.
- *
- * <p><b>Everything a command's own source type would otherwise supply, taken as plain
- * parameters instead.</b> {@code FabricClientCommandSource} carries a client, a level and a
- * feedback sink, and this project has not read what a NeoForge client command source looks like
- * (CONVENTIONS.md §6) - so nothing here is typed against either. {@code client} stands in for
- * {@code source.getClient()}, and {@code feedback} for {@code source.sendFeedback}; each loader's
- * own thin command shim supplies both from whatever its own source type actually offers.
- */
+/** The dev-only differential verification mechanism behind {@code /sculksight-verify}. */
 public final class VerificationCommandCore {
 
 	private VerificationCommandCore() {
 	}
 
-	/** @return a Brigadier-style status: 1 for a clean run, 0 for anything else. */
+	/** Runs one verification against the targeted detector, returning 1 for a clean run and 0 otherwise. */
 	public static int run(Minecraft client, Consumer<String> feedback, String scene, int samples,
 			Long seedOverride) {
 
-		// ADR-019's first constraint, enforced rather than documented. hasSingleplayerServer()
-		// is the right guard: it tests both isLocalServer and the field, where a bare null check
-		// would not (R14 point 1).
 		if (!client.hasSingleplayerServer()) {
 			return fail(feedback, "no integrated server: this command cannot run against a remote server.");
 		}
@@ -83,18 +49,11 @@ public final class VerificationCommandCore {
 		ClientLevel clientLevel = client.level;
 		BlockEntity blockEntity = clientLevel != null ? clientLevel.getBlockEntity(sensorPos) : null;
 
-		// Any of the three detector types DetectorType.of classifies - never a catalyst, which
-		// also satisfies GameEventListener.Provider for an unrelated reason (DetectorType's own
-		// javadoc). Widened from a bare SculkSensorBlockEntity cast, which accepted a sensor and,
-		// through subclassing, a calibrated sensor, but rejected a shrieker outright.
 		if (!(blockEntity instanceof GameEventListener.Provider<?> provider)
 				|| DetectorType.of(blockEntity.getBlockState().getBlock()).isEmpty()) {
 			return fail(feedback, "the targeted block is not a sculk sensor, calibrated sculk sensor or sculk shrieker.");
 		}
 
-		// The radius is derived through vanilla's own idiom and never read from a stored
-		// LISTENER_RANGE/LISTENER_RADIUS constant: the calibrated sensor overrides it to 16
-		// through this same method, and reading a stored 8 for it would be wrong (R1 point 3).
 		GameEventListener listener = provider.getListener();
 		int radius = listener.getListenerRadius();
 
@@ -104,16 +63,9 @@ public final class VerificationCommandCore {
 			return fail(feedback, "the integrated server has no level for this dimension.");
 		}
 
-		// Solved here, on the client thread, against the client's own view of the world - the
-		// input the shipped mod will have. Detailed rather than plain: the verifier needs to
-		// know which excluded positions were removed by occlusion rather than by range, and
-		// ShellSolver computes that at no extra cost (see ShellSolution's javadoc).
 		ShellSolution prediction = ShellSolver.solveDetailed(new LevelWorldView(clientLevel),
 				sensorPos.getX(), sensorPos.getY(), sensorPos.getZ(), radius);
 
-		// Defaults to the sensor's own position, exactly as before this argument existed, so an
-		// unqualified run stays reproducible without anyone having to think about seeds. An
-		// override lets the same scene be resampled at fresh positions without moving the sensor.
 		long seed = seedOverride != null ? seedOverride : sensorPos.asLong();
 
 		feedback.accept("[sculksight] solving radius " + radius + " at " + sensorPos + ": "
@@ -123,11 +75,6 @@ public final class VerificationCommandCore {
 
 		IntegratedServerSensorProbe probe = new IntegratedServerSensorProbe(serverLevel);
 
-		// One hop for the whole run, not one per sample. Two reasons, and the second is the one
-		// that makes the exit criteria affordable: crossing threads 200 times would be wasteful,
-		// and running inside a single server task means the run happens between ticks, so the
-		// game time is frozen and no block entity ticks part-way through. That is what keeps the
-		// in-flight-vibration gate open for every sample (R14 point 8).
 		VerificationReport report = server.submit(() -> {
 			Optional<String> blocked = probe.blockedReason(sensorPos);
 
@@ -141,8 +88,6 @@ public final class VerificationCommandCore {
 		}).join();
 
 		if (report == null) {
-			// The run itself already declined; see IntegratedServerSensorProbe.blockedReason for
-			// the specific reason, not repeated here.
 			return fail(feedback, "detector not in a state to be probed. Wait for it to finish any "
 					+ "current activation (sensor phase, or shrieker shriek) with no vibration in "
 					+ "flight, then try again.");

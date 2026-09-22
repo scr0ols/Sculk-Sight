@@ -6,11 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
-/**
- * The arithmetic behind {@code [sculksight-diag]} draw-loop reports. ARCHITECTURE.md section 12.4
- * sub-problem 1. Mirrors {@code TierTimingTest}'s coverage of {@link TierTiming.Frames}, the
- * single-draw sibling this class's summary is meant to sit alongside in a session's log.
- */
 class DrawLoopTimingTest {
 
 	private static final long MS = 1_000_000L;

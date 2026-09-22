@@ -10,19 +10,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.Test;
 
-/**
- * ARCHITECTURE.md section 6.3's worker-to-render hand-off and its ownership rule, DECISIONS.md
- * ADR-017, widened to a generic payload by ADR-048's own wiring session.
- *
- * <p><b>This is the one place in the mod where a mistake frees native memory twice rather than
- * drawing a wrong picture</b> (ADR-048's own consequence naming this test class as owed), so every
- * test below is written against the ownership rule directly - a payload's own close count - rather
- * than against what the slot happens to return, which a double-close bug could still get right by
- * accident.
- */
 class ShellUploadSlotTest {
 
-	/** A minimal payload: no native memory, just a count of how many times close() ran. */
 	private static final class RecordingPayload implements ShellUploadSlot.Payload {
 
 		private final AtomicInteger closes = new AtomicInteger();
@@ -125,9 +114,6 @@ class ShellUploadSlotTest {
 
 	@Test
 	void aResultAlreadyTakenIsNotTouchedByAFollowingClose() {
-		// take() hands ownership to its caller; close() must only ever act on what is still
-		// sitting in the slot, never on something already handed out - the same "whoever removes
-		// the reference from the slot closes it" rule ARCHITECTURE.md section 6.3 states.
 		ShellUploadSlot<RecordingPayload> slot = new ShellUploadSlot<>();
 		RecordingPayload payload = new RecordingPayload();
 		slot.offer(1L, payload);

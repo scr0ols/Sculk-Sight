@@ -5,66 +5,17 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * A minimal JSON reader and writer, owned by this project rather than borrowed from a library.
- *
- * <p><b>Why this exists at all, since writing a parser is normally the wrong answer.</b>
- * PLAN.md section 4 puts an "own JSON persistence layer in common" beneath Cloth Config, and this
- * module's classpath is what makes that literal rather than stylistic. Gson is on the compile
- * classpath here, because Minecraft itself ships it, but it is <b>not</b> on this module's test
- * runtime classpath - verified 2026-09-06 by compiling and then running a probe against it, not
- * assumed. Reaching for Gson would therefore have put the persistence layer out of reach of the
- * JUnit suite that is this project's only automated check, or added a third-party test dependency
- * with a version to pin, for a document whose whole schema is a flat object of numbers.
- *
- * <p><b>Scope: all of JSON's value types, none of its extensions.</b> Objects, arrays, strings,
- * numbers, {@code true}, {@code false} and {@code null} are read; comments, trailing commas,
- * unquoted keys and single-quoted strings are not, and are reported as errors rather than
- * tolerated. The parser is general rather than schema-specific so that a document carrying keys
- * this version does not know - a newer version's, or a player's own note - is read rather than
- * rejected. {@link ConfigCodec} is what turns the resulting values into a configuration.
- *
- * <p>Parsed values are {@link Map} (insertion-ordered), {@link List}, {@link String},
- * {@link Double}, {@link Boolean}, or {@code null}. Every JSON number becomes a {@code Double},
- * including an integral one: JSON itself does not distinguish the two, so pretending to would be
- * inventing information the document does not carry. {@link ConfigCodec} narrows where its own
- * schema says a value is a whole number.
- */
+/** A minimal JSON reader and writer, owned by this project rather than borrowed from a library. */
 public final class Json {
 
 	private static final String INDENT = "\t";
 
-	/**
-	 * How deeply objects and arrays may nest before the document is rejected.
-	 *
-	 * <p><b>A bound is needed at all because the reader is recursive and the file is a player's to
-	 * edit.</b> {@code readValue} descends into {@code readObject} and {@code readArray}, which call
-	 * it back; unbounded, a file of a few thousand opening brackets exhausts the stack. A
-	 * {@code StackOverflowError} is an {@link Error}, so it would pass straight through
-	 * {@code ConfigStore.load}'s {@code catch (JsonParseException)} and out of the layer that
-	 * promised a damaged file yields the shipped defaults (DECISIONS.md ADR-055). Reporting the
-	 * depth here keeps that promise where it was made, rather than widening a catch elsewhere to
-	 * cover it. OPEN-QUESTIONS.md section 22.3 is the finding.
-	 *
-	 * <p>64 is chosen as generous rather than measured, and it can be: this mod's own schema is a
-	 * flat object of numbers, one level deep, and ADR-053's reason for a general parser is that a
-	 * later version's or a player's own extra keys still load - not that anyone would nest them
-	 * sixty-four deep. It is a project choice about this project's own file, so it needs no
-	 * research entry under CONVENTIONS.md section 6.
-	 */
 	static final int MAX_DEPTH = 64;
 
 	private Json() {
 	}
 
-	/**
-	 * Reads one complete JSON document.
-	 *
-	 * @return a {@link Map}, {@link List}, {@link String}, {@link Double}, {@link Boolean}, or
-	 *         {@code null}
-	 * @throws JsonParseException if the text is not one well-formed JSON value, or carries
-	 *         anything but whitespace after it
-	 */
+	/** Reads one complete JSON document. */
 	public static Object parse(String text) throws JsonParseException {
 		Parser parser = new Parser(text);
 
@@ -148,10 +99,6 @@ public final class Json {
 		out.append('\n').append(INDENT.repeat(depth)).append(']');
 	}
 
-	/**
-	 * A whole number is written without a decimal point, so that a hand-editing player sees
-	 * {@code 25} rather than {@code 25.0} in a field whose schema says it is an integer.
-	 */
 	private static String writeNumber(Number number) {
 		double value = number.doubleValue();
 
@@ -196,22 +143,12 @@ public final class Json {
 		out.append(c);
 	}
 
-	/** One pass over one document. Not reusable, and not thread-safe; each parse makes its own. */
 	private static final class Parser {
 
 		private final String text;
 
 		private int at;
 
-		/**
-		 * How many objects and arrays are open around the value being read, so that
-		 * {@link Json#MAX_DEPTH} can be enforced. Only ever incremented and decremented in
-		 * {@link #readObject} and {@link #readArray}, in that order, on the way in and out.
-		 *
-		 * <p>It is deliberately not restored when a parse throws. A {@code Parser} reads one
-		 * document and is then discarded, and a throw ends that document; there is no second read
-		 * for a stale value to be wrong for.
-		 */
 		private int depth;
 
 		private Parser(String text) {
@@ -420,16 +357,6 @@ public final class Json {
 			return value;
 		}
 
-		/**
-		 * Opens one more object or array, refusing to open a {@link Json#MAX_DEPTH}-and-first.
-		 *
-		 * <p>The refusal is a {@link JsonParseException} - the same thing every other malformed
-		 * document produces here - so that the caller that already handles a damaged file handles
-		 * this one too. It has to be thrown before the recursion rather than caught after it: what
-		 * the recursion would produce is a {@code StackOverflowError}, and an {@link Error} is
-		 * neither reliably catchable at a useful point nor something {@code ConfigStore.load}'s
-		 * {@code catch (JsonParseException)} would see.
-		 */
 		private void enter() throws JsonParseException {
 			if (depth >= MAX_DEPTH) {
 				throw error("objects and arrays may nest at most " + MAX_DEPTH + " deep");

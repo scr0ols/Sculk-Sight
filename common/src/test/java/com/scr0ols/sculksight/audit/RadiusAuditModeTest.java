@@ -8,10 +8,6 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
-/**
- * The command's third argument. Validated here rather than by Brigadier, which is the whole reason
- * this class is reachable from a plain JVM test - see {@link RadiusAuditMode}'s own javadoc.
- */
 class RadiusAuditModeTest {
 
 	@Test
@@ -60,7 +56,6 @@ class RadiusAuditModeTest {
 		assertTrue(problem.getMessage().contains("live"), problem.getMessage());
 	}
 
-	/** Neither mode is a default, so an omitted argument is a problem to report, not one to guess at. */
 	@Test
 	void anAbsentModeIsRejectedRatherThanDefaulted() {
 		RadiusAuditArgumentException problem = assertThrows(RadiusAuditArgumentException.class,

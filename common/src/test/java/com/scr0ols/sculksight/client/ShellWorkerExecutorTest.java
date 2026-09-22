@@ -12,15 +12,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.Test;
 
-/**
- * ARCHITECTURE.md section 6.2's worker executor: a dedicated single thread, not the render
- * thread, that never runs two solves at once. RESEARCH-LOG.md R18 and DECISIONS.md ADR-046.
- *
- * <p>Every test constructs its own instance and closes it, rather than sharing one across the
- * class, because {@link ShellWorkerExecutor#close()} is a one-way operation (RESEARCH-LOG.md R18
- * point 2: {@code TracingExecutor.shutdownAndAwait} never restarts a stopped service, and neither
- * does this class) - a shared instance would make one test's shutdown corrupt every test after it.
- */
 class ShellWorkerExecutorTest {
 
 	private static final long AWAIT_SECONDS = 5L;
@@ -48,9 +39,6 @@ class ShellWorkerExecutorTest {
 
 	@Test
 	void twoSubmittedTasksNeverOverlap() throws InterruptedException {
-		// The hard requirement ARCHITECTURE.md section 6.2 names: solves for one sensor must not
-		// run concurrently with each other. A dedicated single thread makes this true of every
-		// pair of tasks, not only same-sensor ones, which is a strict superset of what is required.
 		ShellWorkerExecutor executor = new ShellWorkerExecutor();
 		AtomicInteger concurrent = new AtomicInteger();
 		AtomicInteger maxConcurrentSeen = new AtomicInteger();
@@ -60,8 +48,6 @@ class ShellWorkerExecutorTest {
 			int nowRunning = concurrent.incrementAndGet();
 			maxConcurrentSeen.updateAndGet(previous -> Math.max(previous, nowRunning));
 
-			// A short busy wait rather than Thread.sleep: long enough that two threads racing
-			// into this block would overlap and be caught, short enough not to slow the suite.
 			long until = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(20);
 			while (System.nanoTime() < until) {
 				Thread.onSpinWait();
@@ -98,9 +84,6 @@ class ShellWorkerExecutorTest {
 
 		executor.close();
 
-		// RESEARCH-LOG.md R18: Util.shutdownExecutors() calls shutdownAndAwait(3, SECONDS), an
-		// orderly shutdown() then awaitTermination(), not shutdownNow() first - so a task already
-		// running is given the chance to finish rather than being interrupted immediately.
 		assertEquals(1, finished.get());
 	}
 
@@ -114,9 +97,6 @@ class ShellWorkerExecutorTest {
 
 	@Test
 	void aTaskSubmittedAfterCloseIsDeclinedRatherThanThrown() {
-		// Mirrors ShellUploadSlot.offer's own discipline: a slot or an executor that outlives its
-		// one caller and is asked for one more thing after closing refuses quietly rather than
-		// crashing the render thread that is in the middle of tearing everything else down.
 		ShellWorkerExecutor executor = new ShellWorkerExecutor();
 		executor.close();
 

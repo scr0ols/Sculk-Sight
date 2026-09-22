@@ -9,21 +9,6 @@ import java.time.LocalTime;
 
 import org.junit.jupiter.api.Test;
 
-/**
- * The arithmetic behind what a tier report says, and what a mirrored line looks like.
- * DECISIONS.md ADR-031 and its two addenda.
- *
- * <p>These tests deliberately touch neither {@link TimingGate} nor {@code TierTiming.start}: the
- * gate reads {@link ClientPlatform#get}, which throws until a loader's entrypoint has set an
- * {@link Environment} (that class's own javadoc), which is why it is a separate type
- * (RESEARCH-LOG.md E7). Moved here from {@code fabric}'s own client source set by
- * DECISIONS.md ADR-043's follow-up split - see that ADR for why the whole class needed no
- * change beyond its package's new home.
- *
- * <p>What this proves is that the numbers a budget question is answered with are the numbers the
- * samples support. It proves nothing about the samples themselves, which come from a clock in a
- * running game and are the profiling pass's business, not JUnit's (TESTING-STRATEGY.md §1 and §2).
- */
 class TierTimingTest {
 
 	private static final long MS = 1_000_000L;
@@ -53,10 +38,6 @@ class TierTimingTest {
 
 	@Test
 	void oneSlowFrameSurvivesTheMeanAsTheMaximumAndIsCounted() {
-		// The failure this shape exists to prevent: a single frame over budget among many under it
-		// disappears into an average, and the average is the only thing a running figure would
-		// report. The count is what the first live run added, because a maximum on its own cannot
-		// tell one slow frame from a pause elsewhere in the client.
 		TierTiming.Frames frames = new TierTiming.Frames();
 
 		for (int i = 0; i < 99; i++) {
@@ -99,9 +80,6 @@ class TierTimingTest {
 
 	@Test
 	void aSolveSumsOnlyTheTwoPhasesThatCostAFrame() {
-		// The encode is the large number and it is deliberately not in the sum: DECISIONS.md ADR-048
-		// moved it to a worker, so adding it to a per-tick budget figure would report work the
-		// player never waits on as though it cost a frame. ADR-031's 2026-09-06 addendum.
 		ShellTimings timings = new ShellTimings(3 * MS / 2, 16 * MS, MS / 4);
 
 		assertEquals(3 * MS / 2 + MS / 4, timings.clientNanos());
@@ -118,9 +96,6 @@ class TierTimingTest {
 
 	@Test
 	void theMirroredLineCarriesTheClockTimeAndNothingElse() {
-		// The file exists to be copied out of, so a line has to be readable on its own and has to
-		// say when it was written. Nothing is reformatted on the way in: what chat said is what the
-		// file says (ADR-031's first 2026-09-02 addendum).
 		String line = TimingLog.format(LocalTime.of(14, 5, 9), "shell cleared.");
 
 		assertEquals("14:05:09  shell cleared." + System.lineSeparator(), line);

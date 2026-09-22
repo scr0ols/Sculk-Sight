@@ -9,18 +9,6 @@ import org.junit.jupiter.params.provider.EnumSource;
 
 import com.scr0ols.sculksight.solver.Face;
 
-/**
- * Tests for the shell's quad geometry.
- *
- * <p>This is what {@code ShellMeshBuilder} could not be tested for directly: the builder names
- * {@code BufferBuilder} and {@code MeshData} and therefore lives in the client source set, out of
- * reach of a plain JVM test. Splitting the corner computation out into {@link ShellQuad} is what
- * puts the part that can put the shell in the wrong place under test.
- *
- * <p>Per TESTING-STRATEGY.md section 1, none of this validates the game - it validates that the
- * mesh is the geometric surface of the set the solver produced. The claim that the set matches
- * vanilla is differential verification's, not JUnit's.
- */
 class ShellQuadTest {
 
 	@ParameterizedTest
@@ -40,13 +28,6 @@ class ShellQuadTest {
 		}
 	}
 
-	/**
-	 * The face lies on the side of the cube its {@link Face} points at, and is flat.
-	 *
-	 * <p>This is the assertion that catches the whole family of sign errors - a face drawn on the
-	 * opposite side of its own block is one block out of place, which is exactly the kind of error
-	 * that still produces a plausible-looking shell.
-	 */
 	@ParameterizedTest
 	@EnumSource(Face.class)
 	void theFaceIsFlatOnTheSideItPointsAt(Face face) {
@@ -56,9 +37,6 @@ class ShellQuadTest {
 		int axis = face.stepX() != 0 ? 0 : face.stepY() != 0 ? 1 : 2;
 		int step = face.stepX() + face.stepY() + face.stepZ();
 
-		// step is -1 for the low side of the cube and +1 for the high side, so the constant
-		// coordinate is 0 or 1 respectively - which for a block at the origin is the near or far
-		// face on that axis.
 		float expected = step > 0 ? 1.0F : 0.0F;
 
 		for (int corner = 0; corner < 4; corner++) {
@@ -67,14 +45,6 @@ class ShellQuadTest {
 		}
 	}
 
-	/**
-	 * Corners wind counter-clockwise as seen from outside, so the geometric normal agrees with the
-	 * {@link Face}.
-	 *
-	 * <p>Nothing depends on this today - the chosen pipeline family sets {@code cull = false}
-	 * (R15.4), so a reversed face is still drawn. It is asserted so that turning culling on later
-	 * is a one-line change rather than an investigation into why half the shell vanished.
-	 */
 	@ParameterizedTest
 	@EnumSource(Face.class)
 	void theWindingAgreesWithTheFaceNormal(Face face) {
@@ -101,9 +71,6 @@ class ShellQuadTest {
 		ShellQuad.corners(0, 0, 0, Face.EAST, eastOfOrigin);
 		ShellQuad.corners(1, 0, 0, Face.WEST, westOfNeighbour);
 
-		// Both quads must sit on the plane x = 1: the shared boundary between the two blocks. A
-		// frame that put a block's cube from d-0.5 to d+0.5, or from d-1 to d, would still pass
-		// the flatness test above and fail here.
 		for (int corner = 0; corner < 4; corner++) {
 			assertEquals(1.0F, eastOfOrigin[corner * 3], 0.0F);
 			assertEquals(1.0F, westOfNeighbour[corner * 3], 0.0F);
