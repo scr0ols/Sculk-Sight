@@ -3,7 +3,6 @@ package com.scr0ols.sculksight.config;
 import com.mojang.blaze3d.platform.InputConstants;
 
 import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.Checkbox;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.StringWidget;
 import net.minecraft.client.gui.components.Tooltip;
@@ -36,6 +35,7 @@ final class SensorOptionsScreen extends Screen {
 
 	private EditBox nameField;
 	private boolean enabled;
+	private boolean delayOverlayEnabled;
 
 	SensorOptionsScreen(Screen parent, TrackedSensor sensor) {
 		super(Component.translatable("sculksight.config.tracked_sensors.options.title",
@@ -45,6 +45,7 @@ final class SensorOptionsScreen extends Screen {
 		this.y = sensor.y();
 		this.z = sensor.z();
 		this.enabled = sensor.enabled();
+		this.delayOverlayEnabled = sensor.delayOverlayEnabled();
 	}
 
 	@Override
@@ -56,7 +57,7 @@ final class SensorOptionsScreen extends Screen {
 		header.addChild(new StringWidget(title, font));
 		header.addChild(buildRenameRow(current.name()));
 		header.addChild(buildEnabledButton());
-		header.addChild(buildDelayOverlayCheckbox(current.delayOverlayEnabled()));
+		header.addChild(buildDelayOverlayButton());
 
 		layout.addToFooter(Button.builder(Component.translatable("sculksight.config.done"),
 						button -> onClose())
@@ -111,14 +112,23 @@ final class SensorOptionsScreen extends Screen {
 		return Component.translatable("sculksight.config.tracked_sensors.enabled", state);
 	}
 
-	private Checkbox buildDelayOverlayCheckbox(boolean initiallyEnabled) {
-		return Checkbox.builder(
-						Component.translatable("sculksight.config.tracked_sensors.delay_overlay"), font)
-				.selected(initiallyEnabled)
+	private Button buildDelayOverlayButton() {
+		return Button.builder(delayOverlayLabel(), button -> {
+					delayOverlayEnabled = !delayOverlayEnabled;
+					ConfigScreens.setSensorDelayOverlay(x, y, z, delayOverlayEnabled);
+					button.setMessage(delayOverlayLabel());
+				})
 				.tooltip(Tooltip.create(
 						Component.translatable("sculksight.config.tracked_sensors.delay_overlay.tooltip")))
-				.onValueChange((checkbox, value) -> ConfigScreens.setSensorDelayOverlay(x, y, z, value))
+				.size(CONTROL_WIDTH, BUTTON_HEIGHT)
 				.build();
+	}
+
+	private Component delayOverlayLabel() {
+		Component state = Component.translatable(delayOverlayEnabled
+				? "sculksight.config.on"
+				: "sculksight.config.off");
+		return Component.translatable("sculksight.config.tracked_sensors.delay_overlay", state);
 	}
 
 	private TrackedSensor currentSensor() {
@@ -130,7 +140,7 @@ final class SensorOptionsScreen extends Screen {
 		// Removed from another screen while this one was open (e.g. Remove pressed elsewhere in
 		// the same session is not possible today, but a future removal path might add one) -
 		// fall back to an inert placeholder rather than crashing this screen.
-		return new TrackedSensor(x, y, z, TrackedSensor.defaultName(x, y, z), enabled, false);
+		return new TrackedSensor(x, y, z, TrackedSensor.defaultName(x, y, z), enabled, delayOverlayEnabled);
 	}
 
 	@Override

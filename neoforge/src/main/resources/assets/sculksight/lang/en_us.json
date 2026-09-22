@@ -36,7 +36,7 @@
 	"sculksight.config.tracked_sensors.rename.tooltip": "Apply this name to the sensor.",
 	"sculksight.config.tracked_sensors.rename.field": "Sensor name",
 	"sculksight.config.tracked_sensors.rename.apply": "Apply",
-	"sculksight.config.tracked_sensors.delay_overlay": "Delay overlay",
+	"sculksight.config.tracked_sensors.delay_overlay": "Delay overlay: %s",
 	"sculksight.config.tracked_sensors.delay_overlay.tooltip": "Show this sensor's per-block travel-delay numbers whenever the delay overlay (H) is on.",
 
 	"sculksight.config.audit_sensors": "Live find — %s (%s selected)",

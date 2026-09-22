@@ -93,6 +93,26 @@ class ConfigScreensActionsTest {
 	}
 
 	@Test
+	void setSensorDelayOverlayTouchesOnlyTheTargetedSensorsFlag() {
+		ClientPlatform.set(new TestEnvironment(tempDir));
+		ClientConfig.load();
+
+		TrackedSensor sensor = new TrackedSensor(1, 2, 3, "Sensor", true, false);
+		ClientConfig.set(new SculkSightConfig(60, RenderPolicy.PER_SENSOR, List.of(sensor)));
+
+		ConfigScreens.setSensorDelayOverlay(1, 2, 3, true);
+
+		SculkSightConfig after = ClientConfig.get();
+		assertEquals(60, after.shellOpacityPercent(),
+				"the per-sensor delay-overlay flag is not a global setting - it must not touch "
+						+ "shell opacity or any other config-wide field");
+		assertEquals(RenderPolicy.PER_SENSOR, after.renderPolicy(),
+				"the per-sensor delay-overlay flag must not touch the render policy either");
+		assertEquals(true, after.trackedSensors().get(0).enabled(),
+				"toggling the delay-overlay flag must not touch the sensor's own enabled flag");
+	}
+
+	@Test
 	void removeSensorDropsOnlyTheMatchingPosition() {
 		ClientPlatform.set(new TestEnvironment(tempDir));
 		ClientConfig.load();
