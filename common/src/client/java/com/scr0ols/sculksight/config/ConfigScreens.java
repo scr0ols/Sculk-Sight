@@ -72,6 +72,16 @@ public final class ConfigScreens {
 		replaceSensor(live, current.withEnabled(enabled));
 	}
 
+	static void setSensorDelayOverlay(int x, int y, int z, boolean enabled) {
+		SculkSightConfig live = ClientConfig.get();
+		TrackedSensor current = findSensor(live, x, y, z);
+		if (current == null) {
+			return;
+		}
+
+		replaceSensor(live, current.withDelayOverlayEnabled(enabled));
+	}
+
 	static void setAuditSensorHidden(int x, int y, int z, boolean hidden) {
 		RadiusAuditController.setHidden(new SensorKey(x, y, z), hidden);
 	}
