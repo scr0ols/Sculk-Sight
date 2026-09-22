@@ -181,13 +181,13 @@ public final class ShellRenderer {
 		BlockEntity blockEntity = level.getBlockEntity(pos);
 
 		if (!(blockEntity instanceof GameEventListener.Provider<?> provider)) {
-			say(client, "the targeted block has no game event listener.");
+			say(client, "the targeted block at " + at(pos) + " has no game event listener.");
 			return;
 		}
 
 		Optional<DetectorType> detector = DetectorType.of(level.getBlockState(pos).getBlock());
 		if (detector.isEmpty()) {
-			say(client, "the targeted block is not a detector.");
+			say(client, "the targeted block at " + at(pos) + " is not a detector.");
 			return;
 		}
 
@@ -196,14 +196,15 @@ public final class ShellRenderer {
 		SculkSightConfig updated = current.track(selected);
 		if (updated == current) {
 			if (current.trackedSensors().size() >= SculkSightConfig.MAX_TRACKED_SENSORS) {
-				say(client, "the tracked sensor limit is " + SculkSightConfig.MAX_TRACKED_SENSORS + ".");
+				say(client, "the tracked sensor limit is " + SculkSightConfig.MAX_TRACKED_SENSORS
+						+ ", so the sensor at " + at(pos) + " was not tracked.");
 			} else {
-				say(client, "sensor already tracked.");
+				say(client, "sensor at " + at(pos) + " is already tracked.");
 			}
 			return;
 		}
 		ClientConfig.set(updated);
-		say(client, "sensor tracked.");
+		say(client, "sensor tracked at " + at(pos) + ".");
 		clearRenderCaches();
 		syncEntries(client);
 	}
@@ -600,10 +601,11 @@ public final class ShellRenderer {
 
 			current.setBuffer(uploaded, stats);
 
-			say(Minecraft.getInstance(), "solved " + stats.summary() + ".");
-
+			// Not a reply to anything the player did: any change to a tracked sensor re-queues a
+			// solve, so ungated this was a line per sensor per change in an installed instance.
 			if (TimingGate.ENABLED) {
-				say(Minecraft.getInstance(),
+				diagnose(Minecraft.getInstance(), "solved " + stats.summary() + ".");
+				diagnose(Minecraft.getInstance(),
 						new ShellTimings(result.snapshotNanos(), encodeNanos, uploadNanos).summary());
 			}
 		}
@@ -615,12 +617,12 @@ public final class ShellRenderer {
 		}
 
 		if (!FRAMES.isEmpty()) {
-			say(Minecraft.getInstance(), FRAMES.summary());
+			diagnose(Minecraft.getInstance(), FRAMES.summary());
 			FRAMES.reset();
 		}
 
 		if (!DRAW_LOOP.isEmpty()) {
-			say(Minecraft.getInstance(), DRAW_LOOP.summary());
+			diagnose(Minecraft.getInstance(), DRAW_LOOP.summary());
 			DRAW_LOOP.reset();
 		}
 
@@ -734,12 +736,29 @@ public final class ShellRenderer {
 	}
 
 	private static void say(Minecraft client, String message) {
+		emit(client, message, true);
+	}
+
+	// An instrument line rather than a reply: logged and filed either way, but reaching chat only
+	// under TimingGate.CHAT. say answers a keypress and is owed unconditionally; these answer
+	// nothing, and their reader is TimingLog's file, which is written regardless.
+	private static void diagnose(Minecraft client, String message) {
+		emit(client, message, TimingGate.CHAT);
+	}
+
+	private static void emit(Minecraft client, String message, boolean toChat) {
 		SculkSight.LOGGER.info("[sculksight] {}", message);
 
 		TimingLog.append(message);
 
-		if (client.gui != null) {
+		if (toChat && client.gui != null) {
 			client.gui.hud.getChat().addClientSystemMessage(Component.literal("[sculksight] " + message));
 		}
+	}
+
+	// The bare "x, y, z" the settings screen already shows, so one sensor reads the same way in
+	// both. BlockPos.toString would render the debug form BlockPos{x=1, y=2, z=3} instead.
+	private static String at(BlockPos pos) {
+		return pos.getX() + ", " + pos.getY() + ", " + pos.getZ();
 	}
 }
