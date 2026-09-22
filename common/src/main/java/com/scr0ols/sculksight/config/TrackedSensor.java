@@ -3,7 +3,7 @@ package com.scr0ols.sculksight.config;
 import java.util.Objects;
 
 /** A persisted sensor selection and the player's display preferences for it. */
-public record TrackedSensor(int x, int y, int z, String name, boolean enabled) {
+public record TrackedSensor(int x, int y, int z, String name, boolean enabled, boolean delayOverlayEnabled) {
 
 	public static final int MAX_NAME_LENGTH = 64;
 
@@ -23,14 +23,18 @@ public record TrackedSensor(int x, int y, int z, String name, boolean enabled) {
 	}
 
 	public static TrackedSensor selected(int x, int y, int z) {
-		return new TrackedSensor(x, y, z, defaultName(x, y, z), true);
+		return new TrackedSensor(x, y, z, defaultName(x, y, z), true, false);
 	}
 
 	public TrackedSensor withName(String newName) {
-		return new TrackedSensor(x, y, z, newName, enabled);
+		return new TrackedSensor(x, y, z, newName, enabled, delayOverlayEnabled);
 	}
 
 	public TrackedSensor withEnabled(boolean newEnabled) {
-		return new TrackedSensor(x, y, z, name, newEnabled);
+		return new TrackedSensor(x, y, z, name, newEnabled, delayOverlayEnabled);
+	}
+
+	public TrackedSensor withDelayOverlayEnabled(boolean newDelayOverlayEnabled) {
+		return new TrackedSensor(x, y, z, name, enabled, newDelayOverlayEnabled);
 	}
 }
