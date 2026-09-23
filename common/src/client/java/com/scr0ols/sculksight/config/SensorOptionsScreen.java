@@ -12,6 +12,8 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.network.chat.Component;
 
+import com.scr0ols.sculksight.SculkSight;
+
 /**
  * A single tracked sensor's controls, reached from its "Options" button on the settings screen.
  * Every control here applies immediately, the same as every other control
@@ -89,6 +91,8 @@ final class SensorOptionsScreen extends Screen {
 	}
 
 	private void applyRename() {
+		SculkSight.LOGGER.info("[sculksight] applyRename: typedName='{}' pos=({}, {}, {})",
+				nameField.getValue(), x, y, z);
 		ConfigScreens.renameSensor(x, y, z, nameField.getValue());
 		nameField.setValue(currentSensor().name());
 	}
