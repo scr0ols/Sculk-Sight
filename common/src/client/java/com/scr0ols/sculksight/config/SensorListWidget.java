@@ -245,7 +245,7 @@ final class SensorListWidget extends ContainerObjectSelectionList<SensorListWidg
 
 		private void openOptions(TrackedSensor sensor) {
 			SensorListWidget.this.minecraft.gui.setScreen(
-					new SensorOptionsScreen(SensorListWidget.this.owner, sensor));
+					new SensorOptionsScreen(SensorListWidget.this.owner, sensor, SensorListWidget.this::refresh));
 		}
 
 		@Override

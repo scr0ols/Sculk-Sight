@@ -12,8 +12,6 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.network.chat.Component;
 
-import com.scr0ols.sculksight.SculkSight;
-
 /**
  * A single tracked sensor's controls, reached from its "Options" button on the settings screen.
  * Every control here applies immediately, the same as every other control
@@ -30,6 +28,7 @@ final class SensorOptionsScreen extends Screen {
 	private static final int ROW_SPACING = 4;
 
 	private final Screen parent;
+	private final Runnable onDone;
 	private final int x;
 	private final int y;
 	private final int z;
@@ -39,10 +38,11 @@ final class SensorOptionsScreen extends Screen {
 	private boolean enabled;
 	private boolean delayOverlayEnabled;
 
-	SensorOptionsScreen(Screen parent, TrackedSensor sensor) {
+	SensorOptionsScreen(Screen parent, TrackedSensor sensor, Runnable onDone) {
 		super(Component.translatable("sculksight.config.tracked_sensors.options.title",
 				sensor.x(), sensor.y(), sensor.z()));
 		this.parent = parent;
+		this.onDone = onDone;
 		this.x = sensor.x();
 		this.y = sensor.y();
 		this.z = sensor.z();
@@ -91,8 +91,6 @@ final class SensorOptionsScreen extends Screen {
 	}
 
 	private void applyRename() {
-		SculkSight.LOGGER.info("[sculksight] applyRename: typedName='{}' pos=({}, {}, {})",
-				nameField.getValue(), x, y, z);
 		ConfigScreens.renameSensor(x, y, z, nameField.getValue());
 		nameField.setValue(currentSensor().name());
 	}
@@ -167,6 +165,7 @@ final class SensorOptionsScreen extends Screen {
 
 	@Override
 	public void onClose() {
+		onDone.run();
 		minecraft.gui.setScreen(parent);
 	}
 }

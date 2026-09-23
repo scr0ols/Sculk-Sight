@@ -11,7 +11,6 @@ import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 
-import com.scr0ols.sculksight.SculkSight;
 import com.scr0ols.sculksight.audit.AuditPin;
 import com.scr0ols.sculksight.audit.RadiusAuditController;
 import com.scr0ols.sculksight.client.SensorKey;
@@ -42,11 +41,8 @@ public final class ConfigScreens {
 	}
 
 	static void renameSensor(int x, int y, int z, String newName) {
-		SculkSight.LOGGER.info("[sculksight] renameSensor: pos=({}, {}, {}) newName='{}'", x, y, z, newName);
 		SculkSightConfig live = ClientConfig.get();
 		TrackedSensor current = findSensor(live, x, y, z);
-		SculkSight.LOGGER.info("[sculksight] renameSensor: findSensor found={} currentName='{}'",
-				current != null, current != null ? current.name() : "<n/a>");
 		if (current == null) {
 			return;
 		}
@@ -118,11 +114,7 @@ public final class ConfigScreens {
 			sensors.add(samePosition ? updated : sensor);
 		}
 
-		SculkSight.LOGGER.info("[sculksight] replaceSensor: before ClientConfig.set() pos=({}, {}, {}) name='{}'",
-				updated.x(), updated.y(), updated.z(), updated.name());
 		ClientConfig.set(live.withTrackedSensors(sensors));
-		SculkSight.LOGGER.info("[sculksight] replaceSensor: after ClientConfig.set() pos=({}, {}, {}) name='{}'",
-				updated.x(), updated.y(), updated.z(), updated.name());
 	}
 
 	private static @Nullable TrackedSensor findSensor(SculkSightConfig config, int x, int y, int z) {
