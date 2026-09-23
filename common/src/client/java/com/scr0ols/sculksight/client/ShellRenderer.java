@@ -78,7 +78,7 @@ public final class ShellRenderer {
 	public static final KeyMapping TOGGLE_RENDERING_KEY = new KeyMapping(
 			"key.sculksight.toggle_rendering", InputConstants.KEY_G, KeyMapping.Category.MISC);
 
-	/** H toggles numeric delay labels for the first enabled tracked sensor. */
+	/** H toggles numeric delay labels for every tracked sensor with its own delay-overlay flag on. */
 	public static final KeyMapping TOGGLE_DELAY_HEATMAP_KEY = new KeyMapping(
 			"key.sculksight.toggle_delay_heatmap", InputConstants.KEY_H, KeyMapping.Category.MISC);
 
@@ -547,28 +547,38 @@ public final class ShellRenderer {
 			return;
 		}
 
-		ShellEntry first = entries.values().iterator().next();
-		DelayOverlay overlay = first.delayOverlay();
+		// Audited-only sensors (mode B, no TrackedSensor) never carry the flag and drop out here,
+		// same as a flagged sensor no longer in entries - both are just an absent key.
+		Set<SensorKey> targets = DelayOverlaySelection.targets(ClientConfig.get().trackedSensors(), entries.keySet());
 
-		if (overlay == null) {
+		if (targets.isEmpty()) {
 			return;
 		}
 
 		Frustum frustum = camera.cullFrustum;
 
 		try (Gizmos.TemporaryCollection ignored = levelRenderer.collectPerFrameRenderThreadGizmos()) {
-			for (int index = 0; index < overlay.size(); index++) {
-				if (overlay.isSensorOccluded(index)) {
+			for (SensorKey key : targets) {
+				ShellEntry entry = entries.get(key);
+				DelayOverlay overlay = entry == null ? null : entry.delayOverlay();
+
+				if (overlay == null) {
 					continue;
 				}
 
-				Vec3 anchor = overlay.anchor(index);
+				for (int index = 0; index < overlay.size(); index++) {
+					if (overlay.isSensorOccluded(index)) {
+						continue;
+					}
 
-				if (frustum != null && !frustum.pointInFrustum(anchor.x, anchor.y, anchor.z)) {
-					continue;
+					Vec3 anchor = overlay.anchor(index);
+
+					if (frustum != null && !frustum.pointInFrustum(anchor.x, anchor.y, anchor.z)) {
+						continue;
+					}
+
+					Gizmos.billboardText(overlay.text(index), anchor, DELAY_TEXT_STYLE);
 				}
-
-				Gizmos.billboardText(overlay.text(index), anchor, DELAY_TEXT_STYLE);
 			}
 		}
 	}

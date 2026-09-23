@@ -43,7 +43,7 @@ class ConfigStoreTest {
 
 	@Test
 	void trackedSensorNamesAndTogglesSurviveBeingWrittenAndReadBack(@TempDir Path directory) {
-		List<TrackedSensor> sensors = List.of(new TrackedSensor(4, 5, 6, "hallway", false));
+		List<TrackedSensor> sensors = List.of(new TrackedSensor(4, 5, 6, "hallway", false, true));
 		store(directory).set(new SculkSightConfig(71, RenderPolicy.PER_SENSOR, sensors));
 
 		ConfigStore reopened = store(directory);

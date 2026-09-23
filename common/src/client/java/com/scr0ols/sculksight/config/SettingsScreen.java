@@ -51,7 +51,7 @@ final class SettingsScreen extends Screen {
 		buildToggleRow(header, config.renderPolicy());
 
 		sensorList = layout.addToContents(new SensorListWidget(
-				minecraft, width, layout.getContentHeight(), layout.getHeaderHeight()));
+				minecraft, width, layout.getContentHeight(), layout.getHeaderHeight(), this));
 
 		layout.addToFooter(Button.builder(Component.translatable("sculksight.config.done"),
 						button -> onClose())

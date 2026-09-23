@@ -40,6 +40,7 @@ public final class ConfigCodec {
 				encoded.put("z", sensor.z());
 				encoded.put("name", sensor.name());
 				encoded.put("enabled", sensor.enabled());
+				encoded.put("delayOverlayEnabled", sensor.delayOverlayEnabled());
 				sensors.add(encoded);
 			}
 			object.put(KEY_TRACKED_SENSORS, sensors);
@@ -97,7 +98,10 @@ public final class ConfigCodec {
 				String name = rawName instanceof String string && !string.strip().isEmpty()
 						? string : TrackedSensor.defaultName(x, y, z);
 				boolean enabled = !(entry.containsKey("enabled")) || Boolean.TRUE.equals(entry.get("enabled"));
-				sensors.add(new TrackedSensor(x, y, z, name, enabled));
+				// A file from before this flag existed has no key here; false is the correct default,
+				// so a missing or non-boolean value both fall through to false without extra handling.
+				boolean delayOverlayEnabled = Boolean.TRUE.equals(entry.get("delayOverlayEnabled"));
+				sensors.add(new TrackedSensor(x, y, z, name, enabled, delayOverlayEnabled));
 			} catch (RuntimeException malformed) {
 				repairs.accept(KEY_TRACKED_SENSORS + " contains an invalid entry; skipping it");
 			}

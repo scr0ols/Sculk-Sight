@@ -25,8 +25,8 @@ class ConfigScreensActionsTest {
 		ClientPlatform.set(new TestEnvironment(tempDir));
 		ClientConfig.load();
 
-		TrackedSensor first = new TrackedSensor(1, 2, 3, "First", true);
-		TrackedSensor second = new TrackedSensor(4, 5, 6, "Second", true);
+		TrackedSensor first = new TrackedSensor(1, 2, 3, "First", true, false);
+		TrackedSensor second = new TrackedSensor(4, 5, 6, "Second", true, false);
 		ClientConfig.set(new SculkSightConfig(SculkSightConfig.DEFAULT_SHELL_OPACITY_PERCENT,
 				RenderPolicy.UNION, List.of(first, second)));
 
@@ -45,7 +45,7 @@ class ConfigScreensActionsTest {
 		ClientPlatform.set(new TestEnvironment(tempDir));
 		ClientConfig.load();
 
-		TrackedSensor sensor = new TrackedSensor(1, 2, 3, "Original", true);
+		TrackedSensor sensor = new TrackedSensor(1, 2, 3, "Original", true, false);
 		ClientConfig.set(new SculkSightConfig(SculkSightConfig.DEFAULT_SHELL_OPACITY_PERCENT,
 				RenderPolicy.UNION, List.of(sensor)));
 
@@ -61,7 +61,7 @@ class ConfigScreensActionsTest {
 		ClientPlatform.set(new TestEnvironment(tempDir));
 		ClientConfig.load();
 
-		TrackedSensor sensor = new TrackedSensor(1, 2, 3, "Sensor", true);
+		TrackedSensor sensor = new TrackedSensor(1, 2, 3, "Sensor", true, false);
 		ClientConfig.set(new SculkSightConfig(SculkSightConfig.DEFAULT_SHELL_OPACITY_PERCENT,
 				RenderPolicy.UNION, List.of(sensor)));
 
@@ -73,12 +73,52 @@ class ConfigScreensActionsTest {
 	}
 
 	@Test
+	void setSensorDelayOverlayRoundTripsBothDirectionsWithoutTouchingOtherSensors() {
+		ClientPlatform.set(new TestEnvironment(tempDir));
+		ClientConfig.load();
+
+		TrackedSensor sensor = new TrackedSensor(1, 2, 3, "Sensor", true, false);
+		TrackedSensor other = new TrackedSensor(4, 5, 6, "Other", true, false);
+		ClientConfig.set(new SculkSightConfig(SculkSightConfig.DEFAULT_SHELL_OPACITY_PERCENT,
+				RenderPolicy.UNION, List.of(sensor, other)));
+
+		ConfigScreens.setSensorDelayOverlay(1, 2, 3, true);
+		List<TrackedSensor> afterEnabling = ClientConfig.get().trackedSensors();
+		assertEquals(true, afterEnabling.get(0).delayOverlayEnabled());
+		assertEquals(false, afterEnabling.get(1).delayOverlayEnabled(),
+				"another sensor's delay-overlay flag must be left untouched");
+
+		ConfigScreens.setSensorDelayOverlay(1, 2, 3, false);
+		assertEquals(false, ClientConfig.get().trackedSensors().get(0).delayOverlayEnabled());
+	}
+
+	@Test
+	void setSensorDelayOverlayTouchesOnlyTheTargetedSensorsFlag() {
+		ClientPlatform.set(new TestEnvironment(tempDir));
+		ClientConfig.load();
+
+		TrackedSensor sensor = new TrackedSensor(1, 2, 3, "Sensor", true, false);
+		ClientConfig.set(new SculkSightConfig(60, RenderPolicy.PER_SENSOR, List.of(sensor)));
+
+		ConfigScreens.setSensorDelayOverlay(1, 2, 3, true);
+
+		SculkSightConfig after = ClientConfig.get();
+		assertEquals(60, after.shellOpacityPercent(),
+				"the per-sensor delay-overlay flag is not a global setting - it must not touch "
+						+ "shell opacity or any other config-wide field");
+		assertEquals(RenderPolicy.PER_SENSOR, after.renderPolicy(),
+				"the per-sensor delay-overlay flag must not touch the render policy either");
+		assertEquals(true, after.trackedSensors().get(0).enabled(),
+				"toggling the delay-overlay flag must not touch the sensor's own enabled flag");
+	}
+
+	@Test
 	void removeSensorDropsOnlyTheMatchingPosition() {
 		ClientPlatform.set(new TestEnvironment(tempDir));
 		ClientConfig.load();
 
-		TrackedSensor removed = new TrackedSensor(1, 2, 3, "Remove me", true);
-		TrackedSensor retained = new TrackedSensor(4, 5, 6, "Keep me", true);
+		TrackedSensor removed = new TrackedSensor(1, 2, 3, "Remove me", true, false);
+		TrackedSensor retained = new TrackedSensor(4, 5, 6, "Keep me", true, false);
 		ClientConfig.set(new SculkSightConfig(SculkSightConfig.DEFAULT_SHELL_OPACITY_PERCENT,
 				RenderPolicy.UNION, List.of(removed, retained)));
 
@@ -92,7 +132,7 @@ class ConfigScreensActionsTest {
 		ClientPlatform.set(new TestEnvironment(tempDir));
 		ClientConfig.load();
 
-		TrackedSensor untouched = new TrackedSensor(1, 2, 3, "Tracked", true);
+		TrackedSensor untouched = new TrackedSensor(1, 2, 3, "Tracked", true, false);
 		ClientConfig.set(new SculkSightConfig(SculkSightConfig.DEFAULT_SHELL_OPACITY_PERCENT,
 				RenderPolicy.UNION, List.of(untouched)));
 		try {
