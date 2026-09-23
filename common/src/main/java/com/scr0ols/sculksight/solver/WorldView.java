@@ -1,51 +1,14 @@
 package com.scr0ols.sculksight.solver;
 
-/**
- * The solver's entire contact with the world.
- *
- * <p>One method, primitive coordinates, no Minecraft types. Recorded as
- * c-docs/DECISIONS.md ADR-015 and specified in c-docs/ARCHITECTURE.md section 4.1.
- *
- * <p><b>This interface is the seam where the mod trusts vanilla without having read it.</b>
- * ARCHITECTURE.md section 2.2 draws the boundary here deliberately: the outer six-ray rule
- * of R4 is reproduced above this line, in ordinary Java a unit test can reach, while the
- * inner segment traversal stays below it. A JUnit fake implements a different traversal
- * from the game's, so unit tests validate the six-ray composition and never the traversal.
- * Only differential verification checks that seam - see c-docs/TESTING-STRATEGY.md section 3.
- */
+/** The solver's entire contact with the world. */
 public interface WorldView {
 
-	/**
-	 * Whether the block directly below an event source dampens its vibration.
-	 *
-	 * <p>Vanilla checks the event's affected block separately from its six-ray line-of-sight
-	 * occlusion test. The default keeps the JVM-only world seam source-compatible with the
-	 * existing scripted test worlds; real level adapters override it.
-	 */
+	/** Whether the block directly below an event source dampens its vibration. */
 	default boolean dampensVibrationsBelow(int sourceX, int sourceY, int sourceZ) {
 		return false;
 	}
 
-	/**
-	 * True if any block whose state matches the vibration-occlusion predicate lies on the
-	 * segment from (fromX, fromY, fromZ) to (toX, toY, toZ).
-	 *
-	 * <p>Implementations back this with {@code BlockGetter#isBlockInLine(ClipBlockStateContext)},
-	 * passing the mod's vibration-occlusion predicate and treating a {@code HitResult} of type
-	 * {@code BLOCK} as true (R3, R4). The solver does not know which blocks satisfy that
-	 * predicate.
-	 *
-	 * <p>Coordinates are {@code double} rather than integers because the endpoints are block
-	 * centres, possibly nudged (R4), so they are genuinely continuous even though the solver's
-	 * domain is integral (R12). Six primitives rather than two objects means the solver
-	 * allocates nothing per ray, and at radius 16 there are up to six rays for each of 17 077
-	 * in-range positions.
-	 *
-	 * <p><b>Behaviour across a position the client has not loaded is undefined by this
-	 * contract</b>, deliberately and not by omission: what the underlying traversal does there
-	 * has not been read, and nothing is asserted about it in either direction. Tracked as
-	 * c-docs/OPEN-QUESTIONS.md section 12.
-	 */
+	/** True if a block matching the vibration-occlusion predicate lies on the segment from-to. */
 	boolean occluderOnSegment(double fromX, double fromY, double fromZ,
 			double toX, double toY, double toZ);
 }

@@ -10,20 +10,7 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 
-/**
- * Mode C's differential verification command on NeoForge:
- * {@code /sculksight-verify-detection <scene> [samples] [seed]}.
- *
- * <p><b>A thin Brigadier shim over {@link DetectionVerificationCommandCore}</b>, the NeoForge
- * counterpart of {@code fabric}'s own {@code DetectionVerificationCommand} - the same relationship
- * {@link VerificationCommand}'s own javadoc explains for mode A's command, including why
- * {@code CommandSourceStack} rather than a client-only source type, why {@code Minecraft.getInstance()}
- * stands in for {@code source.getClient()}, and why {@code sendSuccess(Supplier<Component>, boolean)}
- * with a constant {@code false} is this command's own feedback shape.
- *
- * <p><b>Registered only in a development environment</b>, per ADR-019, through the same gate and
- * the same shape {@code /sculksight-verify} uses. See {@code SculkSightNeoForge}.
- */
+/** Mode C's differential verification command on NeoForge: {@code /sculksight-verify-detection <scene> [samples] [seed]}. */
 public final class DetectionVerificationCommand {
 
 	private DetectionVerificationCommand() {

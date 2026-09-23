@@ -17,7 +17,6 @@ import com.scr0ols.sculksight.audit.RadiusAudit.AuditedSensor;
 import com.scr0ols.sculksight.client.DetectorType;
 import com.scr0ols.sculksight.client.SensorKey;
 
-/** The state RadiusAuditCommandCore hands to the renderer. No Minecraft type in sight. */
 class RadiusAuditControllerTest {
 
 	@AfterEach
@@ -110,7 +109,6 @@ class RadiusAuditControllerTest {
 		assertFalse(RadiusAuditController.isHidden(A));
 	}
 
-	/** A fresh query is a fresh question - see the hidden set's own javadoc. */
 	@Test
 	void activateDropsEveryHideFromThePriorQuery() throws RadiusAuditArgumentException {
 		RadiusAuditController.activate(RadiusAuditRequest.of(64, "all"));
@@ -146,10 +144,6 @@ class RadiusAuditControllerTest {
 		assertEquals(List.of(sensor), RadiusAuditController.selection());
 	}
 
-	/**
-	 * The renderer publishes before it filters, so a hidden position still has a row to carry the
-	 * control that brings it back.
-	 */
 	@Test
 	void aHiddenPositionStaysInThePublishedSelection() {
 		AuditedSensor sensor = new AuditedSensor(A, 8, DetectorType.NORMAL_SENSOR);

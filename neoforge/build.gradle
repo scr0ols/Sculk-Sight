@@ -4,9 +4,6 @@ plugins {
 	id 'maven-publish'
 }
 
-// Prefixed with the loader name (rather than suffixed) so the Fabric and NeoForge jars share
-// one naming convention and never collide when both are copied into one release folder - see
-// fabric/build.gradle's identical block for the other side of this convention.
 base {
 	archivesName = "neoforge-${project.mod_id}"
 }
@@ -20,14 +17,8 @@ java {
 }
 
 neoForge {
-	// Unlike common/'s NeoForm-only mode, this is the real loader: the mod jar this module
-	// builds is loaded by NeoForge itself, so it needs the NeoForge API, not only Minecraft.
 	version = project.neo_version
 
-	// Fabric's dev-environment gate (ADR-019) has no exact equivalent confirmed for NeoForge
-	// yet - c-docs/ARCHITECTURE.md section 8 already carries this as an open item next to R11,
-	// and this module's own verify commands are therefore not wired up this session. See
-	// c-docs/NEXT-STEPS.md for what is deferred and why.
 	runs {
 		client {
 			client()
@@ -46,14 +37,6 @@ neoForge {
 	}
 }
 
-// See fabric/build.gradle's identical block for what this wires up and why: common/'s sources
-// are recompiled here rather than depended on as a jar, because NeoForge's NeoForm Minecraft
-// artifact and Fabric Loom's are not the same binary even though both carry 26.2's Mojang names.
-//
-// Both commonJava and commonClientJava go into this module's one "main" source set, unlike
-// fabric/'s own main/client split: Sculk Sight is client-side only (ADR-006) and this module has
-// no server-side source set of its own to keep the client-only half out of, so there is nothing
-// for the two directories to be kept apart for here.
 configurations {
 	commonJava {
 		canBeResolved = true
@@ -88,11 +71,6 @@ tasks.withType(JavaCompile).configureEach {
 	options.encoding = 'UTF-8'
 }
 
-// Substitutes the shared gradle.properties values into the mods.toml template, the same
-// mechanism the official MDK-26.2-ModDevGradle template uses (read 2026-09-04). fabric.mod.json
-// is expanded through processResources instead (see fabric/build.gradle); neoforge.mods.toml is
-// generated at build time from src/main/templates rather than edited directly, because
-// ModDevGradle's own ideSyncTask hook (below) needs a task it can depend on, not a static file.
 var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {
 	var replaceProperties = [
 			minecraft_version      : project.minecraft_version,
@@ -112,8 +90,6 @@ sourceSets.main.resources.srcDir generateModMetadata
 neoForge.ideSyncTask generateModMetadata
 
 jar {
-	// See fabric/build.gradle's identical block: the GPL requires the licence text inside the
-	// distributed jar, and it lives at the repository root because it covers the whole project.
 	def projectName = project.name
 	inputs.property "projectName", projectName
 
@@ -134,6 +110,5 @@ publishing {
 	}
 
 	repositories {
-		// Publishing targets go here, not dependency repositories. Nothing is published yet.
 	}
 }

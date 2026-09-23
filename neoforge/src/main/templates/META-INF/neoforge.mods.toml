@@ -1,10 +1,5 @@
-# Templated by neoforge/build.gradle's generateModMetadata task, from the official
-# MDK-26.2-ModDevGradle template (github.com/NeoForgeMDKs/MDK-26.2-ModDevGradle), read
-# 2026-09-04. See fabric/src/main/resources/fabric.mod.json for this mod's Fabric-side metadata -
-# the two are kept at parity by hand; there is no shared source for these fields.
 license="${mod_license}"
 
-# File-wide, not per-mod - NeoForge's schema keeps issueTrackerURL at the top level.
 issueTrackerURL="https://github.com/scr0ols/Sculk-Sight/issues"
 
 [[mods]]
@@ -17,29 +12,13 @@ Renders the effective detection surface of sculk sensors as a world overlay.
 authors="scr0ols"
 credits="Solo project, so all credits go to me and myself. Issues and PRs welcome."
 displayURL="https://github.com/scr0ols/Sculk-Sight"
-# NeoForge 26.2 split the old (deprecated) single `logoFile` into two independent slots -
-# confirmed by decompiling neoforge-26.2.0.75-universal.jar's own META-INF/neoforge.mods.toml
-# and LogoFileWarningsHandler.class rather than trusting memory, per this project's own
-# never-guess-a-NeoForge-internal rule:
-#   - iconFile   -> the small square shown next to the mod's name in the Mods-screen list.
-#   - bannerFile -> stretched across the details-pane header when that mod is selected.
-# bannerFile is scaled by ModListScreen's ModInfoPanel (nested class) to whichever is smaller
-# of "fit the full panel width" or "cap the height at 50 GUI px" - so a banner shaped like mark-e's original
-# banner-1280x400 (aspect 3.2:1) hits the height cap first and renders narrower than the panel,
-# leaving empty space on the right. NeoForge's own bundled banner (neoforge_logo.png) is 77x17,
-# aspect ~4.53:1; banner-1280x200-neoforge.svg here reshapes the same icon+wordmark layout to
-# 1280x200 (aspect 6.4:1), comfortably past that ratio, so it fills the panel width instead.
 iconFile="sculksight_icon.png"
-# Keep the pre-26.2 logo key for launchers that have not learned iconFile yet.
 logoFile="sculksight_icon.png"
 bannerFile="sculksight_banner.png"
 
-# Not part of NeoForge's mods.toml schema - informal keys, ignored by the loader, kept here
-# only so both metadata files list the same set of "places to find this mod" side by side.
 # TOML allows comments so this could just be a TODO, but the value is a live placeholder on
 # purpose: it makes it obvious out of the corner of your eye when you're looking at stale
 # metadata, and it's grep-able the moment there's a real listing to swap in.
-# See fabric.mod.json's contact.modrinth / contact.curseforge for the mirrored placeholder.
 modrinthURL="https://www.youtube.com/watch?v=YkADj0TPrJA&list=RDYkADj0TPrJA&start_radio=1"
 curseforgeURL="https://www.youtube.com/watch?v=YkADj0TPrJA&list=RDYkADj0TPrJA&start_radio=1"
 

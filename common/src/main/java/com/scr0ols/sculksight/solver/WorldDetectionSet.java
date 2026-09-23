@@ -9,17 +9,7 @@ import java.util.Set;
 
 import com.scr0ols.sculksight.client.DetectorType;
 
-/**
- * A bounded union of sensor-relative detection sets in world coordinates.
- *
- * <p>Each individual solve remains a {@link DetectionSet} over its own bounded cube. This type
- * only translates accepted members into a common coordinate space, so overlapping sensors are
- * represented once and the boundary extractor can remove internal faces instead of drawing them
- * twice. Each position retains the detector type of the first sensor that contributed it, so a
- * typed boundary extraction can preserve the palette in the merged mesh. It deliberately stores
- * positions rather than allocating one giant cube: sensors may be far apart, and the union's cost
- * must be bounded by selected members, not by their separation.
- */
+/** A bounded union of sensor-relative detection sets in world coordinates. */
 public final class WorldDetectionSet {
 
 	private final Set<Position> positions = new HashSet<>();

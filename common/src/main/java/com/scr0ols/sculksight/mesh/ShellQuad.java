@@ -2,40 +2,16 @@ package com.scr0ols.sculksight.mesh;
 
 import com.scr0ols.sculksight.solver.Face;
 
-/**
- * The corner positions of one boundary face, in the sensor-relative frame.
- *
- * <p>Split out of {@code ShellMeshBuilder} so that the geometry - the part that can be wrong in a
- * way that puts the shell in the wrong place - is reachable from JUnit. The builder itself names
- * {@code BufferBuilder} and {@code MeshData} and therefore has to live in the client source set,
- * where a plain JVM test cannot follow it. Nothing here names a Minecraft class.
- *
- * <p><b>The frame.</b> Per ADR-014 the cached vertices are relative to the sensor's block
- * position, and a {@code BlockPos} names a block's minimum corner, so the block at offset
- * {@code (dx, dy, dz)} occupies the unit cube from {@code (dx, dy, dz)} to
- * {@code (dx+1, dy+1, dz+1)} in this frame. At radius 16 that puts every coordinate in
- * {@code [-16, +17]}, which is ARCHITECTURE.md section 3.4's "roughly -16 to +16".
- *
- * <p><b>The winding.</b> Corners are emitted counter-clockwise as seen from outside the set - the
- * side the face's {@link Face} points toward. The chosen pipeline family sets {@code cull = false}
- * (R15.4), so nothing currently depends on this and a reversed face would still be drawn; it is
- * done correctly anyway so that enabling culling later is a one-line change rather than an
- * investigation.
- */
+/** The corner positions of one boundary face, in the sensor-relative frame. */
 public final class ShellQuad {
 
-	/** Four corners, three floats each, in the order this class documents. */
+	/** Four corners, three floats each. */
 	public static final int FLOATS = 12;
 
 	private ShellQuad() {
 	}
 
-	/**
-	 * Writes the four corners of the given boundary face into {@code out}, as
-	 * {@code x0,y0,z0, x1,y1,z1, x2,y2,z2, x3,y3,z3}.
-	 *
-	 * @param out an array of at least {@link #FLOATS} elements, overwritten from index 0
-	 */
+	/** Writes the boundary face's four corners into {@code out}, counter-clockwise seen from outside. */
 	public static void corners(int dx, int dy, int dz, Face face, float[] out) {
 		if (out.length < FLOATS) {
 			throw new IllegalArgumentException("out must hold at least " + FLOATS + " floats");

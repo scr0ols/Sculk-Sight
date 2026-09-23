@@ -17,10 +17,6 @@ import com.scr0ols.sculksight.config.RenderPolicy;
 import com.scr0ols.sculksight.config.SculkSightConfig;
 import com.scr0ols.sculksight.config.TrackedSensor;
 
-/**
- * Turning a find's selection into tracked sensors - the pure operation behind both
- * {@code /sculksight find <type> <n> static} and the settings screen's Pin button.
- */
 class AuditPinTest {
 
 	private static SculkSightConfig configWith(TrackedSensor... tracked) {
@@ -56,7 +52,6 @@ class AuditPinTest {
 				.anyMatch(s -> s.x() == 4 && s.y() == 5 && s.z() == 6));
 	}
 
-	/** A pinned sensor must be indistinguishable from one tracked by pressing K. */
 	@Test
 	void aPinnedSensorGetsTheSameDefaultNameAndEnabledStateAsAKeypressWould() {
 		AuditPin.Result result = AuditPin.pin(configWith(), List.of(sensorAt(24, -60, 40)));
@@ -67,13 +62,9 @@ class AuditPinTest {
 		assertTrue(pinned.enabled());
 	}
 
-	/**
-	 * The whole reason {@code track} preserves an existing entry: pinning the same find twice must
-	 * not undo a rename or re-enable something the player switched off in between.
-	 */
 	@Test
 	void anAlreadyTrackedPositionKeepsItsNameAndDisabledState() {
-		TrackedSensor renamedAndOff = new TrackedSensor(1, 2, 3, "Door trap", false);
+		TrackedSensor renamedAndOff = new TrackedSensor(1, 2, 3, "Door trap", false, false);
 
 		AuditPin.Result result = AuditPin.pin(configWith(renamedAndOff), List.of(sensorAt(1, 2, 3)));
 
@@ -110,7 +101,6 @@ class AuditPinTest {
 		assertEquals(SculkSightConfig.MAX_TRACKED_SENSORS, result.config().trackedSensors().size());
 	}
 
-	/** Nearest-first order in, nearest-first kept: the truncation drops the furthest sensors. */
 	@Test
 	void theCapKeepsTheEarliestEntriesInTheGivenOrder() {
 		List<AuditedSensor> selection = new ArrayList<>();
@@ -127,10 +117,6 @@ class AuditPinTest {
 				"the nearest sensor is kept");
 	}
 
-	/**
-	 * A full find fits a full tracked list by construction, which is why the cap was raised to
-	 * match. If these two constants ever drift apart again, a static find starts truncating.
-	 */
 	@Test
 	void theDefaultAuditCapFitsInsideTheTrackedCap() {
 		assertTrue(SculkSightConfig.DEFAULT_RADIUS_AUDIT_CAP <= SculkSightConfig.MAX_TRACKED_SENSORS,

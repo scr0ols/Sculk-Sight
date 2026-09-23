@@ -6,32 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 
-/**
- * Turns a {@link SculkSightConfig} into the text of a configuration file and back.
- *
- * <p>The schema is one flat JSON object whose keys are named here and nowhere else. This is the
- * only place that knows what a stored key is called, so renaming one is a single edit and a
- * migration can be added beside the key it migrates.
- *
- * <p><b>Three kinds of bad input, handled three different ways, deliberately.</b> Text that is not
- * JSON at all, or that is JSON but not an object, is a {@link JsonParseException}: nothing can be
- * salvaged and the caller has to decide what to do. A key whose value is the wrong <i>type</i> - a
- * string where a number belongs - is also a {@link JsonParseException}, because guessing what a
- * player meant by {@code "twenty-five"} would be inventing a setting. A key that is <i>missing</i>,
- * or whose value is a number outside the permitted range, is repaired: the default or the nearest
- * permitted value is used, and the repair is reported to the caller's {@code repairs} consumer so
- * that it is logged rather than silently applied. An unknown key is left alone entirely, so a file
- * written by a later version, or carrying a player's own note, still loads.
- *
- * <p><b>{@link #KEY_RENDER_POLICY} is the one exception to "wrong type throws".</b> It has exactly
- * two legal values and nothing between or beyond them for a player to have meant, unlike a number
- * whose intended magnitude a typo could plausibly be guessing at. So a missing key, a value of the
- * wrong type, and a string that is neither {@link #VALUE_RENDER_POLICY_UNION} nor
- * {@link #VALUE_RENDER_POLICY_PER_SENSOR} - including one from a hypothetical later version this
- * schema does not yet know - are all repaired the same way, to {@link SculkSightConfig#DEFAULT_RENDER_POLICY},
- * rather than any of them throwing. A malformed or unrecognised policy is closer to "not set" than
- * to "a string where a number belongs".
- */
+/** Turns a {@link SculkSightConfig} into the text of a configuration file and back. */
 public final class ConfigCodec {
 
 	static final String KEY_SHELL_OPACITY_PERCENT = "shellOpacityPercent";
@@ -42,10 +17,8 @@ public final class ConfigCodec {
 
 	static final String KEY_RADIUS_AUDIT_CAP = "radiusAuditCap";
 
-	/** {@link RenderPolicy#UNION}, as the string this schema writes and reads. */
 	static final String VALUE_RENDER_POLICY_UNION = "union";
 
-	/** {@link RenderPolicy#PER_SENSOR}, as the string this schema writes and reads. */
 	static final String VALUE_RENDER_POLICY_PER_SENSOR = "per_sensor";
 
 	private ConfigCodec() {
@@ -67,6 +40,7 @@ public final class ConfigCodec {
 				encoded.put("z", sensor.z());
 				encoded.put("name", sensor.name());
 				encoded.put("enabled", sensor.enabled());
+				encoded.put("delayOverlayEnabled", sensor.delayOverlayEnabled());
 				sensors.add(encoded);
 			}
 			object.put(KEY_TRACKED_SENSORS, sensors);
@@ -82,15 +56,7 @@ public final class ConfigCodec {
 		};
 	}
 
-	/**
-	 * The configuration a file's text describes.
-	 *
-	 * @param repairs told, one message at a time, about every value this method had to substitute
-	 *        or move into range. Nothing is reported when the file is exactly what was written.
-	 * @throws JsonParseException if the text is not a JSON object, or {@link #KEY_SHELL_OPACITY_PERCENT}
-	 *         carries a value of the wrong type - {@link #KEY_RENDER_POLICY} never throws; see this
-	 *         class's javadoc
-	 */
+	/** The configuration a file's text describes. */
 	public static SculkSightConfig read(String text, Consumer<String> repairs)
 			throws JsonParseException {
 		Object document = Json.parse(text);
@@ -132,7 +98,10 @@ public final class ConfigCodec {
 				String name = rawName instanceof String string && !string.strip().isEmpty()
 						? string : TrackedSensor.defaultName(x, y, z);
 				boolean enabled = !(entry.containsKey("enabled")) || Boolean.TRUE.equals(entry.get("enabled"));
-				sensors.add(new TrackedSensor(x, y, z, name, enabled));
+				// A file from before this flag existed has no key here; false is the correct default,
+				// so a missing or non-boolean value both fall through to false without extra handling.
+				boolean delayOverlayEnabled = Boolean.TRUE.equals(entry.get("delayOverlayEnabled"));
+				sensors.add(new TrackedSensor(x, y, z, name, enabled, delayOverlayEnabled));
 			} catch (RuntimeException malformed) {
 				repairs.accept(KEY_TRACKED_SENSORS + " contains an invalid entry; skipping it");
 			}
@@ -161,9 +130,6 @@ public final class ConfigCodec {
 			throws JsonParseException {
 		int fallback = SculkSightConfig.DEFAULT_SHELL_OPACITY_PERCENT;
 
-		// containsKey rather than a null check on get: a key written as JSON null is present, and a
-		// player who wrote null did not write a number, which is the wrong-type case below rather
-		// than the absent-key case here.
 		if (!object.containsKey(KEY_SHELL_OPACITY_PERCENT)) {
 			repairs.accept(KEY_SHELL_OPACITY_PERCENT + " is missing; using the default, " + fallback);
 			return fallback;
@@ -178,12 +144,6 @@ public final class ConfigCodec {
 
 		double value = number.doubleValue();
 
-		// Bounded as a double, and only then narrowed, which is the order the whole of this fix
-		// consists of. Json's number scanner accepts by character shape, so a literal too large for
-		// a double is a well-formed document to it and Double.valueOf answers positive infinity
-		// rather than throwing; rounding that gives Long.MAX_VALUE and the cast to int wraps it to
-		// -1, which a clamp applied afterward would move to zero. The player asked for the densest
-		// shell there is and would have got no shell at all. OPEN-QUESTIONS.md section 22.2.
 		double bounded = SculkSightConfig.clampShellOpacityPercent(value);
 
 		int percent = (int) Math.round(bounded);
@@ -238,11 +198,6 @@ public final class ConfigCodec {
 		return cap;
 	}
 
-	/**
-	 * {@link #KEY_RENDER_POLICY}'s repair rule: missing, wrong-typed, and unrecognised all fail
-	 * closed to {@link SculkSightConfig#DEFAULT_RENDER_POLICY} rather than throwing - see this
-	 * class's javadoc for why this key alone works this way.
-	 */
 	private static RenderPolicy readRenderPolicy(Map<?, ?> object, Consumer<String> repairs) {
 		RenderPolicy fallback = SculkSightConfig.DEFAULT_RENDER_POLICY;
 
@@ -272,7 +227,6 @@ public final class ConfigCodec {
 		return parsed;
 	}
 
-	/** The policy a stored string names, or {@code null} if it names none of them. */
 	private static RenderPolicy parseRenderPolicy(String value) {
 		return switch (value) {
 			case VALUE_RENDER_POLICY_UNION -> RenderPolicy.UNION;
@@ -281,7 +235,6 @@ public final class ConfigCodec {
 		};
 	}
 
-	/** What a wrong-typed value is, in the words a player would recognise from their own file. */
 	private static String describe(Object value) {
 		return switch (value) {
 			case String ignored -> "a string";

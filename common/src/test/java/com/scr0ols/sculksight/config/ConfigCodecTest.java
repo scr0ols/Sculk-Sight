@@ -1,6 +1,7 @@
 package com.scr0ols.sculksight.config;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -26,8 +27,8 @@ class ConfigCodecTest {
 	@Test
 	void whatItWritesItReadsBackUnchanged() throws JsonParseException {
 		SculkSightConfig original = new SculkSightConfig(63, RenderPolicy.PER_SENSOR,
-				List.of(new TrackedSensor(1, 2, 3, "entrance", false),
-						new TrackedSensor(-4, 5, 6, "deep hall", true)));
+				List.of(new TrackedSensor(1, 2, 3, "entrance", false, true),
+						new TrackedSensor(-4, 5, 6, "deep hall", true, false)));
 
 		assertEquals(original, ConfigCodec.read(ConfigCodec.write(original), repairs::add));
 		assertEquals(List.of(), repairs);
@@ -57,10 +58,6 @@ class ConfigCodecTest {
 		assertTrue(repairs.stream().anyMatch(r -> r.contains("radiusAuditCap") && r.contains("missing")));
 	}
 
-	/**
-	 * M1's own requirement: a legacy file - one predating this field, which every v0.1 file is -
-	 * decodes to the documented default rather than throwing, exactly like any other missing key.
-	 */
 	@Test
 	void aLegacyFileWithoutTheRenderPolicyKeyDecodesToTheDefault() throws JsonParseException {
 		SculkSightConfig config = ConfigCodec.read(
@@ -70,6 +67,19 @@ class ConfigCodecTest {
 		assertEquals(1, repairs.size());
 		assertTrue(repairs.getFirst().contains("renderPolicy") && repairs.getFirst().contains("missing"),
 				repairs.getFirst());
+	}
+
+	@Test
+	void aTrackedSensorFromBeforeTheDelayOverlayFlagExistedDefaultsItToFalse() throws JsonParseException {
+		SculkSightConfig config = ConfigCodec.read(
+				"{\"shellOpacityPercent\": 25, \"renderPolicy\": \"union\", \"radiusAuditCap\": 32, "
+						+ "\"trackedSensors\": [{\"x\": 1, \"y\": 2, \"z\": 3, \"name\": \"old\", "
+						+ "\"enabled\": true}]}",
+				repairs::add);
+
+		assertFalse(config.trackedSensors().get(0).delayOverlayEnabled());
+		assertEquals(List.of(), repairs,
+				"a missing key from an older config version is not a repair - it is the schema growing");
 	}
 
 	@ParameterizedTest
@@ -84,12 +94,6 @@ class ConfigCodecTest {
 		assertEquals(List.of(), repairs);
 	}
 
-	/**
-	 * Unlike {@code shellOpacityPercent}, an unrecognised {@code renderPolicy} string fails closed
-	 * to the default rather than throwing - this class's javadoc explains why this key is the
-	 * exception. Covers a plain typo, a wrong case, and a plausible future value this version does
-	 * not know.
-	 */
 	@ParameterizedTest
 	@ValueSource(strings = {"Union", "PER_SENSOR", "unoin", "", "per-sensor", "radius_audit"})
 	void anUnrecognisedRenderPolicyStringFailsClosedToTheDefault(String value) throws JsonParseException {
@@ -102,10 +106,6 @@ class ConfigCodecTest {
 		assertTrue(repairs.getFirst().contains("renderPolicy"), repairs.getFirst());
 	}
 
-	/**
-	 * The other half of "fail closed, never throw" for this key: a value of the wrong JSON type is
-	 * also repaired rather than raising {@link JsonParseException}, unlike {@code shellOpacityPercent}.
-	 */
 	@ParameterizedTest
 	@ValueSource(strings = {"25", "true", "null", "[\"union\"]", "{\"value\": \"union\"}"})
 	void aWrongTypedRenderPolicyFailsClosedToTheDefaultInsteadOfThrowing(String rawValue)
@@ -144,13 +144,6 @@ class ConfigCodecTest {
 		assertTrue(repairs.getFirst().contains("rounded"), repairs.getFirst());
 	}
 
-	/**
-	 * OPEN-QUESTIONS.md section 22.2. Each of these is a number a player could type into the file
-	 * by hand and each used to come back as 0 - a fully transparent shell for someone who asked for
-	 * the densest one there is. {@code Json} accepts them by character shape and {@code Double}
-	 * maps the last two to positive infinity, so the round gave {@code Long.MAX_VALUE}, the cast to
-	 * {@code int} wrapped it to -1, and the clamp that ran afterward moved that to the minimum.
-	 */
 	@ParameterizedTest
 	@ValueSource(strings = {"2147483648", "1e300", "1e400"})
 	void aValueTooLargeForAnIntIsStillTheMaximumAndNotTheMinimum(String value)
@@ -166,7 +159,6 @@ class ConfigCodecTest {
 		assertTrue(repairs.getFirst().contains("moved to"), repairs.getFirst());
 	}
 
-	/** The same defect at the other end: a hugely negative value belongs at the minimum. */
 	@ParameterizedTest
 	@ValueSource(strings = {"-2147483649", "-1e300", "-1e400"})
 	void aValueTooSmallForAnIntIsStillTheMinimum(String value) throws JsonParseException {

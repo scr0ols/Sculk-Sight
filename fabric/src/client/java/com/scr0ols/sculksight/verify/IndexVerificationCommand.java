@@ -9,17 +9,7 @@ import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 
 import net.minecraft.network.chat.Component;
 
-/**
- * The dev-only mechanism DECISIONS.md ADR-041 requires:
- * {@code /sculksight-verify-index <chunkRadius>}.
- *
- * <p><b>A thin Brigadier shim over {@link IndexVerificationCommandCore}</b>, the same split
- * {@link VerificationCommand}'s own javadoc explains for mode A's command.
- *
- * <p><b>Registered only in a development environment</b>, per ADR-019 and ADR-041 point 4, the
- * same gate and the same shape {@code /sculksight-verify} and {@code /sculksight-verify-detection}
- * already use. See {@code SculkSightClient}.
- */
+/** The dev-only index verification command: {@code /sculksight-verify-index <chunkRadius>}. */
 public final class IndexVerificationCommand {
 
 	private IndexVerificationCommand() {

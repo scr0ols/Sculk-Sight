@@ -11,24 +11,6 @@ import java.nio.file.Path;
 
 import org.junit.jupiter.api.Test;
 
-/**
- * Pins the answer to Batch 5 (T7) sub-problem 3: {@code PER_SENSOR} mode's per-frame draw list is
- * sorted back-to-front by camera distance before anything in it is drawn, so overlapping
- * translucent shells composite with the nearest one on top (ADR-022's two low-alpha tiers are not
- * order-independent). {@link DrawOrderTest} covers the comparator's own arithmetic; this class
- * covers that {@code onRender} actually applies it, freshly each frame, and only to the branch it
- * applies to.
- *
- * <p><b>Why this is a source-text test and not an ordinary one.</b> {@code ShellRenderer} lives in
- * {@code common/src/client/java}, which this module's own build does not compile at all - the same
- * reason {@link ShellRendererDrawCallTest} and {@link ShellRendererSnapshotBudgetTest} read it as
- * text instead of importing it.
- *
- * <p><b>What it does not prove.</b> That the new order reads correctly at a live 20+-sensor scene
- * with overlapping shells - the nearest one on top, no flicker or pop as the camera moves - is a
- * render-thread, visual question this task's PR asks the author to check in-game, not something a
- * source-text test can see.
- */
 class ShellRendererDrawOrderTest {
 
 	private static final Path SOURCE = Path.of("src", "client", "java", "com", "scr0ols",
@@ -67,10 +49,6 @@ class ShellRendererDrawOrderTest {
 						+ "throw UnsupportedOperationException.");
 	}
 
-	/**
-	 * A guard on the guard: if the class is renamed or moved, this test class fails loudly rather
-	 * than passing over a file it never found.
-	 */
 	private static String read() throws IOException {
 		if (!Files.isRegularFile(SOURCE)) {
 			return fail(SOURCE.toAbsolutePath() + " is not there. If ShellRenderer moved, move "
@@ -80,7 +58,6 @@ class ShellRendererDrawOrderTest {
 		return Files.readString(SOURCE, StandardCharsets.UTF_8);
 	}
 
-	/** The text from a marker's own opening brace to the brace that closes it, brace-matched. */
 	private static String bodyOf(String source, String marker) {
 		int open = source.indexOf('{', markerIn(source, marker));
 

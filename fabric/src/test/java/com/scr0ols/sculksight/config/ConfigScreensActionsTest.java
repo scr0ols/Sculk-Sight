@@ -15,33 +15,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/**
- * Coverage for {@link ConfigScreens}'s package-private action methods - the pure mutation logic
- * behind {@link SettingsScreen}'s buttons, now that every one of them applies to
- * {@link ClientConfig} the instant it is clicked instead of waiting for a Save button.
- *
- * <p>Up to v0.2 this class was {@code ConfigScreensSaveTest}, and reached {@code ConfigScreens}'s
- * private {@code save} method and its {@code SensorDraft} holder through reflection - both existed
- * only because Cloth Config batched every edit behind one distant save. Removing Cloth removed the
- * batching along with it: there is no draft state left to reconcile, no mid-screen-drop bug for a
- * save to reintroduce, and so no reflection either. {@link ConfigScreens#renameSensor},
- * {@link ConfigScreens#setSensorEnabled}, {@link ConfigScreens#setAuditSensorHidden},
- * {@link ConfigScreens#removeSensor}, {@link ConfigScreens#setShellOpacityPercent} and
- * {@link ConfigScreens#setRenderPolicy} are called directly, the same package-private methods
- * {@link SettingsScreen}'s widgets call.
- *
- * <p>{@code ConfigScreens} lives in {@code common}'s {@code src/client/java}, which is a plain
- * source artifact rather than a compiled sourceSet of {@code common} itself (see
- * {@code common/build.gradle}'s own comment on {@code commonClientJava}) - so nothing on
- * {@code common}'s test classpath can reach it. This module recompiles that source against a real
- * Minecraft classpath the same way it does for the mod jar itself, which is what lets this test
- * call the real, compiled action methods rather than re-describing their logic here.
- *
- * <p>{@link SculkSightConfig#untrack} already has its own coverage in {@code common}'s
- * {@code SculkSightConfigTest}, so {@link #removeSensorDropsOnlyTheMatchingPosition()} below checks
- * only that {@link ConfigScreens#removeSensor} calls through to it correctly, not {@code untrack}'s
- * own list-preserving behaviour a second time.
- */
 class ConfigScreensActionsTest {
 
 	@TempDir
@@ -52,8 +25,8 @@ class ConfigScreensActionsTest {
 		ClientPlatform.set(new TestEnvironment(tempDir));
 		ClientConfig.load();
 
-		TrackedSensor first = new TrackedSensor(1, 2, 3, "First", true);
-		TrackedSensor second = new TrackedSensor(4, 5, 6, "Second", true);
+		TrackedSensor first = new TrackedSensor(1, 2, 3, "First", true, false);
+		TrackedSensor second = new TrackedSensor(4, 5, 6, "Second", true, false);
 		ClientConfig.set(new SculkSightConfig(SculkSightConfig.DEFAULT_SHELL_OPACITY_PERCENT,
 				RenderPolicy.UNION, List.of(first, second)));
 
@@ -72,7 +45,7 @@ class ConfigScreensActionsTest {
 		ClientPlatform.set(new TestEnvironment(tempDir));
 		ClientConfig.load();
 
-		TrackedSensor sensor = new TrackedSensor(1, 2, 3, "Original", true);
+		TrackedSensor sensor = new TrackedSensor(1, 2, 3, "Original", true, false);
 		ClientConfig.set(new SculkSightConfig(SculkSightConfig.DEFAULT_SHELL_OPACITY_PERCENT,
 				RenderPolicy.UNION, List.of(sensor)));
 
@@ -88,7 +61,7 @@ class ConfigScreensActionsTest {
 		ClientPlatform.set(new TestEnvironment(tempDir));
 		ClientConfig.load();
 
-		TrackedSensor sensor = new TrackedSensor(1, 2, 3, "Sensor", true);
+		TrackedSensor sensor = new TrackedSensor(1, 2, 3, "Sensor", true, false);
 		ClientConfig.set(new SculkSightConfig(SculkSightConfig.DEFAULT_SHELL_OPACITY_PERCENT,
 				RenderPolicy.UNION, List.of(sensor)));
 
@@ -100,12 +73,52 @@ class ConfigScreensActionsTest {
 	}
 
 	@Test
+	void setSensorDelayOverlayRoundTripsBothDirectionsWithoutTouchingOtherSensors() {
+		ClientPlatform.set(new TestEnvironment(tempDir));
+		ClientConfig.load();
+
+		TrackedSensor sensor = new TrackedSensor(1, 2, 3, "Sensor", true, false);
+		TrackedSensor other = new TrackedSensor(4, 5, 6, "Other", true, false);
+		ClientConfig.set(new SculkSightConfig(SculkSightConfig.DEFAULT_SHELL_OPACITY_PERCENT,
+				RenderPolicy.UNION, List.of(sensor, other)));
+
+		ConfigScreens.setSensorDelayOverlay(1, 2, 3, true);
+		List<TrackedSensor> afterEnabling = ClientConfig.get().trackedSensors();
+		assertEquals(true, afterEnabling.get(0).delayOverlayEnabled());
+		assertEquals(false, afterEnabling.get(1).delayOverlayEnabled(),
+				"another sensor's delay-overlay flag must be left untouched");
+
+		ConfigScreens.setSensorDelayOverlay(1, 2, 3, false);
+		assertEquals(false, ClientConfig.get().trackedSensors().get(0).delayOverlayEnabled());
+	}
+
+	@Test
+	void setSensorDelayOverlayTouchesOnlyTheTargetedSensorsFlag() {
+		ClientPlatform.set(new TestEnvironment(tempDir));
+		ClientConfig.load();
+
+		TrackedSensor sensor = new TrackedSensor(1, 2, 3, "Sensor", true, false);
+		ClientConfig.set(new SculkSightConfig(60, RenderPolicy.PER_SENSOR, List.of(sensor)));
+
+		ConfigScreens.setSensorDelayOverlay(1, 2, 3, true);
+
+		SculkSightConfig after = ClientConfig.get();
+		assertEquals(60, after.shellOpacityPercent(),
+				"the per-sensor delay-overlay flag is not a global setting - it must not touch "
+						+ "shell opacity or any other config-wide field");
+		assertEquals(RenderPolicy.PER_SENSOR, after.renderPolicy(),
+				"the per-sensor delay-overlay flag must not touch the render policy either");
+		assertEquals(true, after.trackedSensors().get(0).enabled(),
+				"toggling the delay-overlay flag must not touch the sensor's own enabled flag");
+	}
+
+	@Test
 	void removeSensorDropsOnlyTheMatchingPosition() {
 		ClientPlatform.set(new TestEnvironment(tempDir));
 		ClientConfig.load();
 
-		TrackedSensor removed = new TrackedSensor(1, 2, 3, "Remove me", true);
-		TrackedSensor retained = new TrackedSensor(4, 5, 6, "Keep me", true);
+		TrackedSensor removed = new TrackedSensor(1, 2, 3, "Remove me", true, false);
+		TrackedSensor retained = new TrackedSensor(4, 5, 6, "Keep me", true, false);
 		ClientConfig.set(new SculkSightConfig(SculkSightConfig.DEFAULT_SHELL_OPACITY_PERCENT,
 				RenderPolicy.UNION, List.of(removed, retained)));
 
@@ -114,19 +127,12 @@ class ConfigScreensActionsTest {
 		assertEquals(List.of(retained), ClientConfig.get().trackedSensors());
 	}
 
-	/**
-	 * The audit section's own toggle, and the one action here that deliberately persists nothing:
-	 * an audited position is not in {@code trackedSensors()} at all, so its visibility lives in
-	 * {@link RadiusAuditController}'s session-only set. {@code RadiusAuditControllerTest} covers
-	 * that set's own behaviour; what this checks is that {@code ConfigScreens} reaches it with the
-	 * position the clicked row named, and leaves the saved config alone doing so.
-	 */
 	@Test
 	void setAuditSensorHiddenTogglesSessionStateWithoutTouchingTheSavedConfig() {
 		ClientPlatform.set(new TestEnvironment(tempDir));
 		ClientConfig.load();
 
-		TrackedSensor untouched = new TrackedSensor(1, 2, 3, "Tracked", true);
+		TrackedSensor untouched = new TrackedSensor(1, 2, 3, "Tracked", true, false);
 		ClientConfig.set(new SculkSightConfig(SculkSightConfig.DEFAULT_SHELL_OPACITY_PERCENT,
 				RenderPolicy.UNION, List.of(untouched)));
 		try {

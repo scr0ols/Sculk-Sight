@@ -10,16 +10,6 @@ import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests for {@link IndexVerifier}.
- *
- * <p><b>What a green run here means, the same caveat every verification-mechanism test in this
- * project carries.</b> Both maps below are ordinary Java {@code Map}s, not a live {@code SensorIndex}
- * and not a real chunk sweep, so these tests establish that the diff is correct given two maps.
- * They establish nothing about whether {@code SensorIndex} or {@code IndexSweep} are themselves
- * built correctly against the game - only {@code /sculksight-verify-index} against a running
- * client does that (`DECISIONS.md` ADR-041).
- */
 class IndexVerifierTest {
 
 	private static final WorldPosition A = new WorldPosition(10, 64, -20);
@@ -77,9 +67,6 @@ class IndexVerifierTest {
 
 		IndexVerificationReport report = IndexVerifier.diff(groundTruth, index);
 
-		// The sweep found nothing, so this run proves nothing per clean()'s own rule - but the
-		// stale entry is still a real discrepancy and must still be reported, exactly like a
-		// disagreement is reported even from an otherwise inconclusive VerificationReport.
 		assertEquals(0, report.sweptSensors());
 		assertFalse(report.clean());
 

@@ -7,14 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests for {@link SensorDetector}, mode C's solver-side surface.
- *
- * <p>Scope, as in {@link SixRayRuleTest}: everything here runs against {@link RecordingWorld},
- * so a green run means the range test and the occlusion call are composed as R2 and R4 describe
- * them, not that the mod agrees with the game. That seam is TESTING-STRATEGY.md section 3's,
- * same as it is for the shell solver.
- */
 class SensorDetectorTest {
 
 	private static final int SENSOR_X = 100;
@@ -79,21 +71,10 @@ class SensorDetectorTest {
 
 		RecordingWorld.Ray firstRay = world.rays().getFirst();
 
-		// Only the source is nudged (R4), so the destination lands exactly on the sensor's
-		// centre. This is the same assertion SixRayRuleTest makes for the solver's own call,
-		// checking that mode C did not swap the two arguments - an easy mistake that would
-		// still compile and would still look plausible.
 		assertEquals(SENSOR_X + 0.5, firstRay.toX());
 		assertEquals(SENSOR_Y + 0.5, firstRay.toY());
 		assertEquals(SENSOR_Z + 0.5, firstRay.toZ());
 	}
-
-	// ------------------------------------------------------------------ isInRange
-	//
-	// The range test on its own, extracted so that mode C's differential verification can tell
-	// out-of-range apart from occluded without writing R2's comparison a second time. These
-	// tests pin it directly rather than only through isDetectedAt, because it is now public and
-	// a caller can reach it without going through the conjunction.
 
 	private static boolean inRange(int x, int y, int z) {
 		return SensorDetector.isInRange(x, y, z, SENSOR_X, SENSOR_Y, SENSOR_Z, RADIUS);
@@ -110,18 +91,12 @@ class SensorDetectorTest {
 	@Test
 	@DisplayName("isInRange is spherical, not a bounding box - R2's check is a squared distance")
 	void isInRangeIsSphericalRatherThanCubic() {
-		// A cube corner at (RADIUS, RADIUS, RADIUS) is inside the bounding box the solver sweeps
-		// and far outside the radius. This is the single assertion that separates R2's actual
-		// comparison from the shape it is easy to assume.
 		assertFalse(inRange(SENSOR_X + RADIUS, SENSOR_Y + RADIUS, SENSOR_Z + RADIUS));
 	}
 
 	@Test
 	@DisplayName("isDetectedAt agrees with isInRange wherever the world is fully open")
 	void isDetectedAtAgreesWithIsInRangeInOpenAir() {
-		// With nothing occluding, detection reduces to the range test, so the two methods must
-		// answer identically across the whole cube. This is what lets DetectionScan classify a
-		// position with one call to each without the two disagreeing about the boundary.
 		for (int dx = -RADIUS - 1; dx <= RADIUS + 1; dx++) {
 			for (int dy = -RADIUS - 1; dy <= RADIUS + 1; dy++) {
 				for (int dz = -RADIUS - 1; dz <= RADIUS + 1; dz++) {
