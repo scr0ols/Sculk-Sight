@@ -1,6 +1,7 @@
 package com.scr0ols.sculksight.config;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -26,8 +27,8 @@ class ConfigCodecTest {
 	@Test
 	void whatItWritesItReadsBackUnchanged() throws JsonParseException {
 		SculkSightConfig original = new SculkSightConfig(63, RenderPolicy.PER_SENSOR,
-				List.of(new TrackedSensor(1, 2, 3, "entrance", false),
-						new TrackedSensor(-4, 5, 6, "deep hall", true)));
+				List.of(new TrackedSensor(1, 2, 3, "entrance", false, true),
+						new TrackedSensor(-4, 5, 6, "deep hall", true, false)));
 
 		assertEquals(original, ConfigCodec.read(ConfigCodec.write(original), repairs::add));
 		assertEquals(List.of(), repairs);
@@ -66,6 +67,19 @@ class ConfigCodecTest {
 		assertEquals(1, repairs.size());
 		assertTrue(repairs.getFirst().contains("renderPolicy") && repairs.getFirst().contains("missing"),
 				repairs.getFirst());
+	}
+
+	@Test
+	void aTrackedSensorFromBeforeTheDelayOverlayFlagExistedDefaultsItToFalse() throws JsonParseException {
+		SculkSightConfig config = ConfigCodec.read(
+				"{\"shellOpacityPercent\": 25, \"renderPolicy\": \"union\", \"radiusAuditCap\": 32, "
+						+ "\"trackedSensors\": [{\"x\": 1, \"y\": 2, \"z\": 3, \"name\": \"old\", "
+						+ "\"enabled\": true}]}",
+				repairs::add);
+
+		assertFalse(config.trackedSensors().get(0).delayOverlayEnabled());
+		assertEquals(List.of(), repairs,
+				"a missing key from an older config version is not a repair - it is the schema growing");
 	}
 
 	@ParameterizedTest

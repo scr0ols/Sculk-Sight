@@ -5,18 +5,15 @@ import java.util.List;
 
 import org.jspecify.annotations.Nullable;
 
-import com.mojang.blaze3d.platform.InputConstants;
-
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.ContainerObjectSelectionList;
-import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.narration.NarratableEntry;
-import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
 import com.scr0ols.sculksight.audit.AuditPin;
@@ -31,7 +28,6 @@ final class SensorListWidget extends ContainerObjectSelectionList<SensorListWidg
 	private static final int ITEM_HEIGHT = 24;
 	private static final int BUTTON_HEIGHT = 20;
 	private static final int BUTTON_WIDTH = 84;
-	private static final int NAME_FIELD_WIDTH = 140;
 	private static final int SPACING = 4;
 
 	private static final int TEXT_BASELINE_OFFSET = 4;
@@ -40,10 +36,11 @@ final class SensorListWidget extends ContainerObjectSelectionList<SensorListWidg
 
 	private static final int LABEL_COLOUR = -1;
 
-	private @Nullable EditingState editing;
+	private final Screen owner;
 
-	SensorListWidget(Minecraft minecraft, int width, int height, int y) {
+	SensorListWidget(Minecraft minecraft, int width, int height, int y, Screen owner) {
 		super(minecraft, width, height, y, ITEM_HEIGHT);
+		this.owner = owner;
 		refresh();
 	}
 
@@ -82,24 +79,6 @@ final class SensorListWidget extends ContainerObjectSelectionList<SensorListWidg
 
 		for (AuditedSensor sensor : selection) {
 			rows.add(new AuditRow(sensor));
-		}
-	}
-
-	private static final class EditingState {
-		private final int x;
-		private final int y;
-		private final int z;
-		private String text;
-
-		private EditingState(int x, int y, int z, String text) {
-			this.x = x;
-			this.y = y;
-			this.z = z;
-			this.text = text;
-		}
-
-		private boolean matches(int otherX, int otherY, int otherZ) {
-			return x == otherX && y == otherY && z == otherZ;
 		}
 	}
 
@@ -235,55 +214,21 @@ final class SensorListWidget extends ContainerObjectSelectionList<SensorListWidg
 		private final int y;
 		private final int z;
 		private final String name;
-		private final boolean enabled;
 
-		private final boolean editingRow;
-
-		private final EditBox nameField;
-		private final Button renameButton;
-		private final Button enabledButton;
+		private final Button optionsButton;
 		private final Button removeButton;
-		private final Button applyButton;
-		private final Button cancelButton;
 
 		private TrackedRow(TrackedSensor sensor) {
 			this.x = sensor.x();
 			this.y = sensor.y();
 			this.z = sensor.z();
 			this.name = sensor.name();
-			this.enabled = sensor.enabled();
 
-			EditingState state = SensorListWidget.this.editing;
-			this.editingRow = state != null && state.matches(x, y, z);
-
-			this.nameField = new EditBox(SensorListWidget.this.minecraft.font, 0, 0,
-					NAME_FIELD_WIDTH, BUTTON_HEIGHT,
-					Component.translatable("sculksight.config.tracked_sensors.rename.field"));
-			this.nameField.setMaxLength(TrackedSensor.MAX_NAME_LENGTH);
-			this.nameField.setValue(editingRow ? state.text : name);
-			this.nameField.setResponder(value -> {
-				if (SensorListWidget.this.editing != null
-						&& SensorListWidget.this.editing.matches(x, y, z)) {
-					SensorListWidget.this.editing.text = value;
-				}
-			});
-			if (editingRow) {
-				this.nameField.setFocused(true);
-			}
-
-			this.renameButton = Button.builder(
-							Component.translatable("sculksight.config.tracked_sensors.rename"),
-							button -> startEditing())
+			this.optionsButton = Button.builder(
+							Component.translatable("sculksight.config.tracked_sensors.options"),
+							button -> openOptions(sensor))
 					.tooltip(Tooltip.create(
-							Component.translatable("sculksight.config.tracked_sensors.rename.tooltip")))
-					.size(BUTTON_WIDTH, BUTTON_HEIGHT)
-					.build();
-			this.enabledButton = Button.builder(enabledLabel(), button -> {
-						ConfigScreens.setSensorEnabled(x, y, z, !enabled);
-						SensorListWidget.this.refresh();
-					})
-					.tooltip(Tooltip.create(
-							Component.translatable("sculksight.config.tracked_sensors.enabled.tooltip")))
+							Component.translatable("sculksight.config.tracked_sensors.options.tooltip")))
 					.size(BUTTON_WIDTH, BUTTON_HEIGHT)
 					.build();
 			this.removeButton = Button.builder(
@@ -296,91 +241,26 @@ final class SensorListWidget extends ContainerObjectSelectionList<SensorListWidg
 							Component.translatable("sculksight.config.tracked_sensors.remove.tooltip")))
 					.size(BUTTON_WIDTH, BUTTON_HEIGHT)
 					.build();
-			this.applyButton = Button.builder(
-							Component.translatable("sculksight.config.tracked_sensors.rename.apply"),
-							button -> applyRename())
-					.size(BUTTON_WIDTH, BUTTON_HEIGHT)
-					.build();
-			this.cancelButton = Button.builder(
-							Component.translatable("sculksight.config.tracked_sensors.rename.cancel"),
-							button -> stopEditing())
-					.size(BUTTON_WIDTH, BUTTON_HEIGHT)
-					.build();
 		}
 
-		private Component enabledLabel() {
-			Component state = Component.translatable(enabled
-					? "sculksight.config.tracked_sensors.enabled.yes"
-					: "sculksight.config.tracked_sensors.enabled.no");
-			return Component.translatable("sculksight.config.tracked_sensors.enabled", state);
-		}
-
-		private void startEditing() {
-			SensorListWidget.this.editing = new EditingState(x, y, z, name);
-			SensorListWidget.this.refresh();
-		}
-
-		private void applyRename() {
-			ConfigScreens.renameSensor(x, y, z, nameField.getValue());
-			SensorListWidget.this.editing = null;
-			SensorListWidget.this.refresh();
-		}
-
-		private void stopEditing() {
-			SensorListWidget.this.editing = null;
-			SensorListWidget.this.refresh();
-		}
-
-		@Override
-		public boolean keyPressed(KeyEvent event) {
-			if (editingRow) {
-				int keyCode = event.key();
-				if (keyCode == InputConstants.KEY_ESCAPE) {
-					stopEditing();
-					return true;
-				}
-				if (keyCode == InputConstants.KEY_RETURN || keyCode == InputConstants.KEY_NUMPADENTER) {
-					applyRename();
-					return true;
-				}
-			}
-			return super.keyPressed(event);
+		private void openOptions(TrackedSensor sensor) {
+			SensorListWidget.this.minecraft.gui.setScreen(
+					new SensorOptionsScreen(SensorListWidget.this.owner, sensor, SensorListWidget.this::refresh));
 		}
 
 		@Override
 		public void extractContent(GuiGraphicsExtractor graphics, int mouseX, int mouseY,
 				boolean hovered, float partialTick) {
-			if (editingRow) {
-				extractEditingRow(graphics, mouseX, mouseY, partialTick);
-			} else {
-				extractDisplayRow(graphics, mouseX, mouseY, partialTick);
-			}
-		}
-
-		private void extractEditingRow(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
-			nameField.setPosition(getContentX(), getContentY());
-			nameField.extractRenderState(graphics, mouseX, mouseY, partialTick);
-
-			applyButton.setPosition(nameField.getX() + nameField.getWidth() + SPACING, getContentY());
-			applyButton.extractRenderState(graphics, mouseX, mouseY, partialTick);
-
-			cancelButton.setPosition(applyButton.getX() + applyButton.getWidth() + SPACING, getContentY());
-			cancelButton.extractRenderState(graphics, mouseX, mouseY, partialTick);
-		}
-
-		private void extractDisplayRow(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
 			removeButton.setPosition(getContentRight() - removeButton.getWidth(), getContentY());
-			enabledButton.setPosition(removeButton.getX() - SPACING - enabledButton.getWidth(), getContentY());
-			renameButton.setPosition(enabledButton.getX() - SPACING - renameButton.getWidth(), getContentY());
+			optionsButton.setPosition(removeButton.getX() - SPACING - optionsButton.getWidth(), getContentY());
 
-			int nameMaxWidth = renameButton.getX() - SPACING - getContentX();
+			int nameMaxWidth = optionsButton.getX() - SPACING - getContentX();
 			graphics.text(SensorListWidget.this.minecraft.font,
 					displayName(nameMaxWidth), getContentX(),
 					getContentYMiddle() - TEXT_BASELINE_OFFSET, LABEL_COLOUR);
 
 			removeButton.extractRenderState(graphics, mouseX, mouseY, partialTick);
-			enabledButton.extractRenderState(graphics, mouseX, mouseY, partialTick);
-			renameButton.extractRenderState(graphics, mouseX, mouseY, partialTick);
+			optionsButton.extractRenderState(graphics, mouseX, mouseY, partialTick);
 		}
 
 		private Component displayName(int maxWidth) {
@@ -404,14 +284,12 @@ final class SensorListWidget extends ContainerObjectSelectionList<SensorListWidg
 
 		@Override
 		public List<? extends GuiEventListener> children() {
-			return editingRow ? List.of(nameField, applyButton, cancelButton)
-					: List.of(renameButton, enabledButton, removeButton);
+			return List.of(optionsButton, removeButton);
 		}
 
 		@Override
 		public List<? extends NarratableEntry> narratables() {
-			return editingRow ? List.of(nameField, applyButton, cancelButton)
-					: List.of(renameButton, enabledButton, removeButton);
+			return List.of(optionsButton, removeButton);
 		}
 	}
 }

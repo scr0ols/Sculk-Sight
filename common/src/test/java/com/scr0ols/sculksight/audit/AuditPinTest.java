@@ -64,7 +64,7 @@ class AuditPinTest {
 
 	@Test
 	void anAlreadyTrackedPositionKeepsItsNameAndDisabledState() {
-		TrackedSensor renamedAndOff = new TrackedSensor(1, 2, 3, "Door trap", false);
+		TrackedSensor renamedAndOff = new TrackedSensor(1, 2, 3, "Door trap", false, false);
 
 		AuditPin.Result result = AuditPin.pin(configWith(renamedAndOff), List.of(sensorAt(1, 2, 3)));
 
