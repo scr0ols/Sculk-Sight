@@ -60,7 +60,16 @@ public record ShellStyle(int colour, float depthTestedAlpha, float seeThroughAlp
 		return Alphas.toChannel(depthTestedAlpha);
 	}
 
-	/** The factor a face pass multiplies the encoded alpha by, which requires a positive encoded alpha. */
+	/**
+	 * The factor a face pass multiplies the encoded alpha by, which requires a positive encoded
+	 * alpha.
+	 *
+	 * <p>A camera inside the shell sees a single face along any given ray, so that face is encoded
+	 * at exactly the target alpha. A camera outside the shell sees two faces stacked along the ray
+	 * (near and far), both blended with the standard "over" operator, so each face is encoded
+	 * dimmer than the target - just enough that the pair composites back up to it, rather than past
+	 * it. This keeps the perceived strength the same on both sides of the shell's boundary.
+	 */
 	public float faceModulation(boolean seeThrough, boolean cameraInside) {
 		return modulation(seeThrough ? seeThroughAlpha : depthTestedAlpha, depthTestedAlpha, cameraInside);
 	}
@@ -70,7 +79,7 @@ public record ShellStyle(int colour, float depthTestedAlpha, float seeThroughAlp
 			throw new IllegalStateException("the encoded alpha must be positive to modulate from");
 		}
 
-		float wanted = cameraInside ? targetAlpha * Alphas.insideFactor(targetAlpha) : targetAlpha;
+		float wanted = cameraInside ? targetAlpha : Alphas.singleLayerAlphaFor(targetAlpha);
 		return wanted / encodedAlpha;
 	}
 
