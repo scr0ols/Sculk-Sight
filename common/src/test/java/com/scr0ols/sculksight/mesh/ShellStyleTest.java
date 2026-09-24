@@ -112,27 +112,65 @@ class ShellStyleTest {
 	}
 
 	@Test
-	void theSeeThroughModulationTakesTheEncodedAlphaToTheSeeThroughAlpha() {
+	void insideTheShellEachPassReachesTheConfiguredAlphaDirectly() {
+		// A camera inside the shell only ever sees a single face along any given ray, so that one
+		// face should render at exactly the configured alpha - no boost needed or wanted.
 		ShellStyle style = ShellStyle.v0();
 
 		assertEquals(style.seeThroughAlpha(),
-				style.depthTestedAlpha() * style.faceModulation(true, false), 1.0E-6F);
+				style.depthTestedAlpha() * style.faceModulation(true, true), 1.0E-6F);
 		assertEquals(style.depthTestedAlpha(),
-				style.depthTestedAlpha() * style.faceModulation(false, false), 1.0E-6F);
+				style.depthTestedAlpha() * style.faceModulation(false, true), 1.0E-6F);
 	}
 
 	@Test
-	void insideTheShellEachPassCompositesToWhatTwoLayersGaveOutside() {
+	void outsideTheShellTheTwoStackedLayersCompositeToTheConfiguredAlpha() {
+		// A camera outside the shell sees two faces stacked along any given ray (the near one and
+		// the far one), both blended with the standard "over" operator. Each face must therefore be
+		// encoded dimmer than the configured alpha, so the pair composites back up to exactly it -
+		// not past it.
 		ShellStyle style = ShellStyle.v0();
 
-		assertEquals(0.4375F, style.depthTestedAlpha() * style.faceModulation(false, true), 1.0E-6F);
-		assertEquals(outsideComposite(style.seeThroughAlpha()),
-				style.depthTestedAlpha() * style.faceModulation(true, true), 1.0E-6F);
+		float depthTestedPerFace = style.depthTestedAlpha() * style.faceModulation(false, false);
+		float seeThroughPerFace = style.depthTestedAlpha() * style.faceModulation(true, false);
+
+		assertEquals(style.depthTestedAlpha(), outsideComposite(depthTestedPerFace), 1.0E-6F);
+		assertEquals(style.seeThroughAlpha(), outsideComposite(seeThroughPerFace), 1.0E-6F);
+	}
+
+	@Test
+	void neitherPassEverExceedsItsConfiguredAlphaOnceComposited() {
+		// Regression coverage for the original bug: both the inside (single-layer) and outside
+		// (two-layer) composites must land at or under the configured alpha, never over it.
+		for (int percent = 1; percent <= SculkSightConfig.MAX_SHELL_OPACITY_PERCENT; percent++) {
+			ShellStyle style = ShellStyle.fromConfig(new SculkSightConfig(percent, SculkSightConfig.DEFAULT_RENDER_POLICY));
+
+			float insideComposite = style.depthTestedAlpha() * style.faceModulation(false, true);
+			float outsidePerFace = style.depthTestedAlpha() * style.faceModulation(false, false);
+
+			assertTrue(insideComposite <= style.depthTestedAlpha() + 1.0E-6F,
+					"inside composite exceeded the configured alpha at " + percent + "%");
+			assertTrue(outsideComposite(outsidePerFace) <= style.depthTestedAlpha() + 1.0E-6F,
+					"outside composite exceeded the configured alpha at " + percent + "%");
+		}
+	}
+
+	@Test
+	void crossingTheShellBoundaryDoesNotChangeThePerceivedStrength() {
+		// The inside composite (one layer at the configured alpha) and the outside composite (two
+		// layers stacked) must match, so the shell does not visibly pop as the camera crosses its
+		// surface.
+		ShellStyle style = ShellStyle.v0();
+
+		float insideComposite = style.depthTestedAlpha() * style.faceModulation(false, true);
+		float outsidePerFace = style.depthTestedAlpha() * style.faceModulation(false, false);
+
+		assertEquals(insideComposite, outsideComposite(outsidePerFace), 1.0E-6F);
 	}
 
 	@ParameterizedTest
 	@EnumSource(Face.class)
-	void theInsideCorrectionNeverDarkensAPass(Face face) {
+	void theOutsideCorrectionNeverDarkensBelowZero(Face face) {
 		ShellStyle style = ShellStyle.v0();
 
 		assertTrue(style.faceModulation(false, true) >= style.faceModulation(false, false));
