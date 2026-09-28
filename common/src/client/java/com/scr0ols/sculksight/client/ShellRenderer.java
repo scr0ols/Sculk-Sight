@@ -664,6 +664,7 @@ public final class ShellRenderer {
 		boolean inside = cameraInside(current, camera);
 
 		ShellStyle detectorStyle = style(current.detector());
+		boolean skipSeeThrough = detectorStyle.skipsSeeThroughPass(inside);
 		GpuBufferSlice[] uniforms = RenderSystem.getDynamicUniforms().writeTransforms(
 				transform(modelView, detectorStyle.faceModulation(true, inside)),
 				transform(modelView, detectorStyle.faceModulation(false, inside)));
@@ -687,7 +688,7 @@ public final class ShellRenderer {
 
 			drawGeometry(pass, faces, faceIndices,
 					ShellPipelines.FACES_SEE_THROUGH, uniforms[0],
-					ShellPipelines.FACES_DEPTH_TESTED, uniforms[1]);
+					ShellPipelines.FACES_DEPTH_TESTED, uniforms[1], skipSeeThrough);
 		}
 	}
 
@@ -703,15 +704,20 @@ public final class ShellRenderer {
 
 	private static void drawGeometry(RenderPass pass, ShellBuffer buffer, Indexed indexed,
 			RenderPipeline firstPipeline, GpuBufferSlice firstUniform,
-			RenderPipeline secondPipeline, GpuBufferSlice secondUniform) {
+			RenderPipeline secondPipeline, GpuBufferSlice secondUniform, boolean skipFirstPass) {
 
 		pass.setVertexBuffer(0, buffer.buffer().slice());
 		pass.setIndexBuffer(indexed.buffer(), indexed.indices().type());
 
-		pass.setPipeline(firstPipeline);
-		RenderSystem.bindDefaultUniforms(pass);
-		pass.setUniform("DynamicTransforms", firstUniform);
-		pass.drawIndexed(indexed.count(), 1, 0, 0, 0);
+		// skipFirstPass lets ShellStyle.skipsSeeThroughPass() avoid this draw call's GPU cost
+		// entirely, rather than issuing it with a modulation that would compose to fully
+		// transparent anyway.
+		if (!skipFirstPass) {
+			pass.setPipeline(firstPipeline);
+			RenderSystem.bindDefaultUniforms(pass);
+			pass.setUniform("DynamicTransforms", firstUniform);
+			pass.drawIndexed(indexed.count(), 1, 0, 0, 0);
+		}
 
 		pass.setPipeline(secondPipeline);
 		RenderSystem.bindDefaultUniforms(pass);

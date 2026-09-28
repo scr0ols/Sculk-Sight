@@ -169,6 +169,16 @@ class ConfigScreensActionsTest {
 		assertEquals(RenderPolicy.PER_SENSOR, ClientConfig.get().renderPolicy());
 	}
 
+	@Test
+	void setSeeThroughInsideModePersistsToClientConfig() {
+		ClientPlatform.set(new TestEnvironment(tempDir));
+		ClientConfig.load();
+
+		ConfigScreens.setSeeThroughInsideMode(SeeThroughInsideMode.OFF);
+
+		assertEquals(SeeThroughInsideMode.OFF, ClientConfig.get().seeThroughInsideMode());
+	}
+
 	private record TestEnvironment(Path dir) implements Environment {
 		@Override
 		public boolean isDevelopmentEnvironment() {

@@ -36,6 +36,48 @@ class SculkSightConfigTest {
 	}
 
 	@Test
+	void theDefaultSeeThroughInsideModeIsFull() {
+		assertEquals(SeeThroughInsideMode.FULL, SculkSightConfig.defaults().seeThroughInsideMode());
+		assertEquals(SeeThroughInsideMode.FULL, SculkSightConfig.DEFAULT_SEE_THROUGH_INSIDE_MODE);
+	}
+
+	@Test
+	void everyCompatibilityConstructorDefaultsTheSeeThroughInsideModeToFull() {
+		assertEquals(SeeThroughInsideMode.FULL,
+				new SculkSightConfig(25, RenderPolicy.UNION).seeThroughInsideMode());
+		assertEquals(SeeThroughInsideMode.FULL,
+				new SculkSightConfig(25, RenderPolicy.UNION, List.of()).seeThroughInsideMode());
+		assertEquals(SeeThroughInsideMode.FULL,
+				new SculkSightConfig(25, RenderPolicy.UNION, List.of(), 32).seeThroughInsideMode());
+	}
+
+	@Test
+	void changingTheSeeThroughInsideModeLeavesTheOriginalAlone() {
+		SculkSightConfig original = SculkSightConfig.defaults();
+
+		SculkSightConfig changed = original.withSeeThroughInsideMode(SeeThroughInsideMode.OFF);
+
+		assertEquals(SeeThroughInsideMode.FULL, original.seeThroughInsideMode());
+		assertEquals(SeeThroughInsideMode.OFF, changed.seeThroughInsideMode());
+	}
+
+	@Test
+	void otherWithMethodsPreserveAnAlreadyChangedSeeThroughInsideMode() {
+		SculkSightConfig original = SculkSightConfig.defaults().withSeeThroughInsideMode(SeeThroughInsideMode.WEAK);
+
+		assertEquals(SeeThroughInsideMode.WEAK, original.withShellOpacityPercent(60).seeThroughInsideMode());
+		assertEquals(SeeThroughInsideMode.WEAK, original.withRenderPolicy(RenderPolicy.PER_SENSOR).seeThroughInsideMode());
+		assertEquals(SeeThroughInsideMode.WEAK, original.withRadiusAuditCap(64).seeThroughInsideMode());
+		assertEquals(SeeThroughInsideMode.WEAK, original.withTrackedSensors(List.of()).seeThroughInsideMode());
+	}
+
+	@Test
+	void refusesANullSeeThroughInsideMode() {
+		assertThrows(NullPointerException.class,
+				() -> new SculkSightConfig(25, RenderPolicy.UNION, List.of(), 32, null));
+	}
+
+	@Test
 	void selectionIsDeduplicatedAndBounded() {
 		SculkSightConfig config = SculkSightConfig.defaults();
 		for (int index = 0; index < SculkSightConfig.MAX_TRACKED_SENSORS + 2; index++) {
