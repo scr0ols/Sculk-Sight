@@ -664,7 +664,7 @@ public final class ShellRenderer {
 		boolean inside = cameraInside(current, camera);
 
 		ShellStyle detectorStyle = style(current.detector());
-		boolean skipSeeThrough = detectorStyle.skipsSeeThroughPass(inside);
+		boolean skipSeeThrough = detectorStyle.skipsSeeThroughPass();
 		GpuBufferSlice[] uniforms = RenderSystem.getDynamicUniforms().writeTransforms(
 				transform(modelView, detectorStyle.faceModulation(true, inside)),
 				transform(modelView, detectorStyle.faceModulation(false, inside)));
@@ -710,8 +710,8 @@ public final class ShellRenderer {
 		pass.setIndexBuffer(indexed.buffer(), indexed.indices().type());
 
 		// skipFirstPass lets ShellStyle.skipsSeeThroughPass() avoid this draw call's GPU cost
-		// entirely, rather than issuing it with a modulation that would compose to fully
-		// transparent anyway.
+		// entirely. It is always true: the see-through pass is permanently disabled, so the shell
+		// only ever draws where it has direct line of sight.
 		if (!skipFirstPass) {
 			pass.setPipeline(firstPipeline);
 			RenderSystem.bindDefaultUniforms(pass);
