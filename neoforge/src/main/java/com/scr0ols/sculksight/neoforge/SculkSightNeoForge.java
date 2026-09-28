@@ -189,8 +189,7 @@ public final class SculkSightNeoForge {
 			IndexVerificationCommand.register(event.getDispatcher());
 
 			SculkSight.LOGGER.info("Development environment: /sculksight-verify, "
-					+ "/sculksight-verify-detection and /sculksight-verify-index registered "
-					+ "(ADR-019).");
+					+ "/sculksight-verify-detection and /sculksight-verify-index registered.");
 		}
 	}
 }
