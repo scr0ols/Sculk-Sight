@@ -82,8 +82,10 @@ public record ShellStyle(int colour, float depthTestedAlpha, float seeThroughAlp
 	 * it. This keeps the perceived strength the same on both sides of the shell's boundary.
 	 *
 	 * <p>The see-through pass is further scaled by {@link #insideSeeThroughFactor} while the camera
-	 * is inside the shell - that pass has no depth test, so from inside it would otherwise paint
-	 * over almost every block in view. The factor never touches the outside case or the
+	 * is inside the shell. That pass draws only the half of the shell that is occluded by the
+	 * world (the complement of the depth-tested pass's test), but from inside the shell that
+	 * occluded half is most of what is on screen - nearly every block between the camera and the
+	 * shell's far boundary hides it. The factor never touches the outside case or the
 	 * depth-tested pass.
 	 */
 	public float faceModulation(boolean seeThrough, boolean cameraInside) {
