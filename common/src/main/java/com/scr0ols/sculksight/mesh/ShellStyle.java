@@ -6,12 +6,6 @@ import com.scr0ols.sculksight.solver.Face;
 /**
  * How the shell looks: a {@code 0xRRGGBB} colour, two alphas in 0..1, a per-{@link Face} colour
  * multiplier, and the factor the see-through pass is scaled by while the camera is inside it.
- *
- * <p>The see-through pass itself is permanently disabled - see {@link #skipsSeeThroughPass()} -
- * because the shell must never render anything through geometry that blocks direct line of
- * sight. {@code seeThroughAlpha}, {@code insideSeeThroughFactor} and {@link #faceModulation} are
- * kept so the alpha arithmetic they support stays intact and tested, but the renderer never
- * issues a draw call that uses the value they compute for the see-through case.
  */
 public record ShellStyle(int colour, float depthTestedAlpha, float seeThroughAlpha, float[] shadeByFace,
 		float insideSeeThroughFactor) {
@@ -103,19 +97,13 @@ public record ShellStyle(int colour, float depthTestedAlpha, float seeThroughAlp
 	}
 
 	/**
-	 * Whether the see-through pass can be skipped outright.
-	 *
-	 * <p>Always {@code true}: the shell must never render anything through geometry that blocks
-	 * direct line of sight, so the see-through pass is permanently disabled and only the
-	 * depth-tested pass ever draws. This is a deliberate design decision, not a mode-dependent
-	 * optimisation - unlike {@link #faceModulation}, which still computes a see-through alpha that
-	 * the renderer never uses, this method has no remaining dependency on camera position or
-	 * {@link #insideSeeThroughFactor}. Letting the caller skip the draw call entirely, rather than
-	 * issuing it with a modulation of zero, avoids paying its GPU cost for a pass that never
-	 * contributes anything to the frame.
+	 * Whether the see-through pass can be skipped outright: the camera is inside the shell and
+	 * {@link #insideSeeThroughFactor} zeroes it, so the pass would draw nothing anyway. Letting the
+	 * caller skip the draw call entirely avoids paying its GPU cost for a pass that would compose
+	 * to fully transparent.
 	 */
-	public boolean skipsSeeThroughPass() {
-		return true;
+	public boolean skipsSeeThroughPass(boolean cameraInside) {
+		return cameraInside && insideSeeThroughFactor <= 0.0F;
 	}
 
 	private static float modulation(float targetAlpha, float encodedAlpha, boolean cameraInside) {

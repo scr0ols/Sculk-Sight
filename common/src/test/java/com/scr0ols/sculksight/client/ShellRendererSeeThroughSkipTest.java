@@ -14,10 +14,8 @@ import org.junit.jupiter.api.Test;
  * Source-text regression coverage for how {@code draw} and {@code drawGeometry} skip the
  * see-through pass. {@link ShellRenderer} draws on the render thread with real GPU state and
  * cannot be instantiated in a unit test, so - like the other {@code ShellRenderer*Test} classes
- * in this package - this reads the source file directly. The see-through pass is permanently
- * disabled - the shell must never render anything through geometry that blocks direct line of
- * sight - and {@code ShellStyleTest} covers directly that {@code skipsSeeThroughPass()} always
- * returns {@code true}.
+ * in this package - this reads the source file directly. The alpha arithmetic behind the skip
+ * decision is covered separately and directly in {@code ShellStyleTest}.
  */
 class ShellRendererSeeThroughSkipTest {
 
@@ -35,19 +33,9 @@ class ShellRendererSeeThroughSkipTest {
 		String body = bodyOf(read(), DRAW_METHOD_DECLARATION);
 
 		assertTrue(body.contains("skipsSeeThroughPass("),
-				"draw() must ask the style whether the see-through pass can be skipped, so the "
-						+ "permanently-disabled pass actually avoids the GPU draw call instead of "
-						+ "just zeroing its alpha.");
-	}
-
-	@Test
-	void theSkipDecisionTakesNoCameraStateSinceItIsUnconditional() throws IOException {
-		String body = bodyOf(read(), DRAW_METHOD_DECLARATION);
-
-		assertTrue(body.contains("skipsSeeThroughPass()"),
-				"skipsSeeThroughPass() must be called with no arguments: the see-through pass is "
-						+ "permanently disabled regardless of camera position, so the decision no "
-						+ "longer depends on \"inside\" or any other per-frame state.");
+				"draw() must ask the style whether the see-through pass can be skipped for the "
+						+ "current camera-inside state, so SeeThroughInsideMode.OFF actually avoids "
+						+ "the GPU draw call instead of just zeroing its alpha.");
 	}
 
 	@Test

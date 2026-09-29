@@ -1,6 +1,7 @@
 package com.scr0ols.sculksight.mesh;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -259,18 +260,29 @@ class ShellStyleTest {
 		assertEquals(full.faceModulation(false, false), off.faceModulation(false, false), 1.0E-6F);
 	}
 
-	@ParameterizedTest
-	@EnumSource(SeeThroughInsideMode.class)
-	void theSeeThroughPassIsAlwaysSkippedRegardlessOfMode(SeeThroughInsideMode mode) {
-		// Design decision: the shell must never render anything through geometry that blocks
-		// direct line of sight, so the see-through pass is permanently disabled - independently
-		// of SeeThroughInsideMode, which now only affects faceModulation's unused see-through
-		// value, never whether that pass actually draws.
-		ShellStyle style = ShellStyle.fromConfig(
+	@Test
+	void skipsSeeThroughPassOnlyWhenInsideAndTheFactorIsZero() {
+		ShellStyle full = ShellStyle.fromConfig(
 				new SculkSightConfig(60, SculkSightConfig.DEFAULT_RENDER_POLICY, List.of(),
-						SculkSightConfig.DEFAULT_RADIUS_AUDIT_CAP, mode));
+						SculkSightConfig.DEFAULT_RADIUS_AUDIT_CAP, SeeThroughInsideMode.FULL));
+		ShellStyle weak = ShellStyle.fromConfig(
+				new SculkSightConfig(60, SculkSightConfig.DEFAULT_RENDER_POLICY, List.of(),
+						SculkSightConfig.DEFAULT_RADIUS_AUDIT_CAP, SeeThroughInsideMode.WEAK));
+		ShellStyle off = ShellStyle.fromConfig(
+				new SculkSightConfig(60, SculkSightConfig.DEFAULT_RENDER_POLICY, List.of(),
+						SculkSightConfig.DEFAULT_RADIUS_AUDIT_CAP, SeeThroughInsideMode.OFF));
 
-		assertTrue(style.skipsSeeThroughPass());
+		assertFalseIsSkipped(full, true);
+		assertFalseIsSkipped(full, false);
+		assertFalseIsSkipped(weak, true);
+		assertFalseIsSkipped(weak, false);
+		assertFalseIsSkipped(off, false);
+
+		assertTrue(off.skipsSeeThroughPass(true), "OFF must skip the see-through pass from inside");
+	}
+
+	private static void assertFalseIsSkipped(ShellStyle style, boolean cameraInside) {
+		assertFalse(style.skipsSeeThroughPass(cameraInside));
 	}
 
 	private static float outsideComposite(float alpha) {
