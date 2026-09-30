@@ -1,7 +1,9 @@
 package com.scr0ols.sculksight.audit;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Stream;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
@@ -18,8 +20,14 @@ import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.network.chat.Component;
 
-/** Registers {@code /sculksight find <type> <n> <mode>} as a Fabric client command. */
+/** Registers {@code /sculksight find <type> <n> <mode>} (and its {@code find off} short-circuit) as a Fabric client command. */
 public final class RadiusAuditCommand {
+
+	private static final String OFF_NAME = "off";
+
+	/** {@code off}, then every real detector type, in the order offered as completions. */
+	private static final List<String> TYPE_SUGGESTIONS =
+			Stream.concat(Stream.of(OFF_NAME), RadiusAuditRequest.TYPE_NAMES.stream()).toList();
 
 	private RadiusAuditCommand() {
 	}
@@ -33,13 +41,15 @@ public final class RadiusAuditCommand {
 				ClientCommands.literal("sculksight")
 						.then(ClientCommands.literal("find")
 								.then(ClientCommands.argument("type", StringArgumentType.word())
-										.suggests((context, builder) -> SharedSuggestionProvider
-												.suggest(RadiusAuditRequest.TYPE_NAMES, builder))
+										.suggests((context, builder) -> suggestTypesAndOff(builder))
+										.executes(context -> runTypeOnly(context.getSource(),
+												StringArgumentType.getString(context, "type")))
 										.then(ClientCommands.argument("radius",
 												IntegerArgumentType.integer(RadiusAuditRequest.MIN_RADIUS,
 														RadiusAuditRequest.MAX_RADIUS))
 												.then(ClientCommands.argument("mode", StringArgumentType.word())
-														.suggests((context, builder) -> suggestModes(builder))
+														.suggests((context, builder) -> SharedSuggestionProvider
+																.suggest(RadiusAuditMode.NAMES, builder))
 														.executes(context -> run(context.getSource(),
 																StringArgumentType.getString(context, "type"),
 																IntegerArgumentType.getInteger(context, "radius"),
@@ -54,17 +64,35 @@ public final class RadiusAuditCommand {
 				mode);
 	}
 
+	/** Handles {@code /sculksight find <type>} with nothing after it: only {@code off} means anything here. */
+	private static int runTypeOnly(FabricClientCommandSource source, String type) {
+		if (type.toLowerCase(Locale.ROOT).equals(OFF_NAME)) {
+			return runOff(source);
+		}
+
+		source.sendFeedback(Component.literal("Radius and mode are required for a find, e.g. "
+				+ "/sculksight find <type> <radius> <static|live>. Use /sculksight find off with "
+				+ "nothing else to cancel a live find."));
+		return RadiusAuditCommandCore.FAILURE;
+	}
+
+	private static int runOff(FabricClientCommandSource source) {
+		return RadiusAuditClient.runOff(message -> source.sendFeedback(Component.literal(message)));
+	}
+
 	/**
-	 * Suggests {@link RadiusAuditMode#NAMES} in their declared priority order rather than
-	 * {@link SharedSuggestionProvider#suggest}'s alphabetical one. {@code SuggestionsBuilder.build()}
+	 * Suggests {@code off} before {@link RadiusAuditRequest#TYPE_NAMES} rather than
+	 * {@link SharedSuggestionProvider#suggest}'s alphabetical order. {@code SuggestionsBuilder.build()}
 	 * and {@code buildFuture()} route through {@code Suggestions.create}, which always sorts its
 	 * result case-insensitively regardless of the order suggestions were added in, so offering
-	 * {@code off}, {@code static}, {@code live} in that order means building the {@link Suggestions}
-	 * directly with its non-sorting constructor instead.
+	 * {@code off} first means building the {@link Suggestions} directly with its non-sorting
+	 * constructor instead.
 	 */
-	private static CompletableFuture<Suggestions> suggestModes(SuggestionsBuilder builder) {
+	private static CompletableFuture<Suggestions> suggestTypesAndOff(SuggestionsBuilder builder) {
 		StringRange range = StringRange.between(builder.getStart(), builder.getInput().length());
-		List<Suggestion> matches = RadiusAuditMode.suggestionsMatching(builder.getRemaining()).stream()
+		String needle = builder.getRemaining().toLowerCase(Locale.ROOT);
+		List<Suggestion> matches = TYPE_SUGGESTIONS.stream()
+				.filter(name -> name.startsWith(needle))
 				.filter(name -> !name.equals(builder.getRemaining()))
 				.map(name -> new Suggestion(range, name))
 				.toList();

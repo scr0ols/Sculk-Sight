@@ -14,14 +14,12 @@ class RadiusAuditModeTest {
 	void allModesParseFromTheWordAPlayerTypes() throws RadiusAuditArgumentException {
 		assertEquals(RadiusAuditMode.STATIC, RadiusAuditMode.of("static"));
 		assertEquals(RadiusAuditMode.LIVE, RadiusAuditMode.of("live"));
-		assertEquals(RadiusAuditMode.OFF, RadiusAuditMode.of("off"));
 	}
 
 	@Test
 	void caseIsNotSignificant() throws RadiusAuditArgumentException {
 		assertEquals(RadiusAuditMode.STATIC, RadiusAuditMode.of("STATIC"));
 		assertEquals(RadiusAuditMode.LIVE, RadiusAuditMode.of("Live"));
-		assertEquals(RadiusAuditMode.OFF, RadiusAuditMode.of("OFF"));
 	}
 
 	@Test
@@ -72,22 +70,5 @@ class RadiusAuditModeTest {
 		List<String> names = RadiusAuditMode.NAMES;
 
 		assertThrows(UnsupportedOperationException.class, names::clear);
-	}
-
-	@Test
-	void offComesBeforeStaticAndLiveInTheSuggestionList() {
-		assertEquals(List.of("off", "static", "live"), RadiusAuditMode.NAMES);
-	}
-
-	@Test
-	void suggestionsMatchingWithNothingTypedReturnsEveryNameInPriorityOrder() {
-		assertEquals(List.of("off", "static", "live"), RadiusAuditMode.suggestionsMatching(""));
-	}
-
-	@Test
-	void suggestionsMatchingFiltersByCaseInsensitivePrefix() {
-		assertEquals(List.of("static"), RadiusAuditMode.suggestionsMatching("STA"));
-		assertEquals(List.of("live"), RadiusAuditMode.suggestionsMatching("l"));
-		assertEquals(List.of(), RadiusAuditMode.suggestionsMatching("zzz"));
 	}
 }

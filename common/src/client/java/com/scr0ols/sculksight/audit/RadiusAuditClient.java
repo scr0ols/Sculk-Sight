@@ -37,10 +37,6 @@ public final class RadiusAuditClient {
 			return RadiusAuditCommandCore.FAILURE;
 		}
 
-		if (mode == RadiusAuditMode.OFF) {
-			return RadiusAuditCommandCore.runOff(report);
-		}
-
 		Minecraft client = Minecraft.getInstance();
 		ClientLevel level = client.level;
 		LocalPlayer player = client.player;
@@ -61,12 +57,16 @@ public final class RadiusAuditClient {
 			case STATIC -> RadiusAuditCommandCore.runStatic(report, radius, detectorName,
 					centre.getX(), centre.getY(), centre.getZ(), candidates, cap,
 					RadiusAuditClient::pinToConfig);
-			case OFF -> throw new IllegalStateException("OFF is dispatched before this point");
 		};
 		if (result == RadiusAuditCommandCore.SUCCESS) {
 			ShellRenderer.onRadiusAuditRerun();
 		}
 		return result;
+	}
+
+	/** Stops an active live find, without touching {@link Minecraft#getInstance()} or a level/player. */
+	public static int runOff(Consumer<String> report) {
+		return RadiusAuditCommandCore.runOff(report);
 	}
 
 	private static String pinToConfig(List<AuditedSensor> selected) {
