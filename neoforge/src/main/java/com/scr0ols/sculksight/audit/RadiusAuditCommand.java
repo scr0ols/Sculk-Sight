@@ -64,9 +64,7 @@ public final class RadiusAuditCommand {
 			return runOff(source);
 		}
 
-		source.sendSuccess(() -> Component.literal("Radius and mode are required for a find, e.g. "
-				+ "/sculksight find <type> <radius> <static|live>. Use /sculksight find off with "
-				+ "nothing else to cancel a live find."), false);
+		source.sendSuccess(() -> Component.translatable("sculksight.command.find.usage"), false);
 		return RadiusAuditCommandCore.FAILURE;
 	}
 
