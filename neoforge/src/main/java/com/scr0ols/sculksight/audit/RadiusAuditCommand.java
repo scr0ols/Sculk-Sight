@@ -52,7 +52,7 @@ public final class RadiusAuditCommand {
 
 	private static int run(CommandSourceStack source, String type, int radius, String mode) {
 		return RadiusAuditClient.run(
-				message -> source.sendSuccess(() -> Component.literal(message), false),
+				component -> source.sendSuccess(() -> component, false),
 				type,
 				radius,
 				mode);
@@ -64,14 +64,12 @@ public final class RadiusAuditCommand {
 			return runOff(source);
 		}
 
-		source.sendSuccess(() -> Component.literal("Radius and mode are required for a find, e.g. "
-				+ "/sculksight find <type> <radius> <static|live>. Use /sculksight find off with "
-				+ "nothing else to cancel a live find."), false);
+		source.sendSuccess(() -> Component.translatable("sculksight.command.find.usage"), false);
 		return RadiusAuditCommandCore.FAILURE;
 	}
 
 	private static int runOff(CommandSourceStack source) {
-		return RadiusAuditClient.runOff(message -> source.sendSuccess(() -> Component.literal(message), false));
+		return RadiusAuditClient.runOff(component -> source.sendSuccess(() -> component, false));
 	}
 
 	/**

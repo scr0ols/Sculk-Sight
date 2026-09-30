@@ -5,6 +5,8 @@ import java.util.Locale;
 
 import org.jspecify.annotations.Nullable;
 
+import net.minecraft.network.chat.Component;
+
 /** What {@code /sculksight find <type> <radius> <mode>} should do with the sensors it selected. */
 public enum RadiusAuditMode {
 
@@ -44,7 +46,8 @@ public enum RadiusAuditMode {
 		throw new RadiusAuditArgumentException(unknownMessage(modeName));
 	}
 
-	private static String unknownMessage(String modeName) {
-		return "Unknown mode '" + modeName + "'. Expected " + String.join(" or ", NAMES) + ".";
+	private static Component unknownMessage(String modeName) {
+		return Component.translatable("sculksight.command.find.mode.unknown", modeName,
+				NAMES.get(0), NAMES.get(1));
 	}
 }

@@ -126,9 +126,10 @@ final class SensorListWidget extends ContainerObjectSelectionList<SensorListWidg
 		private Button buildPinButton() {
 			return Button.builder(Component.translatable("sculksight.config.audit_sensors.pin"),
 							button -> {
-								String outcome = ConfigScreens.pinAuditSelection();
+								Component outcome = ConfigScreens.pinAuditSelection();
 								SensorListWidget.this.minecraft.gui.hud.getChat()
-										.addClientSystemMessage(Component.literal("[sculksight] " + outcome));
+										.addClientSystemMessage(
+												Component.literal("[sculksight] ").append(outcome));
 								SensorListWidget.this.refresh();
 							})
 					.tooltip(Tooltip.create(

@@ -6,6 +6,8 @@ import java.util.Optional;
 
 import org.jspecify.annotations.Nullable;
 
+import net.minecraft.network.chat.Component;
+
 import com.scr0ols.sculksight.client.DetectorType;
 
 /** The validated arguments of {@code /sculksight find <type> <n> <mode>}. */
@@ -31,7 +33,8 @@ public record RadiusAuditRequest(int radius, Optional<DetectorType> detector) {
 			throw new IllegalArgumentException("detector must be an Optional, never null");
 		}
 		if (radius < MIN_RADIUS || radius > MAX_RADIUS) {
-			throw new IllegalArgumentException(outOfRangeMessage(radius));
+			throw new IllegalArgumentException(
+					"radius must be between " + MIN_RADIUS + " and " + MAX_RADIUS + ", was " + radius);
 		}
 	}
 
@@ -59,20 +62,23 @@ public record RadiusAuditRequest(int radius, Optional<DetectorType> detector) {
 		};
 	}
 
-	private static String unknownMessage(String detectorName) {
-		return "Unknown detector type '" + detectorName + "'. Expected one of "
-				+ String.join(", ", TYPE_NAMES) + ".";
+	private static Component unknownMessage(String detectorName) {
+		return Component.translatable("sculksight.command.find.detector.unknown", detectorName,
+				String.join(", ", TYPE_NAMES));
 	}
 
-	private static String outOfRangeMessage(int radius) {
-		return "Radius " + radius + " is out of range. Expected " + MIN_RADIUS + " to "
-				+ MAX_RADIUS + " blocks.";
+	private static Component outOfRangeMessage(int radius) {
+		return Component.translatable("sculksight.command.find.radius.out_of_range", radius,
+				MIN_RADIUS, MAX_RADIUS);
 	}
 
 	/** How this request reads back to the player, so the command and its tests agree on one wording. */
-	public String describe() {
-		return "radius " + radius + ", "
-				+ detector.map(type -> "detector " + nameOf(type)).orElse("all detectors");
+	public Component describe() {
+		Component detectorClause = detector
+				.<Component>map(type -> Component.translatable(
+						"sculksight.command.find.description.detector", nameOf(type)))
+				.orElseGet(() -> Component.translatable("sculksight.command.find.description.all"));
+		return Component.translatable("sculksight.command.find.description", radius, detectorClause);
 	}
 
 	private static String nameOf(DetectorType type) {

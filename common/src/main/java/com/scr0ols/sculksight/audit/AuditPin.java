@@ -2,6 +2,9 @@ package com.scr0ols.sculksight.audit;
 
 import java.util.List;
 
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+
 import com.scr0ols.sculksight.audit.RadiusAudit.AuditedSensor;
 import com.scr0ols.sculksight.config.SculkSightConfig;
 import com.scr0ols.sculksight.config.TrackedSensor;
@@ -41,25 +44,25 @@ public final class AuditPin {
 	}
 
 	/** One player-facing line describing a {@link Result}. */
-	public static String describe(Result result) {
+	public static Component describe(Result result) {
 		if (result.added() == 0 && result.alreadyTracked() == 0 && result.rejectedAtCap() == 0) {
-			return "Nothing to pin.";
+			return Component.translatable("sculksight.command.pin.nothing");
 		}
 
-		StringBuilder line = new StringBuilder();
-		line.append(result.added() == 1 ? "1 sensor added to tracked sensors"
-				: result.added() + " sensors added to tracked sensors");
+		MutableComponent line = result.added() == 1
+				? Component.translatable("sculksight.command.pin.added.one")
+				: Component.translatable("sculksight.command.pin.added.many", result.added());
 
 		if (result.alreadyTracked() > 0) {
-			line.append("; ").append(result.alreadyTracked()).append(" already tracked");
+			line.append(Component.translatable(
+					"sculksight.command.pin.already_tracked", result.alreadyTracked()));
 		}
 		if (result.rejectedAtCap() > 0) {
-			line.append("; ").append(result.rejectedAtCap())
-					.append(" did not fit the tracked limit of ")
-					.append(SculkSightConfig.MAX_TRACKED_SENSORS);
+			line.append(Component.translatable("sculksight.command.pin.rejected_cap",
+					result.rejectedAtCap(), SculkSightConfig.MAX_TRACKED_SENSORS));
 		}
 
-		return line.append('.').toString();
+		return line.append(Component.literal("."));
 	}
 
 	private static boolean isTracked(SculkSightConfig config, AuditedSensor sensor) {
