@@ -8,12 +8,10 @@
 		"scr0ols"
 	],
 	"contact": {
-		"homepage": "https://github.com/scr0ols/Sculk-Sight",
+		"homepage": "https://modrinth.com/project/sculk-sight",
 		"sources": "https://github.com/scr0ols/Sculk-Sight",
-        "issues": "https://github.com/scr0ols/Sculk-Sight/issues",
-        "modrinth": "https://www.youtube.com/watch?v=YkADj0TPrJA&list=RDYkADj0TPrJA&start_radio=1",
-        "curseforge": "https://www.youtube.com/watch?v=YkADj0TPrJA&list=RDYkADj0TPrJA&start_radio=1"
-    },
+		"issues": "https://github.com/scr0ols/Sculk-Sight/issues"
+	},
 	"icon": {
 		"16": "assets/sculksight/icon_16.png",
 		"32": "assets/sculksight/icon_32.png",
