@@ -6,7 +6,6 @@
 	"key.sculksight.open_settings": "Abrir la configuración de Sculk Sight",
 
 	"sculksight.config.title": "Sculk Sight",
-	"sculksight.config.category.appearance": "Apariencia",
 	"sculksight.config.shell_opacity": "Opacidad de la cápsula",
 	"sculksight.config.shell_opacity.value": "%s%%",
 	"sculksight.config.shell_opacity.tooltip": "Qué tan sólida se ve la cápsula de detección. El paso transparente sigue este valor en una proporción fija, así que un solo control mueve ambos.",
@@ -46,7 +45,7 @@
 	"sculksight.config.tracked_sensors.delay_overlay": "Superposición de retardo: %s",
 	"sculksight.config.tracked_sensors.delay_overlay.tooltip": "Muestra los valores de retardo por bloque de este sensor cuando la superposición de retardo (H) está activada.",
 
-	"sculksight.config.audit_sensors": "Búsqueda en vivo — %s (%s seleccionados)",
+	"sculksight.config.audit_sensors": "Búsqueda en vivo - %s (%s seleccionados)",
 	"sculksight.config.audit_sensors.empty": "No hay sensores en el radio desde donde estás parado.",
 	"sculksight.config.audit_sensors.position": "%s, %s, %s",
 	"sculksight.config.audit_sensors.shown": "Mostrado: %s",

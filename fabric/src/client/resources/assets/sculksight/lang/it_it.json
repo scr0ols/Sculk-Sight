@@ -6,7 +6,6 @@
 	"key.sculksight.open_settings": "Apri le impostazioni di Sculk Sight",
 
 	"sculksight.config.title": "Sculk Sight",
-	"sculksight.config.category.appearance": "Aspetto",
 	"sculksight.config.shell_opacity": "Opacità del guscio",
 	"sculksight.config.shell_opacity.value": "%s%%",
 	"sculksight.config.shell_opacity.tooltip": "Quanto appare solido il guscio di rilevamento. Il passaggio trasparente segue questo valore in proporzione fissa, quindi un solo cursore regola entrambi.",
@@ -46,7 +45,7 @@
 	"sculksight.config.tracked_sensors.delay_overlay": "Overlay del ritardo: %s",
 	"sculksight.config.tracked_sensors.delay_overlay.tooltip": "Mostra i valori di ritardo per blocco di questo sensore quando l'overlay del ritardo (H) è attivo.",
 
-	"sculksight.config.audit_sensors": "Ricerca dal vivo — %s (%s selezionati)",
+	"sculksight.config.audit_sensors": "Ricerca dal vivo - %s (%s selezionati)",
 	"sculksight.config.audit_sensors.empty": "Nessun sensore nel raggio dalla tua posizione attuale.",
 	"sculksight.config.audit_sensors.position": "%s, %s, %s",
 	"sculksight.config.audit_sensors.shown": "Mostrato: %s",

@@ -6,7 +6,6 @@
 	"key.sculksight.open_settings": "打开 Sculk Sight 设置",
 
 	"sculksight.config.title": "Sculk Sight",
-	"sculksight.config.category.appearance": "外观",
 	"sculksight.config.shell_opacity": "外壳不透明度",
 	"sculksight.config.shell_opacity.value": "%s%%",
 	"sculksight.config.shell_opacity.tooltip": "检测外壳看起来有多实。透视效果以固定比例跟随此值，因此一个滑块可以同时调整两者。",
@@ -46,7 +45,7 @@
 	"sculksight.config.tracked_sensors.delay_overlay": "延迟叠加层: %s",
 	"sculksight.config.tracked_sensors.delay_overlay.tooltip": "当延迟叠加层（H）开启时，显示此传感器按方块划分的延迟数值。",
 
-	"sculksight.config.audit_sensors": "实时查找 — %s（已选择 %s 个）",
+	"sculksight.config.audit_sensors": "实时查找 - %s（已选择 %s 个）",
 	"sculksight.config.audit_sensors.empty": "你所站位置的范围内没有传感器。",
 	"sculksight.config.audit_sensors.position": "%s, %s, %s",
 	"sculksight.config.audit_sensors.shown": "显示: %s",

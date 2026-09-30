@@ -6,7 +6,6 @@
 	"key.sculksight.open_settings": "Abrir configurações do Sculk Sight",
 
 	"sculksight.config.title": "Sculk Sight",
-	"sculksight.config.category.appearance": "Aparência",
 	"sculksight.config.shell_opacity": "Opacidade do invólucro",
 	"sculksight.config.shell_opacity.value": "%s%%",
 	"sculksight.config.shell_opacity.tooltip": "Quão sólido o invólucro de detecção parece. A passagem transparente segue esse valor em uma proporção fixa, então um único controle deslizante ajusta os dois.",
@@ -46,7 +45,7 @@
 	"sculksight.config.tracked_sensors.delay_overlay": "Sobreposição de atraso: %s",
 	"sculksight.config.tracked_sensors.delay_overlay.tooltip": "Mostra os valores de atraso por bloco deste sensor quando a sobreposição de atraso (H) está ativada.",
 
-	"sculksight.config.audit_sensors": "Busca ao vivo — %s (%s selecionados)",
+	"sculksight.config.audit_sensors": "Busca ao vivo - %s (%s selecionados)",
 	"sculksight.config.audit_sensors.empty": "Nenhum sensor no alcance a partir de onde você está.",
 	"sculksight.config.audit_sensors.position": "%s, %s, %s",
 	"sculksight.config.audit_sensors.shown": "Exibido: %s",

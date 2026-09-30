@@ -6,7 +6,6 @@
 	"key.sculksight.open_settings": "Ouvrir les paramètres de Sculk Sight",
 
 	"sculksight.config.title": "Sculk Sight",
-	"sculksight.config.category.appearance": "Apparence",
 	"sculksight.config.shell_opacity": "Opacité de la coque",
 	"sculksight.config.shell_opacity.value": "%s%%",
 	"sculksight.config.shell_opacity.tooltip": "À quel point la coque de détection paraît opaque. La passe transparente suit cette valeur dans une proportion fixe, donc un seul curseur ajuste les deux.",
@@ -46,7 +45,7 @@
 	"sculksight.config.tracked_sensors.delay_overlay": "Affichage du délai : %s",
 	"sculksight.config.tracked_sensors.delay_overlay.tooltip": "Affiche les valeurs de délai par bloc de ce capteur lorsque l'affichage du délai (H) est activé.",
 
-	"sculksight.config.audit_sensors": "Recherche en direct — %s (%s sélectionnés)",
+	"sculksight.config.audit_sensors": "Recherche en direct - %s (%s sélectionnés)",
 	"sculksight.config.audit_sensors.empty": "Aucun capteur à portée depuis l'endroit où tu te trouves.",
 	"sculksight.config.audit_sensors.position": "%s, %s, %s",
 	"sculksight.config.audit_sensors.shown": "Affiché : %s",

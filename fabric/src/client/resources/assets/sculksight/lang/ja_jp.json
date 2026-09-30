@@ -6,7 +6,6 @@
 	"key.sculksight.open_settings": "Sculk Sightの設定を開く",
 
 	"sculksight.config.title": "Sculk Sight",
-	"sculksight.config.category.appearance": "外観",
 	"sculksight.config.shell_opacity": "シェルの不透明度",
 	"sculksight.config.shell_opacity.value": "%s%%",
 	"sculksight.config.shell_opacity.tooltip": "検知シェルの見た目の濃さ。透過表示は一定の比率でこの値に追従するため、1つのスライダーで両方が動きます。",
@@ -46,7 +45,7 @@
 	"sculksight.config.tracked_sensors.delay_overlay": "遅延オーバーレイ: %s",
 	"sculksight.config.tracked_sensors.delay_overlay.tooltip": "遅延オーバーレイ(H)がオンのとき、このセンサーのブロックごとの遅延数値を表示します。",
 
-	"sculksight.config.audit_sensors": "ライブ検索 — %s(%s選択中)",
+	"sculksight.config.audit_sensors": "ライブ検索 - %s(%s選択中)",
 	"sculksight.config.audit_sensors.empty": "あなたが立っている場所の範囲内にセンサーがありません。",
 	"sculksight.config.audit_sensors.position": "%s, %s, %s",
 	"sculksight.config.audit_sensors.shown": "表示: %s",

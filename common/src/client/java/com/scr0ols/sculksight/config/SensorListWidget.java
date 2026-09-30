@@ -46,14 +46,15 @@ final class SensorListWidget extends ContainerObjectSelectionList<SensorListWidg
 
 	@Override
 	public int getRowWidth() {
-		return Math.min(400, this.width - 20);
+		return Math.min(SettingsScreen.CONTROL_WIDTH, this.width - 20);
 	}
 
 	void refresh() {
 		List<Row> rows = new ArrayList<>();
 
 		List<TrackedSensor> trackedSensors = ClientConfig.get().trackedSensors();
-		rows.add(new TrackedHeadingRow(Component.translatable("sculksight.config.tracked_sensors"),
+		rows.add(new TrackedHeadingRow(
+				Component.translatable("sculksight.config.tracked_sensors", trackedSensors.size()),
 				trackedSensors.size() > 1));
 		for (TrackedSensor sensor : trackedSensors) {
 			rows.add(new TrackedRow(sensor));
@@ -313,7 +314,10 @@ final class SensorListWidget extends ContainerObjectSelectionList<SensorListWidg
 
 		private Component displayName(int maxWidth) {
 			Font font = SensorListWidget.this.minecraft.font;
-			Component full = Component.translatable("sculksight.config.tracked_sensors.name", name, x, y, z);
+			boolean isDefaultName = name.equals(TrackedSensor.defaultName(x, y, z));
+			Component full = isDefaultName
+					? Component.literal(name)
+					: Component.translatable("sculksight.config.tracked_sensors.name", name, x, y, z);
 			if (maxWidth <= 0 || font.width(full) <= maxWidth) {
 				return full;
 			}
@@ -321,8 +325,9 @@ final class SensorListWidget extends ContainerObjectSelectionList<SensorListWidg
 			String shortened = name;
 			while (!shortened.isEmpty()) {
 				shortened = shortened.substring(0, shortened.length() - 1);
-				Component candidate = Component.translatable(
-						"sculksight.config.tracked_sensors.name", shortened + "…", x, y, z);
+				Component candidate = isDefaultName
+						? Component.literal(shortened + "…")
+						: Component.translatable("sculksight.config.tracked_sensors.name", shortened + "…", x, y, z);
 				if (font.width(candidate) <= maxWidth) {
 					return candidate;
 				}

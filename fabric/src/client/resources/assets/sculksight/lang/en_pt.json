@@ -6,7 +6,6 @@
 	"key.sculksight.open_settings": "Open Sculk Sight's settings, matey",
 
 	"sculksight.config.title": "Sculk Sight",
-	"sculksight.config.category.appearance": "Look o' Things",
 	"sculksight.config.shell_opacity": "Shell Opacity",
 	"sculksight.config.shell_opacity.value": "%s%%",
 	"sculksight.config.shell_opacity.tooltip": "How solid th' detection shell looks, arr. Th' see-through pass follows this at a fixed proportion, so one slider moves both.",
@@ -46,7 +45,7 @@
 	"sculksight.config.tracked_sensors.delay_overlay": "Delay Overlay: %s",
 	"sculksight.config.tracked_sensors.delay_overlay.tooltip": "Shows this sensor's per-block delay numbers whenever th' delay overlay (H) be on.",
 
-	"sculksight.config.audit_sensors": "Live Find — %s (%s picked)",
+	"sculksight.config.audit_sensors": "Live Find - %s (%s picked)",
 	"sculksight.config.audit_sensors.empty": "No sensors in range from where ye be standin'.",
 	"sculksight.config.audit_sensors.position": "%s, %s, %s",
 	"sculksight.config.audit_sensors.shown": "Shown: %s",

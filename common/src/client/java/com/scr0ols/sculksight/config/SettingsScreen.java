@@ -17,16 +17,19 @@ import com.scr0ols.sculksight.client.ShellRenderer;
 
 final class SettingsScreen extends Screen {
 
-	private static final int HEADER_HEIGHT = 82;
+	private static final int HEADER_HEIGHT = 112;
 
 	private static final int FOOTER_HEIGHT = 33;
 	private static final int BUTTON_HEIGHT = 20;
-	private static final int CONTROL_WIDTH = 300;
+
+	/** Shared with {@link SensorListWidget#getRowWidth()} so the header and the list never drift apart. */
+	static final int CONTROL_WIDTH = 340;
+
 	private static final int DONE_BUTTON_WIDTH = 200;
 
 	private static final int TOGGLE_ROW_SPACING = 4;
 
-	private static final int TOGGLE_BUTTON_WIDTH = (CONTROL_WIDTH - 3 * TOGGLE_ROW_SPACING) / 4;
+	private static final int HALF_WIDTH = (CONTROL_WIDTH - TOGGLE_ROW_SPACING) / 2;
 
 	private final Screen parent;
 	private final HeaderAndFooterLayout layout = new HeaderAndFooterLayout(this, HEADER_HEIGHT, FOOTER_HEIGHT);
@@ -49,8 +52,9 @@ final class SettingsScreen extends Screen {
 		header.defaultCellSetting().alignHorizontallyCenter();
 		header.addChild(new StringWidget(title, font));
 		header.addChild(buildOpacitySlider(config.shellOpacityPercent()));
-		buildToggleRow(header, config.renderPolicy());
-		header.addChild(buildSeeThroughInsideButton(config.seeThroughInsideMode()));
+		buildValueChoicesRow(header, config.renderPolicy(), config.seeThroughInsideMode());
+		buildRenderTogglesRow(header);
+		header.addChild(buildDetectionIndicatorButton());
 
 		sensorList = layout.addToContents(new SensorListWidget(
 				minecraft, width, layout.getContentHeight(), layout.getHeaderHeight(), this));
@@ -88,7 +92,7 @@ final class SettingsScreen extends Screen {
 								"sculksight.config.render_policy." + policy.name().toLowerCase(Locale.ROOT)),
 						initial)
 				.withValues(RenderPolicy.values())
-				.create(0, 0, TOGGLE_BUTTON_WIDTH, BUTTON_HEIGHT,
+				.create(0, 0, HALF_WIDTH, BUTTON_HEIGHT,
 						Component.translatable("sculksight.config.render_policy"),
 						(button, value) -> ConfigScreens.setRenderPolicy(value));
 		renderPolicyButton.setTooltip(Tooltip.create(
@@ -102,7 +106,7 @@ final class SettingsScreen extends Screen {
 								"sculksight.config.see_through_inside." + mode.name().toLowerCase(Locale.ROOT)),
 						initial)
 				.withValues(SeeThroughInsideMode.values())
-				.create(0, 0, CONTROL_WIDTH, BUTTON_HEIGHT,
+				.create(0, 0, HALF_WIDTH, BUTTON_HEIGHT,
 						Component.translatable("sculksight.config.see_through_inside"),
 						(button, value) -> ConfigScreens.setSeeThroughInsideMode(value));
 		seeThroughInsideButton.setTooltip(Tooltip.create(
@@ -110,12 +114,19 @@ final class SettingsScreen extends Screen {
 		return seeThroughInsideButton;
 	}
 
-	private void buildToggleRow(LinearLayout header, RenderPolicy initialRenderPolicy) {
+	/** Value choices: Mode (Union/Split) and Inside view (Full/Weak/Off) share a row. */
+	private void buildValueChoicesRow(LinearLayout header, RenderPolicy initialRenderPolicy,
+			SeeThroughInsideMode initialSeeThroughInsideMode) {
 		LinearLayout row = header.addChild(LinearLayout.horizontal().spacing(TOGGLE_ROW_SPACING));
 		row.addChild(buildRenderPolicyButton(initialRenderPolicy));
+		row.addChild(buildSeeThroughInsideButton(initialSeeThroughInsideMode));
+	}
+
+	/** Render toggles: Global render and Delay overlay both affect shell rendering and share a row. */
+	private void buildRenderTogglesRow(LinearLayout header) {
+		LinearLayout row = header.addChild(LinearLayout.horizontal().spacing(TOGGLE_ROW_SPACING));
 		row.addChild(buildGlobalRenderButton());
 		row.addChild(buildDelayOverlayButton());
-		row.addChild(buildDetectionIndicatorButton());
 	}
 
 	private Button buildGlobalRenderButton() {
@@ -123,7 +134,7 @@ final class SettingsScreen extends Screen {
 					ShellRenderer.toggleRendering(minecraft);
 					pressed.setMessage(globalRenderLabel());
 				})
-				.size(TOGGLE_BUTTON_WIDTH, BUTTON_HEIGHT)
+				.size(HALF_WIDTH, BUTTON_HEIGHT)
 				.build();
 		button.setTooltip(Tooltip.create(Component.translatable("sculksight.config.global_render.tooltip")));
 		return button;
@@ -134,7 +145,7 @@ final class SettingsScreen extends Screen {
 					ShellRenderer.toggleDelayHeatmap(minecraft);
 					pressed.setMessage(delayOverlayLabel());
 				})
-				.size(TOGGLE_BUTTON_WIDTH, BUTTON_HEIGHT)
+				.size(HALF_WIDTH, BUTTON_HEIGHT)
 				.build();
 		button.setTooltip(Tooltip.create(Component.translatable("sculksight.config.delay_overlay.tooltip")));
 		return button;
@@ -145,7 +156,7 @@ final class SettingsScreen extends Screen {
 					DetectionIndicator.toggle(minecraft);
 					pressed.setMessage(detectionIndicatorLabel());
 				})
-				.size(TOGGLE_BUTTON_WIDTH, BUTTON_HEIGHT)
+				.size(CONTROL_WIDTH, BUTTON_HEIGHT)
 				.build();
 		button.setTooltip(Tooltip.create(
 				Component.translatable("sculksight.config.detection_indicator.tooltip")));
