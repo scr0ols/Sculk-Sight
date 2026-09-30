@@ -53,7 +53,7 @@
 	"sculksight.config.audit_sensors.shown.yes": "Evet",
 	"sculksight.config.audit_sensors.shown.no": "Hayır",
 	"sculksight.config.audit_sensors.shown.tooltip": "Bulunan bu sensörün kabuğunu gösterir veya gizler. Canlı arama hiçbir şey kaydetmez, bu yüzden bunu sabitleyene, başka bir arama çalıştırana, '/sculksight find off' çalıştırana ya da dünyadan ayrılana kadar sürer.",
-	"sculksight.config.audit_sensors.pin": "Tümünü sabitle",
+	"sculksight.config.audit_sensors.pin": "Hepsini ekle",
 	"sculksight.config.audit_sensors.pin.tooltip": "Bu canlı aramanın seçtiği her sensörü, kaydedildikleri ve kendi Seçenekler ile Kaldır denetimlerini korudukları yukarıdaki takip edilen sensörlere ekler. Bu, canlı aramayı sonlandırır, böylece kabuklar seni takip etmeyi bırakır. 'static' ile arama çalıştırmakla aynı sonuç.",
 
 	"sculksight.config.done": "Tamam",

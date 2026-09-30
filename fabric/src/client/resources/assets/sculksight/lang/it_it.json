@@ -53,7 +53,7 @@
 	"sculksight.config.audit_sensors.shown.yes": "Sì",
 	"sculksight.config.audit_sensors.shown.no": "No",
 	"sculksight.config.audit_sensors.shown.tooltip": "Mostra o nasconde il guscio di questo sensore trovato. Una ricerca dal vivo non salva nulla, quindi dura finché non lo appunti, avvii un'altra ricerca, esegui '/sculksight find off', o lasci il mondo.",
-	"sculksight.config.audit_sensors.pin": "Appunta tutti",
+	"sculksight.config.audit_sensors.pin": "Fissa tutti",
 	"sculksight.config.audit_sensors.pin.tooltip": "Aggiunge ogni sensore selezionato da questa ricerca dal vivo ai sensori tracciati sopra, dove vengono salvati e mantengono i propri controlli Opzioni e Rimuovi. Questo termina la ricerca dal vivo, quindi i gusci smettono di seguirti. Stesso risultato di una ricerca con 'static'.",
 
 	"sculksight.config.done": "Fatto",
