@@ -2,28 +2,54 @@
 
 All notable changes to Sculk Sight are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-The project is in its proof-of-concept phase, whose single objective is to prove the solver is correct — that the shape the mod draws is the shape the game actually uses. Both exit criteria for that phase are now met; see Verified below.
+Sculk Sight is a client-side Minecraft mod that visualises where a vibration can reach a sculk sensor, calibrated sculk sensor, or sculk shrieker, and tells you when your own position is inside that range. v1.0.0 ships two rendering modes, a detection indicator, the `/sculksight find` command, a per-sensor settings screen, and 19 languages, for Fabric and NeoForge on Minecraft 26.2.
 
-## [0.0.1] - 2026-09-01 - proof of concept
-
-**Published as a GitHub release only, and marked as a pre-release there.** The jar is `sculksight-0.0.1+26.2.jar`, built from this repository's `dev` branch with `gradlew clean build` on JDK 25, and attached to the tag `v0.0.1`. It is deliberately not listed on Modrinth or CurseForge: those pages, and the logo and icon they require, belong to the next phase, and a GitHub release needs none of them. What it does need is honest release notes about a build that draws one sensor at a time, with no automatic invalidation and no configuration, and those are on the release itself.
-
-Publishing it is what made the versioning scheme due, and it was decided the same day rather than left implicit: **SemVer 2.0.0 core with the target Minecraft version as build metadata**, `MAJOR.MINOR.PATCH+MC`. The core tracks changes to the mod and the metadata tracks the game, so rebuilding unchanged mod code for a later game version is `0.0.1+26.3` rather than a new mod version. That distinction matters here because the manifest's version bound lives inside the jar, so a per-game-version rebuild always changes the jar even when no mod code has changed. Fabric API itself ships under this format.
-
-The tag stays `v0.0.1`: under SemVer's own rules build metadata is ignored for comparison, so `0.0.1` and `0.0.1+26.2` are the same version and the suffix makes the target explicit rather than correcting anything. The pre-release flag on GitHub, not the number, is what marks this as a proof of concept.
-
-No code changed for this release. The itemised entries below were left under `[Unreleased]` at the time, because they described the whole of the proof-of-concept phase's development and were not usefully split at this tag; they are now under `[0.2.0]` below, the first tag cut since.
+Versions follow **SemVer 2.0.0 core with the target Minecraft version as build metadata**, `MAJOR.MINOR.PATCH+MC`. The core tracks changes to the mod and the metadata tracks the game, so rebuilding unchanged mod code for a later game version is a metadata-only bump, e.g. `1.0.0+26.3`. That distinction matters because the manifest's version bound lives inside the jar, so a per-game-version rebuild always changes the jar even when no mod code has changed — Fabric API itself ships under this format. Under SemVer's own rules build metadata is ignored for comparison, so `1.0.0` and `1.0.0+26.2` are the same version and the suffix only makes the target explicit. GitHub's pre-release flag on a release, not the version number, is what marks a build provisional.
 
 ## [Unreleased]
 
+## [1.0.0]
+
+Starting with this release, entries are summarised per change rather than narrated in full — the older sections below keep their original long-form voice, which this one deliberately does not repeat.
+
 ### Added
 
-- **`/sculksight find off` cancels a live find with no other way to stop it.** It stops the per-tick re-scan and clears the audit shells and their rows in the settings screen. It reuses the same teardown a `static` run or the settings screen's Pin all already call, so it touches no tracked or pinned sensor and writes nothing to `config/sculksight.json`. Running it with no live find in progress is harmless; it says so rather than erroring.
-- **A Remove all button next to the Tracked sensors heading clears the whole list in one click.** A `static` find or repeated **K** presses can leave a dozen or more tracked sensors on the list, and until now clearing it meant pressing each row's Remove one at a time. The button only appears once there is more than one tracked sensor — with zero or one, the existing per-row Remove already covers it — and it acts immediately with no confirmation, matching Remove's own behaviour. It touches only the persisted tracked-sensor list, not a live find in progress or anything pinned from one.
+- **`/sculksight find off` cancels a live find.** It stops the per-tick re-scan and clears the audit shells and their settings-screen rows, reusing the same teardown a `static` run or **Pin all** already call. It touches no tracked or pinned sensor, writes nothing to `config/sculksight.json`, and says so rather than erroring when no live find is running. It arrived first as a third `mode` value, then was reshaped into a short-circuit taking no radius and no mode: it is offered as a completion directly after `find`, alongside the real type values, and ends the command right there.
+- **A Remove all button** next to the Tracked sensors heading clears the whole persisted list in one click, once more than one sensor is tracked. It acts immediately with no confirmation, matching Remove's own behaviour, and does not touch a live find or anything pinned from one.
+- **A per-sensor delay-overlay toggle.** Each tracked sensor's own delay-overlay flag now lives in a new **Options** sub-screen alongside Rename and Enabled, reached from a per-row **Options** button; the tracked-sensor list refreshes when you return from it. (#56)
+- **Inside view.** A Full / Weak / Off setting (default Full, `seeThroughInsideMode`) controls how strongly the see-through pass draws while you are standing inside a shell, plus an unconditional near-camera fade so the shell no longer washes out the room from up close. Two earlier approaches — a complementary depth test, then disabling the see-through pass entirely — were tried and backed out before settling on attenuation plus the fade. (#60)
+- **18 new languages, 19 total.** Command and chat output moved from hardcoded English strings to translation keys, which is what made translating them possible at all; see [README](README.md) for the full list. (#61)
 
 ### Changed
 
-- **`off` moved from a value of `mode` to a short-circuit right after `find`.** An earlier draft of the entry above had `off` sitting after `type` and `radius`, so stopping a find meant retyping a detector type and a radius that had nothing to do with cancelling, for example `/sculksight find all 64 off`. It is offered as a completion directly after `find`, alongside the real type values (`off`, `all`, `calibrated`, `sensor`, `shrieker`, in that order), and ends the command right there — `/sculksight find off` with nothing else. Typing a type with nothing after it, when that type is not `off`, now explains what is missing instead of silently doing nothing. The `mode` argument itself is back to just `static` and `live`.
+- **Type completions now offer `off` first**, ahead of `all`, `sensor`, `calibrated` and `shrieker`.
+
+### Fixed
+
+- **Delay labels now show for every enabled sensor**, not just the first one tracked. (#56)
+- **Shell overlay compositing no longer exceeds the configured opacity.** Both the see-through and depth-tested passes now composite to exactly the configured alpha from either side of the shell boundary, so crossing the surface no longer pops.
+- **Solver diagnostics no longer flood chat.**
+- **An internal document reference was dropped from a development-environment log message.** Player-facing output was unaffected; this was a dev-only log line.
+
+### Verified
+
+No new differential-verification run was made for this release; the solver-accuracy results below are carried over from [0.3.0](#030---2026-09-18) and [0.2.0](#020---2026-09-16).
+
+## [0.4.0] - 2026-09-18
+
+### Added
+
+- **Event-aware /sculksight find previews.** Results now distinguish geometric reach from source validity, event notification reach, and calibrated-sensor frequency matching.
+- **Calibrated-frequency state reporting.** Client previews report an explicit unknown state when the required synchronized block state is unavailable instead of treating it as a frequency mismatch.
+- **Event metadata for Minecraft 26.2.** Event-specific notification radii are preserved, including the default reach, jukebox events, shrieks, and the BOUNCE event.
+
+### Fixed
+
+- **Shell refresh after a radius-audit rerun.** Re-running the radius-audit command after world changes now refreshes the displayed shell geometry.
+
+### Packaging
+
+- Published Fabric and NeoForge jars with launcher-visible v0.4.0+26.2 metadata.
 
 ## [0.3.0] - 2026-09-18
 
@@ -216,3 +242,11 @@ Getting to this result required the fix above.
 - ~~Moving the solve off the main thread~~ — done, and confirmed in a running game on both loaders. The region is copied on the game's own thread, and the solve, the shape extraction and the mesh build all happen on a background thread the mod owns. The copy costs about a fortieth of a millisecond; what the game's own frame now pays for a shell is roughly a fifth to six tenths of a millisecond, against a budget of two. The solve itself still takes 28 to 31 milliseconds for the heaviest case measured, but you no longer wait for it in the middle of a frame — the shell simply appears when it is ready.
 - ~~Automatic sensor discovery~~ (built, see Added above).
 - ~~Differential verification for mode C~~ — built, see Added above (`/sculksight-verify-detection`), and now also run live for the first time; see Verified below.
+
+## [0.0.1] - 2026-09-01 - proof of concept
+
+**Published as a GitHub release only, and marked as a pre-release there.** The jar is `sculksight-0.0.1+26.2.jar`, built from this repository's `dev` branch with `gradlew clean build` on JDK 25, and attached to the tag `v0.0.1`. It is deliberately not listed on Modrinth or CurseForge: those pages, and the logo and icon they require, belong to the next phase, and a GitHub release needs none of them. What it does need is honest release notes about a build that draws one sensor at a time, with no automatic invalidation and no configuration, and those are on the release itself.
+
+The tag stays `v0.0.1`: under SemVer's own rules build metadata is ignored for comparison, so `0.0.1` and `0.0.1+26.2` are the same version and the suffix makes the target explicit rather than correcting anything. The pre-release flag on GitHub, not the number, is what marks this as a proof of concept.
+
+No code changed for this release. The itemised entries below were left under `[Unreleased]` at the time, because they described the whole of the proof-of-concept phase's development and were not usefully split at this tag; they are now under `[0.2.0]` above, the first tag cut since.
