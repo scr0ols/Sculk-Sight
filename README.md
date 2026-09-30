@@ -14,7 +14,7 @@ Aim at a sculk sensor, calibrated sculk sensor, or sculk shrieker and press **K*
 
 The shell reflects the sensor's radius and vibration-dampening blocks such as wool and wool carpet, so dampened positions are absent rather than merely hidden. It is rendered with both see-through and depth-tested passes to remain readable in terrain.
 
-Press **K** on another sensor to track it too, up to 32 at once. Each tracked sensor gets a **Remove** control on the settings screen below, plus an **Options** button that opens its name, enabled toggle, and delay-overlay checkbox. Once more than one sensor is tracked, a **Delete all** button appears next to the section heading to clear the whole list in one click.
+Press **K** on another sensor to track it too, up to 32 at once. Each tracked sensor gets a **Remove** control on the settings screen below, plus an **Options** button that opens its name, enabled toggle, and delay-overlay checkbox. Once more than one sensor is tracked, a **Remove all** button appears next to the section heading to clear the whole list in one click.
 
 With sensor rendering active, press **H** to show the travel delay in ticks for every tracked sensor whose own delay-overlay checkbox (in its Options screen) is on. Labels use the player's current view for visibility; sensor-occluded positions show no label, since the sensor cannot detect a vibration there.
 

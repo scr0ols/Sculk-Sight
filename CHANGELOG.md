@@ -19,7 +19,7 @@ No code changed for this release. The itemised entries below were left under `[U
 ### Added
 
 - **`/sculksight find off` cancels a live find with no other way to stop it.** It stops the per-tick re-scan and clears the audit shells and their rows in the settings screen. It reuses the same teardown a `static` run or the settings screen's Pin all already call, so it touches no tracked or pinned sensor and writes nothing to `config/sculksight.json`. Running it with no live find in progress is harmless; it says so rather than erroring.
-- **A Delete all button next to the Tracked sensors heading clears the whole list in one click.** A `static` find or repeated **K** presses can leave a dozen or more tracked sensors on the list, and until now clearing it meant pressing each row's Remove one at a time. The button only appears once there is more than one tracked sensor — with zero or one, the existing per-row Remove already covers it — and it acts immediately with no confirmation, matching Remove's own behaviour. It touches only the persisted tracked-sensor list, not a live find in progress or anything pinned from one.
+- **A Remove all button next to the Tracked sensors heading clears the whole list in one click.** A `static` find or repeated **K** presses can leave a dozen or more tracked sensors on the list, and until now clearing it meant pressing each row's Remove one at a time. The button only appears once there is more than one tracked sensor — with zero or one, the existing per-row Remove already covers it — and it acts immediately with no confirmation, matching Remove's own behaviour. It touches only the persisted tracked-sensor list, not a live find in progress or anything pinned from one.
 
 ### Changed
 

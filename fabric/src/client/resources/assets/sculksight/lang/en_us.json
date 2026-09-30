@@ -35,7 +35,7 @@
 	"sculksight.config.tracked_sensors.enabled.tooltip": "Toggle whether this sensor's shell is rendered.",
 	"sculksight.config.tracked_sensors.remove": "Remove",
 	"sculksight.config.tracked_sensors.remove.tooltip": "Remove this sensor from the tracked-render list immediately.",
-	"sculksight.config.tracked_sensors.delete_all": "Delete all",
+	"sculksight.config.tracked_sensors.delete_all": "Remove all",
 	"sculksight.config.tracked_sensors.delete_all.tooltip": "Remove every tracked sensor from the list immediately. Does not affect a live find in progress.",
 	"sculksight.config.tracked_sensors.options": "Options",
 	"sculksight.config.tracked_sensors.options.tooltip": "Open this sensor's name, enabled and delay-overlay controls.",
