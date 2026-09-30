@@ -29,7 +29,7 @@ Starting with this release, entries are summarised per change rather than narrat
 - **Delay labels now show for every enabled sensor**, not just the first one tracked. (#56)
 - **Shell overlay compositing no longer exceeds the configured opacity.** Both the see-through and depth-tested passes now composite to exactly the configured alpha from either side of the shell boundary, so crossing the surface no longer pops.
 - **Solver diagnostics no longer flood chat.**
-- **An internal reference (`ADR-019`) was dropped from a development-environment log message.** Player-facing output was unaffected; this was a dev-only log line.
+- **An internal document reference was dropped from a development-environment log message.** Player-facing output was unaffected; this was a dev-only log line.
 
 ### Verified
 
