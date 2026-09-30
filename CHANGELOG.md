@@ -18,12 +18,12 @@ No code changed for this release. The itemised entries below were left under `[U
 
 ### Added
 
-- **A third find mode, `off`, cancels a live find with no other way to stop it.** `/sculksight find <type> <radius> off` — for example `/sculksight find all 64 off` — stops the per-tick re-scan and clears the audit shells and their rows in the settings screen. It reuses the same teardown a `static` run or the settings screen's Pin all already call, so it touches no tracked or pinned sensor and writes nothing to `config/sculksight.json`. Running it with no live find in progress is harmless; it says so rather than erroring.
+- **`/sculksight find off` cancels a live find with no other way to stop it.** It stops the per-tick re-scan and clears the audit shells and their rows in the settings screen. It reuses the same teardown a `static` run or the settings screen's Pin all already call, so it touches no tracked or pinned sensor and writes nothing to `config/sculksight.json`. Running it with no live find in progress is harmless; it says so rather than erroring.
 - **A Delete all button next to the Tracked sensors heading clears the whole list in one click.** A `static` find or repeated **K** presses can leave a dozen or more tracked sensors on the list, and until now clearing it meant pressing each row's Remove one at a time. The button only appears once there is more than one tracked sensor — with zero or one, the existing per-row Remove already covers it — and it acts immediately with no confirmation, matching Remove's own behaviour. It touches only the persisted tracked-sensor list, not a live find in progress or anything pinned from one.
 
 ### Changed
 
-- **The `mode` argument now suggests `off`, `static`, `live`, in that order.** Its tab-completion had always sorted alphabetically — `live`, `off`, `static` — no matter the order the mode names were declared in, because Brigadier sorts every suggestion list before showing it. `off` now leads because cancelling a live find is the one you reach for in a hurry.
+- **`off` moved from a value of `mode` to a short-circuit right after `find`.** An earlier draft of the entry above had `off` sitting after `type` and `radius`, so stopping a find meant retyping a detector type and a radius that had nothing to do with cancelling, for example `/sculksight find all 64 off`. It is offered as a completion directly after `find`, alongside the real type values (`off`, `all`, `calibrated`, `sensor`, `shrieker`, in that order), and ends the command right there — `/sculksight find off` with nothing else. Typing a type with nothing after it, when that type is not `off`, now explains what is missing instead of silently doing nothing. The `mode` argument itself is back to just `static` and `live`.
 
 ## [0.3.0] - 2026-09-18
 

@@ -20,19 +20,20 @@ With sensor rendering active, press **H** to show the travel delay in ticks for 
 
 ### Mode B - find sensors around you
 
-Run `/sculksight find <type> <radius> <mode>` to draw every detector around you at once, without aiming at each one. It is a client-side command: it is typed in chat like any other, but never reaches the server, so it works on a vanilla server exactly as it does in single-player.
+Run `/sculksight find <type> <radius> <static|live>` to draw every detector around you at once, without aiming at each one. It is a client-side command: it is typed in chat like any other, but never reaches the server, so it works on a vanilla server exactly as it does in single-player.
 
 | Argument | Values |
 |---|---|
-| `type` | `all`, `sensor`, `calibrated`, `shrieker` |
+| `type` | `all`, `sensor`, `calibrated`, `shrieker` (its completions also offer `off`, listed first — see below) |
 | `radius` | 1 to 512 blocks |
-| `mode` | `off`, `static`, or `live` |
+| `mode` | `static` or `live` |
 
-All three are required, and the mode is the important one, because it picks between three different jobs:
+All three are required for a real find, and the mode picks between two different jobs:
 
-- **`off`** - cancels the live find in progress, for example `/sculksight find all 64 off`. It stops the re-scan and clears the audit shells and their rows in the settings screen, without touching any tracked or pinned sensor.
 - **`static`** - finds the sensors once, where you are standing, and adds them to the **Tracked sensors** list, exactly as if you had aimed at each one and pressed **K**. They are saved to `config/sculksight.json`, they each get a name and their own Enabled and Remove controls, and they stay put when you walk away. This is the one for auditing a redstone build you are working on.
-- **`live`** - an x-ray that follows you. It re-selects every tick against wherever you are now, so shells appear and disappear as you move. Nothing is saved; leaving the world, running another find, or running `off` clears it.
+- **`live`** - an x-ray that follows you. It re-selects every tick against wherever you are now, so shells appear and disappear as you move. Nothing is saved; leaving the world, running another find, or running `/sculksight find off` clears it.
+
+To cancel a live find, run `/sculksight find off` with nothing else after it. A radius and a mode are irrelevant to cancelling, so `off` is not a value of the `mode` argument above — it short-circuits the command right after `find`, before a radius is ever typed. It stops the re-scan and clears the audit shells and their rows in the settings screen, without touching any tracked or pinned sensor.
 
 A live find appears in the settings screen under a **Live find** heading, one row per sensor with a **Shown** toggle, so you can switch off an individual shell without cancelling the whole find. Those toggles last for the session. The heading also carries a **Pin all** button, which turns the current selection into tracked sensors and ends the live find - the same result as having run the find with `static`, for when you would rather walk around and look first. A sensor you have separately tracked with **K** and then disabled stays hidden even when a live find selects it too.
 
