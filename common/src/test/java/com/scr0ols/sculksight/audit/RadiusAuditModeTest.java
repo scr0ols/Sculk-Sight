@@ -73,4 +73,21 @@ class RadiusAuditModeTest {
 
 		assertThrows(UnsupportedOperationException.class, names::clear);
 	}
+
+	@Test
+	void offComesBeforeStaticAndLiveInTheSuggestionList() {
+		assertEquals(List.of("off", "static", "live"), RadiusAuditMode.NAMES);
+	}
+
+	@Test
+	void suggestionsMatchingWithNothingTypedReturnsEveryNameInPriorityOrder() {
+		assertEquals(List.of("off", "static", "live"), RadiusAuditMode.suggestionsMatching(""));
+	}
+
+	@Test
+	void suggestionsMatchingFiltersByCaseInsensitivePrefix() {
+		assertEquals(List.of("static"), RadiusAuditMode.suggestionsMatching("STA"));
+		assertEquals(List.of("live"), RadiusAuditMode.suggestionsMatching("l"));
+		assertEquals(List.of(), RadiusAuditMode.suggestionsMatching("zzz"));
+	}
 }
