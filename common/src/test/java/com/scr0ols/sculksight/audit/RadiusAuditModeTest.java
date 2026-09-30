@@ -11,15 +11,17 @@ import org.junit.jupiter.api.Test;
 class RadiusAuditModeTest {
 
 	@Test
-	void bothModesParseFromTheWordAPlayerTypes() throws RadiusAuditArgumentException {
+	void allModesParseFromTheWordAPlayerTypes() throws RadiusAuditArgumentException {
 		assertEquals(RadiusAuditMode.STATIC, RadiusAuditMode.of("static"));
 		assertEquals(RadiusAuditMode.LIVE, RadiusAuditMode.of("live"));
+		assertEquals(RadiusAuditMode.OFF, RadiusAuditMode.of("off"));
 	}
 
 	@Test
 	void caseIsNotSignificant() throws RadiusAuditArgumentException {
 		assertEquals(RadiusAuditMode.STATIC, RadiusAuditMode.of("STATIC"));
 		assertEquals(RadiusAuditMode.LIVE, RadiusAuditMode.of("Live"));
+		assertEquals(RadiusAuditMode.OFF, RadiusAuditMode.of("OFF"));
 	}
 
 	@Test

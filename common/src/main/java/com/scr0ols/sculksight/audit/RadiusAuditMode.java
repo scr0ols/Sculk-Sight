@@ -12,10 +12,13 @@ public enum RadiusAuditMode {
 	STATIC("static"),
 
 	/** Select every tick against the player's current position and draw the result without saving it. */
-	LIVE("live");
+	LIVE("live"),
+
+	/** Stop an active live find and clear its audit renders, touching no tracked or pinned sensor. */
+	OFF("off");
 
 	/** The words a player types, in this order, for the command's suggestion list. */
-	public static final List<String> NAMES = List.of(STATIC.name, LIVE.name);
+	public static final List<String> NAMES = List.of(STATIC.name, LIVE.name, OFF.name);
 
 	private final String name;
 

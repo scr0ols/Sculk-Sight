@@ -37,6 +37,10 @@ public final class RadiusAuditClient {
 			return RadiusAuditCommandCore.FAILURE;
 		}
 
+		if (mode == RadiusAuditMode.OFF) {
+			return RadiusAuditCommandCore.runOff(report);
+		}
+
 		Minecraft client = Minecraft.getInstance();
 		ClientLevel level = client.level;
 		LocalPlayer player = client.player;
@@ -57,6 +61,7 @@ public final class RadiusAuditClient {
 			case STATIC -> RadiusAuditCommandCore.runStatic(report, radius, detectorName,
 					centre.getX(), centre.getY(), centre.getZ(), candidates, cap,
 					RadiusAuditClient::pinToConfig);
+			case OFF -> throw new IllegalStateException("OFF is dispatched before this point");
 		};
 		if (result == RadiusAuditCommandCore.SUCCESS) {
 			ShellRenderer.onRadiusAuditRerun();

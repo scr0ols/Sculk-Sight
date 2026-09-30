@@ -55,6 +55,19 @@ public final class RadiusAuditCommandCore {
 		return SUCCESS;
 	}
 
+	/** Stops an active live find and clears its audit renders, touching no tracked or pinned sensor. */
+	public static int runOff(Consumer<String> report) {
+		boolean wasActive = RadiusAuditController.activeRequest() != null;
+
+		RadiusAuditController.clear();
+
+		report.accept(wasActive
+				? "Live find cancelled."
+				: "No live find was running.");
+		report.accept("Tracked and pinned sensors are untouched.");
+		return SUCCESS;
+	}
+
 	private record Selected(RadiusAuditRequest request, RadiusAudit.CappedSelection selection) {
 	}
 

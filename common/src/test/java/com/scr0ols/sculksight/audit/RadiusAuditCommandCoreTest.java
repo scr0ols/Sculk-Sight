@@ -208,4 +208,61 @@ class RadiusAuditCommandCoreTest {
 
 		assertEquals(List.of(near), pinned);
 	}
+
+	// ------------------------------------------------------- off mode
+
+	@Test
+	void anOffRunCancelsAnActiveLiveFind() throws RadiusAuditArgumentException {
+		RadiusAuditController.activate(RadiusAuditRequest.of(64, "all"));
+
+		int result = RadiusAuditCommandCore.runOff(reported::add);
+
+		assertEquals(RadiusAuditCommandCore.SUCCESS, result);
+		assertNull(RadiusAuditController.activeRequest());
+	}
+
+	@Test
+	void anOffRunSucceedsWhenNoLiveFindWasRunning() {
+		int result = RadiusAuditCommandCore.runOff(reported::add);
+
+		assertEquals(RadiusAuditCommandCore.SUCCESS, result);
+		assertNull(RadiusAuditController.activeRequest());
+	}
+
+	@Test
+	void anOffRunPinsNothing() throws RadiusAuditArgumentException {
+		RadiusAuditController.activate(RadiusAuditRequest.of(64, "all"));
+
+		RadiusAuditCommandCore.runOff(reported::add);
+
+		assertEquals(List.of(), pinned);
+	}
+
+	@Test
+	void anOffRunReportsThatALiveFindWasCancelled() throws RadiusAuditArgumentException {
+		RadiusAuditController.activate(RadiusAuditRequest.of(64, "all"));
+
+		RadiusAuditCommandCore.runOff(reported::add);
+
+		assertTrue(reported.stream().anyMatch(line -> line.toLowerCase().contains("cancelled")),
+				reported.toString());
+	}
+
+	@Test
+	void anOffRunReportsWhenNoLiveFindWasRunning() {
+		RadiusAuditCommandCore.runOff(reported::add);
+
+		assertTrue(reported.stream().anyMatch(line -> line.toLowerCase().contains("no live find")),
+				reported.toString());
+	}
+
+	@Test
+	void anOffRunSaysTrackedAndPinnedSensorsAreUntouched() throws RadiusAuditArgumentException {
+		RadiusAuditController.activate(RadiusAuditRequest.of(64, "all"));
+
+		RadiusAuditCommandCore.runOff(reported::add);
+
+		assertTrue(reported.stream().anyMatch(line -> line.toLowerCase().contains("tracked")
+				&& line.toLowerCase().contains("pinned")), reported.toString());
+	}
 }
