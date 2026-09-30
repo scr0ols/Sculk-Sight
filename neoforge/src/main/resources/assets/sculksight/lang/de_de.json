@@ -45,7 +45,7 @@
 	"sculksight.config.tracked_sensors.delay_overlay": "Verzögerungsanzeige: %s",
 	"sculksight.config.tracked_sensors.delay_overlay.tooltip": "Zeigt die Block-für-Block-Verzögerungswerte dieses Sensors, wenn die Verzögerungsanzeige (H) aktiv ist.",
 
-	"sculksight.config.audit_sensors": "Live-Suche — %s (Auswahl: %s)",
+	"sculksight.config.audit_sensors": "Live-Suche - %s (Auswahl: %s)",
 	"sculksight.config.audit_sensors.empty": "Keine Sensoren in Reichweite von deinem Standort aus.",
 	"sculksight.config.audit_sensors.position": "%s, %s, %s",
 	"sculksight.config.audit_sensors.shown": "Angezeigt: %s",

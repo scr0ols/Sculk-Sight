@@ -45,7 +45,7 @@
 	"sculksight.config.tracked_sensors.delay_overlay": "Nakładka opóźnienia: %s",
 	"sculksight.config.tracked_sensors.delay_overlay.tooltip": "Pokazuje wartości opóźnienia na blok tego czujnika, gdy nakładka opóźnienia (H) jest włączona.",
 
-	"sculksight.config.audit_sensors": "Wyszukiwanie na żywo — %s (%s zaznaczonych)",
+	"sculksight.config.audit_sensors": "Wyszukiwanie na żywo - %s (%s zaznaczonych)",
 	"sculksight.config.audit_sensors.empty": "Brak czujników w zasięgu od miejsca, w którym stoisz.",
 	"sculksight.config.audit_sensors.position": "%s, %s, %s",
 	"sculksight.config.audit_sensors.shown": "Pokazany: %s",

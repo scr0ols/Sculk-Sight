@@ -45,7 +45,7 @@
 	"sculksight.config.tracked_sensors.delay_overlay": "遅延オーバーレイ: %s",
 	"sculksight.config.tracked_sensors.delay_overlay.tooltip": "遅延オーバーレイ(H)がオンのとき、このセンサーのブロックごとの遅延数値を表示します。",
 
-	"sculksight.config.audit_sensors": "ライブ検索 — %s(%s選択中)",
+	"sculksight.config.audit_sensors": "ライブ検索 - %s(%s選択中)",
 	"sculksight.config.audit_sensors.empty": "あなたが立っている場所の範囲内にセンサーがありません。",
 	"sculksight.config.audit_sensors.position": "%s, %s, %s",
 	"sculksight.config.audit_sensors.shown": "表示: %s",

@@ -45,7 +45,7 @@
 	"sculksight.config.tracked_sensors.delay_overlay": "Superposición de retraso: %s",
 	"sculksight.config.tracked_sensors.delay_overlay.tooltip": "Muestra los valores de retraso por bloque de este sensor cuando la superposición de retraso (H) está activada.",
 
-	"sculksight.config.audit_sensors": "Búsqueda en vivo — %s (%s seleccionados)",
+	"sculksight.config.audit_sensors": "Búsqueda en vivo - %s (%s seleccionados)",
 	"sculksight.config.audit_sensors.empty": "No hay sensores en el radio desde donde te encuentras.",
 	"sculksight.config.audit_sensors.position": "%s, %s, %s",
 	"sculksight.config.audit_sensors.shown": "Mostrado: %s",

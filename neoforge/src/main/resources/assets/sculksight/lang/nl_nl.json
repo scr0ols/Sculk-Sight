@@ -45,7 +45,7 @@
 	"sculksight.config.tracked_sensors.delay_overlay": "Vertragingsoverlay: %s",
 	"sculksight.config.tracked_sensors.delay_overlay.tooltip": "Toont de vertragingswaarden per blok van deze sensor wanneer de vertragingsoverlay (H) is ingeschakeld.",
 
-	"sculksight.config.audit_sensors": "Live zoekopdracht — %s (%s geselecteerd)",
+	"sculksight.config.audit_sensors": "Live zoekopdracht - %s (%s geselecteerd)",
 	"sculksight.config.audit_sensors.empty": "Geen sensoren binnen bereik vanaf je huidige positie.",
 	"sculksight.config.audit_sensors.position": "%s, %s, %s",
 	"sculksight.config.audit_sensors.shown": "Weergegeven: %s",

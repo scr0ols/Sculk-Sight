@@ -45,7 +45,7 @@
 	"sculksight.config.tracked_sensors.delay_overlay": "延遲疊加層: %s",
 	"sculksight.config.tracked_sensors.delay_overlay.tooltip": "當延遲疊加層（H）開啟時，顯示此感測器依方塊劃分的延遲數值。",
 
-	"sculksight.config.audit_sensors": "即時搜尋 — %s（已選取 %s 個）",
+	"sculksight.config.audit_sensors": "即時搜尋 - %s（已選取 %s 個）",
 	"sculksight.config.audit_sensors.empty": "你所站位置的範圍內沒有感測器。",
 	"sculksight.config.audit_sensors.position": "%s, %s, %s",
 	"sculksight.config.audit_sensors.shown": "顯示: %s",

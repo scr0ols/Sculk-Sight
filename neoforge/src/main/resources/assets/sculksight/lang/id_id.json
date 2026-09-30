@@ -45,7 +45,7 @@
 	"sculksight.config.tracked_sensors.delay_overlay": "Overlay penundaan: %s",
 	"sculksight.config.tracked_sensors.delay_overlay.tooltip": "Menampilkan angka penundaan per blok sensor ini saat overlay penundaan (H) aktif.",
 
-	"sculksight.config.audit_sensors": "Pencarian langsung — %s (%s dipilih)",
+	"sculksight.config.audit_sensors": "Pencarian langsung - %s (%s dipilih)",
 	"sculksight.config.audit_sensors.empty": "Tidak ada sensor dalam jangkauan dari tempatmu berdiri.",
 	"sculksight.config.audit_sensors.position": "%s, %s, %s",
 	"sculksight.config.audit_sensors.shown": "Ditampilkan: %s",

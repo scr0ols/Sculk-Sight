@@ -45,7 +45,7 @@
 	"sculksight.config.tracked_sensors.delay_overlay": "Delay overlay: %s",
 	"sculksight.config.tracked_sensors.delay_overlay.tooltip": "Show this sensor's per-block travel-delay numbers whenever the delay overlay (H) is on.",
 
-	"sculksight.config.audit_sensors": "Live find — %s (%s selected)",
+	"sculksight.config.audit_sensors": "Live find - %s (%s selected)",
 	"sculksight.config.audit_sensors.empty": "No sensors in range from where you are standing.",
 	"sculksight.config.audit_sensors.position": "%s, %s, %s",
 	"sculksight.config.audit_sensors.shown": "Shown: %s",

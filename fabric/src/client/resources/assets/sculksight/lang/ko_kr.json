@@ -45,7 +45,7 @@
 	"sculksight.config.tracked_sensors.delay_overlay": "지연 오버레이: %s",
 	"sculksight.config.tracked_sensors.delay_overlay.tooltip": "지연 오버레이(H)가 켜져 있을 때 이 센서의 블록별 지연 값을 표시합니다.",
 
-	"sculksight.config.audit_sensors": "실시간 검색 — %s (%s개 선택됨)",
+	"sculksight.config.audit_sensors": "실시간 검색 - %s (%s개 선택됨)",
 	"sculksight.config.audit_sensors.empty": "현재 위치 범위 내에 센서가 없습니다.",
 	"sculksight.config.audit_sensors.position": "%s, %s, %s",
 	"sculksight.config.audit_sensors.shown": "표시: %s",

@@ -45,7 +45,7 @@
 	"sculksight.config.tracked_sensors.delay_overlay": "Накладка затримки: %s",
 	"sculksight.config.tracked_sensors.delay_overlay.tooltip": "Показує значення затримки по блоках цього датчика, коли накладка затримки (H) увімкнена.",
 
-	"sculksight.config.audit_sensors": "Пошук у реальному часі — %s (%s вибрано)",
+	"sculksight.config.audit_sensors": "Пошук у реальному часі - %s (%s вибрано)",
 	"sculksight.config.audit_sensors.empty": "Немає датчиків у радіусі від місця, де ти стоїш.",
 	"sculksight.config.audit_sensors.position": "%s, %s, %s",
 	"sculksight.config.audit_sensors.shown": "Показано: %s",
@@ -68,7 +68,7 @@
 	"sculksight.command.find.selection.none": "Датчиків у радіусі не знайдено.",
 	"sculksight.command.find.selection.one": "Знайдено 1 датчик у радіусі.",
 	"sculksight.command.find.selection.many": "Знайдено %s датчиків у радіусі.",
-	"sculksight.command.find.cap_reached": "Досягнуто ліміту: знайдено датчиків — %s, показано найближчі %s.",
+	"sculksight.command.find.cap_reached": "Досягнуто ліміту: знайдено датчиків - %s, показано найближчі %s.",
 	"sculksight.command.find.mode.unknown": "Невідомий режим '%s'. Очікувалося %s або %s.",
 	"sculksight.command.find.detector.unknown": "Невідомий тип детектора '%s'. Очікувався один із %s.",
 	"sculksight.command.find.radius.out_of_range": "Радіус %s поза діапазоном. Очікувалося від %s до %s блоків.",
@@ -93,7 +93,7 @@
 	"sculksight.chat.activate.not_aiming": "ти не цілишся в жоден блок.",
 	"sculksight.chat.activate.no_listener": "цільовий блок у %s не має слухача ігрових подій.",
 	"sculksight.chat.activate.not_detector": "цільовий блок у %s не є детектором.",
-	"sculksight.chat.activate.limit_reached": "ліміт відстежуваних датчиків — %s, тому датчик у %s не було відстежено.",
+	"sculksight.chat.activate.limit_reached": "ліміт відстежуваних датчиків - %s, тому датчик у %s не було відстежено.",
 	"sculksight.chat.activate.already_tracked": "датчик у %s уже відстежується.",
 	"sculksight.chat.activate.tracked": "датчик відстежується у %s."
 }

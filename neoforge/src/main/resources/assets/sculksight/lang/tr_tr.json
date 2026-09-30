@@ -45,7 +45,7 @@
 	"sculksight.config.tracked_sensors.delay_overlay": "Gecikme katmanı: %s",
 	"sculksight.config.tracked_sensors.delay_overlay.tooltip": "Gecikme katmanı (H) açıkken bu sensörün blok başına gecikme değerlerini gösterir.",
 
-	"sculksight.config.audit_sensors": "Canlı arama — %s (%s seçildi)",
+	"sculksight.config.audit_sensors": "Canlı arama - %s (%s seçildi)",
 	"sculksight.config.audit_sensors.empty": "Bulunduğun yerden menzilde sensör yok.",
 	"sculksight.config.audit_sensors.position": "%s, %s, %s",
 	"sculksight.config.audit_sensors.shown": "Gösteriliyor: %s",
