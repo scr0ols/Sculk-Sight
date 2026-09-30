@@ -128,6 +128,39 @@ class ConfigScreensActionsTest {
 	}
 
 	@Test
+	void removeAllSensorsClearsEveryTrackedSensor() {
+		ClientPlatform.set(new TestEnvironment(tempDir));
+		ClientConfig.load();
+
+		TrackedSensor first = new TrackedSensor(1, 2, 3, "First", true, false);
+		TrackedSensor second = new TrackedSensor(4, 5, 6, "Second", true, false);
+		ClientConfig.set(new SculkSightConfig(SculkSightConfig.DEFAULT_SHELL_OPACITY_PERCENT,
+				RenderPolicy.UNION, List.of(first, second)));
+
+		ConfigScreens.removeAllSensors();
+
+		assertEquals(List.of(), ClientConfig.get().trackedSensors());
+	}
+
+	@Test
+	void removeAllSensorsTouchesOnlyTheTrackedSensorList() {
+		ClientPlatform.set(new TestEnvironment(tempDir));
+		ClientConfig.load();
+
+		TrackedSensor first = new TrackedSensor(1, 2, 3, "First", true, false);
+		TrackedSensor second = new TrackedSensor(4, 5, 6, "Second", true, false);
+		ClientConfig.set(new SculkSightConfig(60, RenderPolicy.PER_SENSOR, List.of(first, second)));
+
+		ConfigScreens.removeAllSensors();
+
+		SculkSightConfig after = ClientConfig.get();
+		assertEquals(60, after.shellOpacityPercent(),
+				"clearing every tracked sensor must not touch shell opacity");
+		assertEquals(RenderPolicy.PER_SENSOR, after.renderPolicy(),
+				"clearing every tracked sensor must not touch the render policy");
+	}
+
+	@Test
 	void setAuditSensorHiddenTogglesSessionStateWithoutTouchingTheSavedConfig() {
 		ClientPlatform.set(new TestEnvironment(tempDir));
 		ClientConfig.load();

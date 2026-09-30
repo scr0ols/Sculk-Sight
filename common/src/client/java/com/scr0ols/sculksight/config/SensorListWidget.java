@@ -52,8 +52,10 @@ final class SensorListWidget extends ContainerObjectSelectionList<SensorListWidg
 	void refresh() {
 		List<Row> rows = new ArrayList<>();
 
-		rows.add(new SectionRow(Component.translatable("sculksight.config.tracked_sensors")));
-		for (TrackedSensor sensor : ClientConfig.get().trackedSensors()) {
+		List<TrackedSensor> trackedSensors = ClientConfig.get().trackedSensors();
+		rows.add(new TrackedHeadingRow(Component.translatable("sculksight.config.tracked_sensors"),
+				trackedSensors.size() > 1));
+		for (TrackedSensor sensor : trackedSensors) {
 			rows.add(new TrackedRow(sensor));
 		}
 
@@ -155,6 +157,51 @@ final class SensorListWidget extends ContainerObjectSelectionList<SensorListWidg
 		@Override
 		public List<? extends NarratableEntry> narratables() {
 			return pinButton == null ? List.of() : List.of(pinButton);
+		}
+	}
+
+	final class TrackedHeadingRow extends Row {
+
+		private final Component label;
+		private final @Nullable Button deleteAllButton;
+
+		private TrackedHeadingRow(Component label, boolean deletable) {
+			this.label = label;
+			this.deleteAllButton = deletable ? buildDeleteAllButton() : null;
+		}
+
+		private Button buildDeleteAllButton() {
+			return Button.builder(Component.translatable("sculksight.config.tracked_sensors.delete_all"),
+							button -> {
+								ConfigScreens.removeAllSensors();
+								SensorListWidget.this.refresh();
+							})
+					.tooltip(Tooltip.create(
+							Component.translatable("sculksight.config.tracked_sensors.delete_all.tooltip")))
+					.size(BUTTON_WIDTH, BUTTON_HEIGHT)
+					.build();
+		}
+
+		@Override
+		public void extractContent(GuiGraphicsExtractor graphics, int mouseX, int mouseY,
+				boolean hovered, float partialTick) {
+			if (deleteAllButton != null) {
+				deleteAllButton.setPosition(getContentRight() - deleteAllButton.getWidth(), getContentY());
+				deleteAllButton.extractRenderState(graphics, mouseX, mouseY, partialTick);
+			}
+
+			graphics.text(SensorListWidget.this.minecraft.font, label, getContentX(),
+					getContentYMiddle() - TEXT_BASELINE_OFFSET, HEADING_COLOUR);
+		}
+
+		@Override
+		public List<? extends GuiEventListener> children() {
+			return deleteAllButton == null ? List.of() : List.of(deleteAllButton);
+		}
+
+		@Override
+		public List<? extends NarratableEntry> narratables() {
+			return deleteAllButton == null ? List.of() : List.of(deleteAllButton);
 		}
 	}
 

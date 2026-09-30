@@ -97,6 +97,10 @@ public final class ConfigScreens {
 		ClientConfig.set(ClientConfig.get().untrack(x, y, z));
 	}
 
+	static void removeAllSensors() {
+		ClientConfig.set(ClientConfig.get().withTrackedSensors(List.of()));
+	}
+
 	static void setShellOpacityPercent(int percent) {
 		ClientConfig.set(ClientConfig.get().withShellOpacityPercent(percent));
 		ShellRenderer.onConfigChanged();
