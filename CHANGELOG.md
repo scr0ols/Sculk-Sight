@@ -22,14 +22,27 @@ Starting with this release, entries are summarised per change rather than narrat
 
 ### Changed
 
+- **The settings header is laid out in two columns, grouped by what each control does.** Value choices (Mode, Inside view) share one row, the render toggles (Global render, Delay overlay) the next, and Detection has a full-width row of its own because it reports in chat and is independent of the shell. Each button is 168px wide instead of 72px. The terse captions [0.2.0](#020---2026-09-16) introduced - "Mode", "Global", "Delay", "Detect" - are replaced by full names, so a button now says what its tooltip says instead of deferring to it.
+- **The tracked-sensor list is aligned to the header.** Both widths come from one constant (340px), where the header was 300px and the list up to 400px, so **Remove all** no longer sits to the right of the controls above it. The sensor name gets more room than before, not less.
+- **The Tracked sensors heading carries a count**, the same shape the Live find heading already had.
+- **A sensor row no longer repeats its coordinates** while it still carries its default name: `Sensor -2, 56, -7 (-2, 56, -7)` reads `Sensor -2, 56, -7`. A renamed sensor still shows where it is.
+- **In-game text uses plain hyphens rather than em-dashes** in all 19 languages, and the Live find heading joins with a colon.
+- **The relabelled controls are English-only for now.** Global render, Delay overlay, Detection, the tracked count and the Live find colon changed in `en_us`; the other 18 languages keep their earlier wording until a translation pass lands. No key was renamed, so nothing falls back to English - each language still reads in its own words, just the older ones.
+- **Both loaders' metadata points at the Modrinth project page.** The Modrinth and CurseForge fields held a deliberately conspicuous placeholder URL while no listing existed. The mod ships on Modrinth only, so no CurseForge link is left behind.
 - **Type completions now offer `off` first**, ahead of `all`, `sensor`, `calibrated` and `shrieker`.
 
 ### Fixed
 
+- **Toggle labels no longer overflow their buttons in German and Russian.** Four buttons shared a 300px row, 72px each; "Verzögerung: Aus" and "Обнаружение: Выкл." drew over their neighbours, because a vanilla button does not truncate its label. The two-column header is what fixes this.
+- **The Detection row has breathing room above the header divider.**
 - **Delay labels now show for every enabled sensor**, not just the first one tracked. (#56)
 - **Shell overlay compositing no longer exceeds the configured opacity.** Both the see-through and depth-tested passes now composite to exactly the configured alpha from either side of the shell boundary, so crossing the surface no longer pops.
 - **Solver diagnostics no longer flood chat.**
 - **An internal document reference was dropped from a development-environment log message.** Player-facing output was unaffected; this was a dev-only log line.
+
+### Removed
+
+- **`sculksight.config.category.appearance`**, a translation key shipped in all 19 languages and referenced by no code.
 
 ### Verified
 
