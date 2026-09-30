@@ -52,7 +52,7 @@ public final class DetectionIndicator {
 
 		if (!enabled) {
 			hasReading = false;
-			say(client, "detection indicator off.");
+			say(client, Component.translatable("sculksight.chat.detection.off"));
 			return;
 		}
 
@@ -82,9 +82,9 @@ public final class DetectionIndicator {
 		hasReading = true;
 		lastDetected = detected;
 
-		say(client, detected
-				? "you are now within a sensor's detection range."
-				: "you are no longer within any sensor's detection range.");
+		say(client, Component.translatable(detected
+				? "sculksight.chat.detection.entered"
+				: "sculksight.chat.detection.left"));
 	}
 
 	private static boolean isDetected(ClientLevel level, BlockPos player) {
@@ -105,11 +105,12 @@ public final class DetectionIndicator {
 		return false;
 	}
 
-	private static void say(Minecraft client, String message) {
-		SculkSight.LOGGER.info("[sculksight] {}", message);
+	private static void say(Minecraft client, Component message) {
+		SculkSight.LOGGER.info("[sculksight] {}", message.getString());
 
 		if (client.gui != null) {
-			client.gui.hud.getChat().addClientSystemMessage(Component.literal("[sculksight] " + message));
+			client.gui.hud.getChat().addClientSystemMessage(
+					Component.literal("[sculksight] ").append(message));
 		}
 	}
 }
