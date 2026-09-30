@@ -58,7 +58,7 @@ public final class RadiusAuditCommand {
 
 	private static int run(FabricClientCommandSource source, String type, int radius, String mode) {
 		return RadiusAuditClient.run(
-				message -> source.sendFeedback(Component.literal(message)),
+				source::sendFeedback,
 				type,
 				radius,
 				mode);
@@ -77,7 +77,7 @@ public final class RadiusAuditCommand {
 	}
 
 	private static int runOff(FabricClientCommandSource source) {
-		return RadiusAuditClient.runOff(message -> source.sendFeedback(Component.literal(message)));
+		return RadiusAuditClient.runOff(source::sendFeedback);
 	}
 
 	/**

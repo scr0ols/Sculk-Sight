@@ -11,6 +11,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
 
 import com.scr0ols.sculksight.audit.RadiusAudit.AuditedSensor;
 import com.scr0ols.sculksight.client.DetectorType;
@@ -27,13 +28,13 @@ public final class RadiusAuditClient {
 	}
 
 	/** Resolves the mode, centre, candidate set and cap, then hands off to the matching entry point. */
-	public static int run(Consumer<String> report, @Nullable String detectorName, int radius,
+	public static int run(Consumer<Component> report, @Nullable String detectorName, int radius,
 			@Nullable String modeName) {
 		RadiusAuditMode mode;
 		try {
 			mode = RadiusAuditMode.of(modeName);
 		} catch (RadiusAuditArgumentException problem) {
-			report.accept(problem.getMessage());
+			report.accept(problem.component());
 			return RadiusAuditCommandCore.FAILURE;
 		}
 
@@ -42,13 +43,13 @@ public final class RadiusAuditClient {
 		LocalPlayer player = client.player;
 
 		if (level == null || player == null) {
-			report.accept("No level is loaded.");
+			report.accept(Component.translatable("sculksight.command.find.no_level"));
 			return RadiusAuditCommandCore.FAILURE;
 		}
 
 		BlockPos centre = player.blockPosition();
 		List<AuditedSensor> candidates = candidatesFrom(level);
-		report.accept(EventAwareQueryClient.describe(level, player, candidates));
+		report.accept(Component.literal(EventAwareQueryClient.describe(level, player, candidates)));
 		int cap = ClientConfig.get().radiusAuditCap();
 
 		int result = switch (mode) {
@@ -65,11 +66,11 @@ public final class RadiusAuditClient {
 	}
 
 	/** Stops an active live find, without touching {@link Minecraft#getInstance()} or a level/player. */
-	public static int runOff(Consumer<String> report) {
+	public static int runOff(Consumer<Component> report) {
 		return RadiusAuditCommandCore.runOff(report);
 	}
 
-	private static String pinToConfig(List<AuditedSensor> selected) {
+	private static Component pinToConfig(List<AuditedSensor> selected) {
 		AuditPin.Result result = AuditPin.pin(ClientConfig.get(), selected);
 		ClientConfig.set(result.config());
 		return AuditPin.describe(result);

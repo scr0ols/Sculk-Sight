@@ -10,6 +10,7 @@ import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
 
 import com.scr0ols.sculksight.audit.AuditPin;
 import com.scr0ols.sculksight.audit.RadiusAuditController;
@@ -86,7 +87,7 @@ public final class ConfigScreens {
 		RadiusAuditController.setHidden(new SensorKey(x, y, z), hidden);
 	}
 
-	static String pinAuditSelection() {
+	static Component pinAuditSelection() {
 		AuditPin.Result result = AuditPin.pin(ClientConfig.get(), RadiusAuditController.selection());
 		ClientConfig.set(result.config());
 		RadiusAuditController.clear();

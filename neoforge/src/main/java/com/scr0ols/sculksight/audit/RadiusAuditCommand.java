@@ -52,7 +52,7 @@ public final class RadiusAuditCommand {
 
 	private static int run(CommandSourceStack source, String type, int radius, String mode) {
 		return RadiusAuditClient.run(
-				message -> source.sendSuccess(() -> Component.literal(message), false),
+				component -> source.sendSuccess(() -> component, false),
 				type,
 				radius,
 				mode);
@@ -71,7 +71,7 @@ public final class RadiusAuditCommand {
 	}
 
 	private static int runOff(CommandSourceStack source) {
-		return RadiusAuditClient.runOff(message -> source.sendSuccess(() -> Component.literal(message), false));
+		return RadiusAuditClient.runOff(component -> source.sendSuccess(() -> component, false));
 	}
 
 	/**
