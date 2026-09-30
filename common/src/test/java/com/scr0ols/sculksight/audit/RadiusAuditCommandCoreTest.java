@@ -257,12 +257,31 @@ class RadiusAuditCommandCoreTest {
 	}
 
 	@Test
-	void anOffRunSaysTrackedAndPinnedSensorsAreUntouched() throws RadiusAuditArgumentException {
-		RadiusAuditController.activate(RadiusAuditRequest.of(64, "all"));
+	void anOffRunAfterAStaticFindReportsStaticFindCancelled() {
+		RadiusAuditCommandCore.runStatic(reported::add, 64, "all", 0, 0, 0, List.of(), GENEROUS_CAP,
+				this::recordPin);
+		reported.clear();
 
 		RadiusAuditCommandCore.runOff(reported::add);
 
-		assertTrue(reported.stream().anyMatch(line -> line.toLowerCase().contains("tracked")
-				&& line.toLowerCase().contains("pinned")), reported.toString());
+		assertTrue(reported.stream().anyMatch(line -> line.toLowerCase().contains("static")
+				&& line.toLowerCase().contains("cancelled")), reported.toString());
+	}
+
+	@Test
+	void anOffRunAfterOffAlreadyRanFallsBackToNoLiveFind() {
+		RadiusAuditCommandCore.runStatic(reported::add, 64, "all", 0, 0, 0, List.of(), GENEROUS_CAP,
+				this::recordPin);
+		reported.clear();
+
+		RadiusAuditCommandCore.runOff(reported::add);
+		assertTrue(reported.stream().anyMatch(line -> line.toLowerCase().contains("static")
+				&& line.toLowerCase().contains("cancelled")), reported.toString());
+		reported.clear();
+
+		RadiusAuditCommandCore.runOff(reported::add);
+
+		assertTrue(reported.stream().anyMatch(line -> line.toLowerCase().contains("no live find")),
+				reported.toString());
 	}
 }
