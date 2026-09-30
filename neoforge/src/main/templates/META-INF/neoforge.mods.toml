@@ -10,7 +10,6 @@ description='''
 Renders the effective detection surface of sculk sensors as a world overlay.
 '''
 authors="scr0ols"
-credits="Solo project, so all credits go to me and myself. Issues and PRs welcome."
 displayURL="https://modrinth.com/project/sculk-sight"
 iconFile="sculksight_icon.png"
 logoFile="sculksight_icon.png"
