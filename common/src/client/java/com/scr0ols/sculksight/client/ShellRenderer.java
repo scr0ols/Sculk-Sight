@@ -664,8 +664,10 @@ public final class ShellRenderer {
 		boolean inside = cameraInside(current, camera);
 
 		ShellStyle detectorStyle = style(current.detector());
+		boolean skipSeeThrough = detectorStyle.skipsSeeThroughPass(inside);
+		float nearCameraFade = inside ? nearCameraFadeFactor(camera) : 1.0F;
 		GpuBufferSlice[] uniforms = RenderSystem.getDynamicUniforms().writeTransforms(
-				transform(modelView, detectorStyle.faceModulation(true, inside)),
+				transform(modelView, detectorStyle.faceModulation(true, inside) * nearCameraFade),
 				transform(modelView, detectorStyle.faceModulation(false, inside)));
 
 		RenderTarget target = Minecraft.getInstance().gameRenderer.mainRenderTarget();
@@ -687,7 +689,7 @@ public final class ShellRenderer {
 
 			drawGeometry(pass, faces, faceIndices,
 					ShellPipelines.FACES_SEE_THROUGH, uniforms[0],
-					ShellPipelines.FACES_DEPTH_TESTED, uniforms[1]);
+					ShellPipelines.FACES_DEPTH_TESTED, uniforms[1], skipSeeThrough);
 		}
 	}
 
@@ -703,15 +705,20 @@ public final class ShellRenderer {
 
 	private static void drawGeometry(RenderPass pass, ShellBuffer buffer, Indexed indexed,
 			RenderPipeline firstPipeline, GpuBufferSlice firstUniform,
-			RenderPipeline secondPipeline, GpuBufferSlice secondUniform) {
+			RenderPipeline secondPipeline, GpuBufferSlice secondUniform, boolean skipFirstPass) {
 
 		pass.setVertexBuffer(0, buffer.buffer().slice());
 		pass.setIndexBuffer(indexed.buffer(), indexed.indices().type());
 
-		pass.setPipeline(firstPipeline);
-		RenderSystem.bindDefaultUniforms(pass);
-		pass.setUniform("DynamicTransforms", firstUniform);
-		pass.drawIndexed(indexed.count(), 1, 0, 0, 0);
+		// skipFirstPass lets ShellStyle.skipsSeeThroughPass() avoid this draw call's GPU cost
+		// entirely, rather than issuing it with a modulation that would compose to fully
+		// transparent anyway.
+		if (!skipFirstPass) {
+			pass.setPipeline(firstPipeline);
+			RenderSystem.bindDefaultUniforms(pass);
+			pass.setUniform("DynamicTransforms", firstUniform);
+			pass.drawIndexed(indexed.count(), 1, 0, 0, 0);
+		}
 
 		pass.setPipeline(secondPipeline);
 		RenderSystem.bindDefaultUniforms(pass);
@@ -736,6 +743,17 @@ public final class ShellRenderer {
 				Mth.floor(camera.x) - sensor.x(),
 				Mth.floor(camera.y) - sensor.y(),
 				Mth.floor(camera.z) - sensor.z());
+	}
+
+	/**
+	 * The extra see-through alpha multiplier for near-camera occluders: see {@link NearCameraFade}.
+	 * Only meaningful while the camera is inside the shell being drawn, so callers pass {@code 1.0}
+	 * (no effect) outside that case rather than calling this at all.
+	 */
+	private static float nearCameraFadeFactor(Vec3 camera) {
+		ClientLevel level = Minecraft.getInstance().level;
+
+		return level == null ? 1.0F : NearCameraFade.factorForCamera(level, camera);
 	}
 
 	private static DynamicUniforms.Transform transform(Matrix4f modelView, float alphaModulation) {

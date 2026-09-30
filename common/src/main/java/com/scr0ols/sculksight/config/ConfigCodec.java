@@ -17,9 +17,17 @@ public final class ConfigCodec {
 
 	static final String KEY_RADIUS_AUDIT_CAP = "radiusAuditCap";
 
+	static final String KEY_SEE_THROUGH_INSIDE_MODE = "seeThroughInsideMode";
+
 	static final String VALUE_RENDER_POLICY_UNION = "union";
 
 	static final String VALUE_RENDER_POLICY_PER_SENSOR = "per_sensor";
+
+	static final String VALUE_SEE_THROUGH_INSIDE_MODE_FULL = "full";
+
+	static final String VALUE_SEE_THROUGH_INSIDE_MODE_WEAK = "weak";
+
+	static final String VALUE_SEE_THROUGH_INSIDE_MODE_OFF = "off";
 
 	private ConfigCodec() {
 	}
@@ -31,6 +39,7 @@ public final class ConfigCodec {
 		object.put(KEY_SHELL_OPACITY_PERCENT, Integer.valueOf(config.shellOpacityPercent()));
 		object.put(KEY_RENDER_POLICY, writeRenderPolicy(config.renderPolicy()));
 		object.put(KEY_RADIUS_AUDIT_CAP, Integer.valueOf(config.radiusAuditCap()));
+		object.put(KEY_SEE_THROUGH_INSIDE_MODE, writeSeeThroughInsideMode(config.seeThroughInsideMode()));
 		if (!config.trackedSensors().isEmpty()) {
 			List<Map<String, Object>> sensors = new ArrayList<>();
 			for (TrackedSensor sensor : config.trackedSensors()) {
@@ -56,6 +65,14 @@ public final class ConfigCodec {
 		};
 	}
 
+	private static String writeSeeThroughInsideMode(SeeThroughInsideMode mode) {
+		return switch (mode) {
+			case FULL -> VALUE_SEE_THROUGH_INSIDE_MODE_FULL;
+			case WEAK -> VALUE_SEE_THROUGH_INSIDE_MODE_WEAK;
+			case OFF -> VALUE_SEE_THROUGH_INSIDE_MODE_OFF;
+		};
+	}
+
 	/** The configuration a file's text describes. */
 	public static SculkSightConfig read(String text, Consumer<String> repairs)
 			throws JsonParseException {
@@ -69,8 +86,9 @@ public final class ConfigCodec {
 		RenderPolicy policy = readRenderPolicy(object, repairs);
 		List<TrackedSensor> sensors = readTrackedSensors(object, repairs);
 		int cap = readRadiusAuditCap(object, repairs);
+		SeeThroughInsideMode seeThroughInsideMode = readSeeThroughInsideMode(object, repairs);
 
-		return new SculkSightConfig(percent, policy, sensors, cap);
+		return new SculkSightConfig(percent, policy, sensors, cap, seeThroughInsideMode);
 	}
 
 	private static List<TrackedSensor> readTrackedSensors(Map<?, ?> object, Consumer<String> repairs) {
@@ -231,6 +249,44 @@ public final class ConfigCodec {
 		return switch (value) {
 			case VALUE_RENDER_POLICY_UNION -> RenderPolicy.UNION;
 			case VALUE_RENDER_POLICY_PER_SENSOR -> RenderPolicy.PER_SENSOR;
+			default -> null;
+		};
+	}
+
+	private static SeeThroughInsideMode readSeeThroughInsideMode(Map<?, ?> object, Consumer<String> repairs) {
+		SeeThroughInsideMode fallback = SculkSightConfig.DEFAULT_SEE_THROUGH_INSIDE_MODE;
+
+		if (!object.containsKey(KEY_SEE_THROUGH_INSIDE_MODE)) {
+			repairs.accept(KEY_SEE_THROUGH_INSIDE_MODE + " is missing; using the default, "
+					+ writeSeeThroughInsideMode(fallback));
+			return fallback;
+		}
+
+		Object raw = object.get(KEY_SEE_THROUGH_INSIDE_MODE);
+
+		if (!(raw instanceof String string)) {
+			repairs.accept(KEY_SEE_THROUGH_INSIDE_MODE + " must be a string, not " + describe(raw)
+					+ "; using the default, " + writeSeeThroughInsideMode(fallback));
+			return fallback;
+		}
+
+		SeeThroughInsideMode parsed = parseSeeThroughInsideMode(string);
+
+		if (parsed == null) {
+			repairs.accept(KEY_SEE_THROUGH_INSIDE_MODE + " must be \"" + VALUE_SEE_THROUGH_INSIDE_MODE_FULL
+					+ "\", \"" + VALUE_SEE_THROUGH_INSIDE_MODE_WEAK + "\" or \"" + VALUE_SEE_THROUGH_INSIDE_MODE_OFF
+					+ "\", not \"" + string + "\"; using the default, " + writeSeeThroughInsideMode(fallback));
+			return fallback;
+		}
+
+		return parsed;
+	}
+
+	private static SeeThroughInsideMode parseSeeThroughInsideMode(String value) {
+		return switch (value) {
+			case VALUE_SEE_THROUGH_INSIDE_MODE_FULL -> SeeThroughInsideMode.FULL;
+			case VALUE_SEE_THROUGH_INSIDE_MODE_WEAK -> SeeThroughInsideMode.WEAK;
+			case VALUE_SEE_THROUGH_INSIDE_MODE_OFF -> SeeThroughInsideMode.OFF;
 			default -> null;
 		};
 	}

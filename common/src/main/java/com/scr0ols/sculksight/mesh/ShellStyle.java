@@ -3,8 +3,15 @@ package com.scr0ols.sculksight.mesh;
 import com.scr0ols.sculksight.config.SculkSightConfig;
 import com.scr0ols.sculksight.solver.Face;
 
-/** How the shell looks: a {@code 0xRRGGBB} colour, two alphas in 0..1 and a per-{@link Face} colour multiplier. */
-public record ShellStyle(int colour, float depthTestedAlpha, float seeThroughAlpha, float[] shadeByFace) {
+/**
+ * How the shell looks: a {@code 0xRRGGBB} colour, two alphas in 0..1, a per-{@link Face} colour
+ * multiplier, and the factor the see-through pass is scaled by while the camera is inside it.
+ */
+public record ShellStyle(int colour, float depthTestedAlpha, float seeThroughAlpha, float[] shadeByFace,
+		float insideSeeThroughFactor) {
+
+	/** The inside factor an authored or default-config style applies to the see-through pass: none. */
+	private static final float DEFAULT_INSIDE_SEE_THROUGH_FACTOR = 1.0F;
 
 	/** The authored style: amber {@code #FFA300}, alpha 0.25 depth-tested and 0.10 see-through. */
 	public static ShellStyle v0() {
@@ -17,20 +24,24 @@ public record ShellStyle(int colour, float depthTestedAlpha, float seeThroughAlp
 		shade[Face.WEST.ordinal()] = 0.78F;
 		shade[Face.DOWN.ordinal()] = 0.66F;
 
-		return new ShellStyle(0xFFA300, 0.25F, 0.10F, shade);
+		return new ShellStyle(0xFFA300, 0.25F, 0.10F, shade, DEFAULT_INSIDE_SEE_THROUGH_FACTOR);
 	}
 
-	/** The authored style with both alphas taken from the player's opacity setting. */
+	/**
+	 * The authored style with both alphas taken from the player's opacity setting, and the
+	 * see-through-while-inside factor taken from {@link SculkSightConfig#seeThroughInsideMode()}.
+	 */
 	public static ShellStyle fromConfig(SculkSightConfig config) {
 		ShellStyle authored = v0();
 
 		return new ShellStyle(authored.colour(), config.depthTestedAlpha(), config.seeThroughAlpha(),
-				authored.shadeByFace());
+				authored.shadeByFace(), config.seeThroughInsideMode().insideFactor());
 	}
 
-	/** Applies a detector palette colour without changing alpha or face shading. */
+	/** Applies a detector palette colour without changing alpha, face shading or the inside factor. */
 	public ShellStyle withColour(int newColour) {
-		return new ShellStyle(newColour, depthTestedAlpha, seeThroughAlpha, shadeByFace.clone());
+		return new ShellStyle(newColour, depthTestedAlpha, seeThroughAlpha, shadeByFace.clone(),
+				insideSeeThroughFactor);
 	}
 
 	public ShellStyle {
@@ -69,9 +80,30 @@ public record ShellStyle(int colour, float depthTestedAlpha, float seeThroughAlp
 	 * (near and far), both blended with the standard "over" operator, so each face is encoded
 	 * dimmer than the target - just enough that the pair composites back up to it, rather than past
 	 * it. This keeps the perceived strength the same on both sides of the shell's boundary.
+	 *
+	 * <p>The see-through pass is further scaled by {@link #insideSeeThroughFactor} while the camera
+	 * is inside the shell. That pass draws only the half of the shell that is occluded by the
+	 * world (the complement of the depth-tested pass's test), but from inside the shell that
+	 * occluded half is most of what is on screen - nearly every block between the camera and the
+	 * shell's far boundary hides it. The factor never touches the outside case or the
+	 * depth-tested pass.
 	 */
 	public float faceModulation(boolean seeThrough, boolean cameraInside) {
-		return modulation(seeThrough ? seeThroughAlpha : depthTestedAlpha, depthTestedAlpha, cameraInside);
+		float targetAlpha = seeThrough ? seeThroughAlpha : depthTestedAlpha;
+		if (seeThrough && cameraInside) {
+			targetAlpha *= insideSeeThroughFactor;
+		}
+		return modulation(targetAlpha, depthTestedAlpha, cameraInside);
+	}
+
+	/**
+	 * Whether the see-through pass can be skipped outright: the camera is inside the shell and
+	 * {@link #insideSeeThroughFactor} zeroes it, so the pass would draw nothing anyway. Letting the
+	 * caller skip the draw call entirely avoids paying its GPU cost for a pass that would compose
+	 * to fully transparent.
+	 */
+	public boolean skipsSeeThroughPass(boolean cameraInside) {
+		return cameraInside && insideSeeThroughFactor <= 0.0F;
 	}
 
 	private static float modulation(float targetAlpha, float encodedAlpha, boolean cameraInside) {

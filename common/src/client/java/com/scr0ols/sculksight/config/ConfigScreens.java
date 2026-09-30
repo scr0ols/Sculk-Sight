@@ -107,6 +107,11 @@ public final class ConfigScreens {
 		ShellRenderer.onConfigChanged();
 	}
 
+	static void setSeeThroughInsideMode(SeeThroughInsideMode mode) {
+		ClientConfig.set(ClientConfig.get().withSeeThroughInsideMode(mode));
+		ShellRenderer.onConfigChanged();
+	}
+
 	private static void replaceSensor(SculkSightConfig live, TrackedSensor updated) {
 		List<TrackedSensor> sensors = new ArrayList<>();
 		for (TrackedSensor sensor : live.trackedSensors()) {
