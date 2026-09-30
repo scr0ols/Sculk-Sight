@@ -16,6 +16,10 @@ No code changed for this release. The itemised entries below were left under `[U
 
 ## [Unreleased]
 
+### Added
+
+- **A third find mode, `off`, cancels a live find with no other way to stop it.** `/sculksight find <type> <radius> off` — for example `/sculksight find all 64 off` — stops the per-tick re-scan and clears the audit shells and their rows in the settings screen. It reuses the same teardown a `static` run or the settings screen's Pin all already call, so it touches no tracked or pinned sensor and writes nothing to `config/sculksight.json`. Running it with no live find in progress is harmless; it says so rather than erroring.
+
 ## [0.3.0] - 2026-09-18
 
 ### Added

@@ -50,7 +50,7 @@
 	"sculksight.config.audit_sensors.shown": "Shown: %s",
 	"sculksight.config.audit_sensors.shown.yes": "Yes",
 	"sculksight.config.audit_sensors.shown.no": "No",
-	"sculksight.config.audit_sensors.shown.tooltip": "Show or hide this found sensor's shell. A live find saves nothing, so this lasts until you pin it, run another find, or leave the world.",
+	"sculksight.config.audit_sensors.shown.tooltip": "Show or hide this found sensor's shell. A live find saves nothing, so this lasts until you pin it, run another find, run one with 'off', or leave the world.",
 	"sculksight.config.audit_sensors.pin": "Pin all",
 	"sculksight.config.audit_sensors.pin.tooltip": "Add every sensor this live find selected to the tracked sensors above, where they are saved and keep their own Options and Remove controls. This ends the live find, so the shells stop following you. Same result as running the find with 'static'.",
 

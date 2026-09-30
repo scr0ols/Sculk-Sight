@@ -26,12 +26,13 @@ Run `/sculksight find <type> <radius> <mode>` to draw every detector around you 
 |---|---|
 | `type` | `all`, `sensor`, `calibrated`, `shrieker` |
 | `radius` | 1 to 512 blocks |
-| `mode` | `static` or `live` |
+| `mode` | `static`, `live`, or `off` |
 
-All three are required, and the mode is the important one, because it picks between two different jobs:
+All three are required, and the mode is the important one, because it picks between three different jobs:
 
 - **`static`** - finds the sensors once, where you are standing, and adds them to the **Tracked sensors** list, exactly as if you had aimed at each one and pressed **K**. They are saved to `config/sculksight.json`, they each get a name and their own Enabled and Remove controls, and they stay put when you walk away. This is the one for auditing a redstone build you are working on.
-- **`live`** - an x-ray that follows you. It re-selects every tick against wherever you are now, so shells appear and disappear as you move. Nothing is saved; leaving the world or running another find clears it.
+- **`live`** - an x-ray that follows you. It re-selects every tick against wherever you are now, so shells appear and disappear as you move. Nothing is saved; leaving the world, running another find, or running `off` clears it.
+- **`off`** - cancels the live find in progress, for example `/sculksight find all 64 off`. It stops the re-scan and clears the audit shells and their rows in the settings screen, without touching any tracked or pinned sensor.
 
 A live find appears in the settings screen under a **Live find** heading, one row per sensor with a **Shown** toggle, so you can switch off an individual shell without cancelling the whole find. Those toggles last for the session. The heading also carries a **Pin all** button, which turns the current selection into tracked sensors and ends the live find - the same result as having run the find with `static`, for when you would rather walk around and look first. A sensor you have separately tracked with **K** and then disabled stays hidden even when a live find selects it too.
 
