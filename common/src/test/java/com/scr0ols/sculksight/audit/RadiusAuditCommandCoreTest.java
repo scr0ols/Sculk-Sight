@@ -1,15 +1,20 @@
 package com.scr0ols.sculksight.audit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.contents.TranslatableContents;
 
 import com.scr0ols.sculksight.audit.RadiusAudit.AuditedSensor;
 import com.scr0ols.sculksight.client.DetectorType;
@@ -17,7 +22,7 @@ import com.scr0ols.sculksight.client.SensorKey;
 
 class RadiusAuditCommandCoreTest {
 
-	private final List<String> reported = new ArrayList<>();
+	private final List<Component> reported = new ArrayList<>();
 
 	private final List<AuditedSensor> pinned = new ArrayList<>();
 
@@ -28,9 +33,33 @@ class RadiusAuditCommandCoreTest {
 		RadiusAuditController.clear();
 	}
 
-	private String recordPin(List<AuditedSensor> selected) {
+	private Component recordPin(List<AuditedSensor> selected) {
 		pinned.addAll(selected);
-		return selected.size() + " pinned.";
+		return Component.literal(selected.size() + " pinned.");
+	}
+
+	// ------------------------------------------------------- key/argument lookup helpers
+
+	private static TranslatableContents contentsOf(Component component) {
+		return (TranslatableContents) component.getContents();
+	}
+
+	private static String keyOf(Component component) {
+		return contentsOf(component).getKey();
+	}
+
+	private Optional<Component> firstWithKey(String key) {
+		return reported.stream().filter(component -> key.equals(keyOf(component))).findFirst();
+	}
+
+	private boolean hasKey(String key) {
+		return firstWithKey(key).isPresent();
+	}
+
+	private Component requireWithKey(String key) {
+		return firstWithKey(key)
+				.orElseThrow(() -> new AssertionError("no reported message with key " + key
+						+ ": " + reported));
 	}
 
 	// ------------------------------------------------------- selection and validation, shared
@@ -41,18 +70,19 @@ class RadiusAuditCommandCoreTest {
 				List.of(), GENEROUS_CAP);
 
 		assertEquals(RadiusAuditCommandCore.SUCCESS, result);
-		assertTrue(reported.stream().anyMatch(line -> line.contains("radius 64")),
-				reported.toString());
-		assertTrue(reported.stream().anyMatch(line -> line.contains("calibrated")),
-				reported.toString());
+		Component live = requireWithKey("sculksight.command.find.live");
+		Component description = (Component) contentsOf(live).getArgs()[0];
+		assertEquals(64, contentsOf(description).getArgs()[0]);
+		Component detector = (Component) contentsOf(description).getArgs()[1];
+		assertEquals("sculksight.command.find.description.detector", keyOf(detector));
+		assertEquals("calibrated", contentsOf(detector).getArgs()[0]);
 	}
 
 	@Test
 	void anEmptyCandidateSetReportsNoSensorsFound() {
 		RadiusAuditCommandCore.runLive(reported::add, 64, "all", 0, 0, 0, List.of(), GENEROUS_CAP);
 
-		assertTrue(reported.stream().anyMatch(line -> line.contains("No sensors found in range.")),
-				reported.toString());
+		assertTrue(hasKey("sculksight.command.find.selection.none"), reported.toString());
 	}
 
 	@Test
@@ -63,8 +93,7 @@ class RadiusAuditCommandCoreTest {
 				List.of(sensor), GENEROUS_CAP);
 
 		assertEquals(RadiusAuditCommandCore.SUCCESS, result);
-		assertTrue(reported.stream().anyMatch(line -> line.contains("1 sensor found in range.")),
-				reported.toString());
+		assertTrue(hasKey("sculksight.command.find.selection.one"), reported.toString());
 	}
 
 	@Test
@@ -74,7 +103,8 @@ class RadiusAuditCommandCoreTest {
 
 		assertEquals(RadiusAuditCommandCore.FAILURE, result);
 		assertEquals(1, reported.size(), reported.toString());
-		assertTrue(reported.get(0).contains("warden"), reported.toString());
+		assertEquals("sculksight.command.find.detector.unknown", keyOf(reported.get(0)));
+		assertEquals("warden", contentsOf(reported.get(0)).getArgs()[0]);
 	}
 
 	@Test
@@ -83,8 +113,10 @@ class RadiusAuditCommandCoreTest {
 				"all", 0, 0, 0, List.of(), GENEROUS_CAP);
 
 		assertEquals(RadiusAuditCommandCore.FAILURE, result);
-		assertTrue(reported.stream().noneMatch(line -> line.contains("accepted")),
-				reported.toString());
+		assertTrue(hasKey("sculksight.command.find.radius.out_of_range"), reported.toString());
+		assertFalse(hasKey("sculksight.command.find.selection.none"), reported.toString());
+		assertFalse(hasKey("sculksight.command.find.selection.one"), reported.toString());
+		assertFalse(hasKey("sculksight.command.find.selection.many"), reported.toString());
 	}
 
 	@Test
@@ -93,8 +125,7 @@ class RadiusAuditCommandCoreTest {
 
 		RadiusAuditCommandCore.runLive(reported::add, 64, "all", 0, 0, 0, List.of(sensor), 1);
 
-		assertTrue(reported.stream().noneMatch(line -> line.contains("Cap reached")),
-				reported.toString());
+		assertFalse(hasKey("sculksight.command.find.cap_reached"), reported.toString());
 	}
 
 	@Test
@@ -106,10 +137,10 @@ class RadiusAuditCommandCoreTest {
 				List.of(far, near), 1);
 
 		assertEquals(RadiusAuditCommandCore.SUCCESS, result);
-		assertTrue(reported.stream().anyMatch(line -> line.contains("1 sensor found in range.")),
-				reported.toString());
-		assertTrue(reported.stream().anyMatch(line -> line.contains("Cap reached")
-				&& line.contains("2") && line.contains("1")), reported.toString());
+		assertTrue(hasKey("sculksight.command.find.selection.one"), reported.toString());
+		Component capReached = requireWithKey("sculksight.command.find.cap_reached");
+		assertEquals(2, contentsOf(capReached).getArgs()[0]);
+		assertEquals(1, contentsOf(capReached).getArgs()[1]);
 	}
 
 	// ------------------------------------------------------- live mode
@@ -133,8 +164,7 @@ class RadiusAuditCommandCoreTest {
 	void aLiveRunSaysTheShellsWillFollowThePlayer() {
 		RadiusAuditCommandCore.runLive(reported::add, 32, "all", 0, 0, 0, List.of(), GENEROUS_CAP);
 
-		assertTrue(reported.stream().anyMatch(line -> line.contains("follow you")),
-				reported.toString());
+		assertTrue(hasKey("sculksight.command.find.live"), reported.toString());
 	}
 
 	@Test
@@ -167,7 +197,8 @@ class RadiusAuditCommandCoreTest {
 		RadiusAuditCommandCore.runStatic(reported::add, 64, "all", 0, 0, 0, List.of(sensor),
 				GENEROUS_CAP, this::recordPin);
 
-		assertTrue(reported.stream().anyMatch(line -> line.equals("1 pinned.")), reported.toString());
+		assertTrue(reported.stream().anyMatch(component -> component.equals(Component.literal("1 pinned."))),
+				reported.toString());
 	}
 
 	@Test
@@ -207,5 +238,76 @@ class RadiusAuditCommandCoreTest {
 				this::recordPin);
 
 		assertEquals(List.of(near), pinned);
+	}
+
+	// ------------------------------------------------------- off mode
+
+	@Test
+	void anOffRunCancelsAnActiveLiveFind() throws RadiusAuditArgumentException {
+		RadiusAuditController.activate(RadiusAuditRequest.of(64, "all"));
+
+		int result = RadiusAuditCommandCore.runOff(reported::add);
+
+		assertEquals(RadiusAuditCommandCore.SUCCESS, result);
+		assertNull(RadiusAuditController.activeRequest());
+	}
+
+	@Test
+	void anOffRunSucceedsWhenNoLiveFindWasRunning() {
+		int result = RadiusAuditCommandCore.runOff(reported::add);
+
+		assertEquals(RadiusAuditCommandCore.SUCCESS, result);
+		assertNull(RadiusAuditController.activeRequest());
+	}
+
+	@Test
+	void anOffRunPinsNothing() throws RadiusAuditArgumentException {
+		RadiusAuditController.activate(RadiusAuditRequest.of(64, "all"));
+
+		RadiusAuditCommandCore.runOff(reported::add);
+
+		assertEquals(List.of(), pinned);
+	}
+
+	@Test
+	void anOffRunReportsThatALiveFindWasCancelled() throws RadiusAuditArgumentException {
+		RadiusAuditController.activate(RadiusAuditRequest.of(64, "all"));
+
+		RadiusAuditCommandCore.runOff(reported::add);
+
+		assertTrue(hasKey("sculksight.command.find.off.live_cancelled"), reported.toString());
+	}
+
+	@Test
+	void anOffRunReportsWhenNoLiveFindWasRunning() {
+		RadiusAuditCommandCore.runOff(reported::add);
+
+		assertTrue(hasKey("sculksight.command.find.off.none_running"), reported.toString());
+	}
+
+	@Test
+	void anOffRunAfterAStaticFindReportsStaticFindCancelled() {
+		RadiusAuditCommandCore.runStatic(reported::add, 64, "all", 0, 0, 0, List.of(), GENEROUS_CAP,
+				this::recordPin);
+		reported.clear();
+
+		RadiusAuditCommandCore.runOff(reported::add);
+
+		assertTrue(hasKey("sculksight.command.find.off.static_cancelled"), reported.toString());
+	}
+
+	@Test
+	void anOffRunAfterOffAlreadyRanFallsBackToNoLiveFind() {
+		RadiusAuditCommandCore.runStatic(reported::add, 64, "all", 0, 0, 0, List.of(), GENEROUS_CAP,
+				this::recordPin);
+		reported.clear();
+
+		RadiusAuditCommandCore.runOff(reported::add);
+		assertTrue(hasKey("sculksight.command.find.off.static_cancelled"), reported.toString());
+		reported.clear();
+
+		RadiusAuditCommandCore.runOff(reported::add);
+
+		assertTrue(hasKey("sculksight.command.find.off.none_running"), reported.toString());
 	}
 }

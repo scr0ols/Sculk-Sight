@@ -1,5 +1,6 @@
 package com.scr0ols.sculksight.audit;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -8,10 +9,12 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
+import net.minecraft.network.chat.contents.TranslatableContents;
+
 class RadiusAuditModeTest {
 
 	@Test
-	void bothModesParseFromTheWordAPlayerTypes() throws RadiusAuditArgumentException {
+	void allModesParseFromTheWordAPlayerTypes() throws RadiusAuditArgumentException {
 		assertEquals(RadiusAuditMode.STATIC, RadiusAuditMode.of("static"));
 		assertEquals(RadiusAuditMode.LIVE, RadiusAuditMode.of("live"));
 	}
@@ -51,9 +54,9 @@ class RadiusAuditModeTest {
 		RadiusAuditArgumentException problem = assertThrows(RadiusAuditArgumentException.class,
 				() -> RadiusAuditMode.of("statc"));
 
-		assertTrue(problem.getMessage().contains("statc"), problem.getMessage());
-		assertTrue(problem.getMessage().contains("static"), problem.getMessage());
-		assertTrue(problem.getMessage().contains("live"), problem.getMessage());
+		TranslatableContents contents = (TranslatableContents) problem.component().getContents();
+		assertEquals("sculksight.command.find.mode.unknown", contents.getKey());
+		assertArrayEquals(new Object[] {"statc", "static", "live"}, contents.getArgs());
 	}
 
 	@Test
@@ -61,8 +64,9 @@ class RadiusAuditModeTest {
 		RadiusAuditArgumentException problem = assertThrows(RadiusAuditArgumentException.class,
 				() -> RadiusAuditMode.of(null));
 
-		assertTrue(problem.getMessage().contains("static"), problem.getMessage());
-		assertTrue(problem.getMessage().contains("live"), problem.getMessage());
+		TranslatableContents contents = (TranslatableContents) problem.component().getContents();
+		assertEquals("sculksight.command.find.mode.unknown", contents.getKey());
+		assertArrayEquals(new Object[] {"", "static", "live"}, contents.getArgs());
 	}
 
 	@Test

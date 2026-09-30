@@ -2,7 +2,7 @@
 
 Sculk Sight is a client-side Minecraft mod that makes sculk-sensor detection easier to understand. It can draw the effective area from which a vibration can reach a sensor and tell you when your current position can be detected by a nearby sensor.
 
-Current pre-release: **v0.3.0** for **Minecraft 26.2**, with **Fabric and NeoForge** support.
+Current release: **v1.0.0** for **Minecraft 26.2**, with **Fabric and NeoForge** support.
 
 Licence: **GPL-3.0-or-later**. See [LICENSE](LICENSE).
 
@@ -12,26 +12,28 @@ Licence: **GPL-3.0-or-later**. See [LICENSE](LICENSE).
 
 Aim at a sculk sensor, calibrated sculk sensor, or sculk shrieker and press **K** (rebindable under **Options → Controls → Miscellaneous**) to track it. Sculk Sight calculates the effective detection area of each enabled tracked sensor and draws either one bounded union or separate shells, coloured by detector type: amber for a sculk sensor, light blue for a calibrated sculk sensor, and dark red for a shrieker. Press **G** to toggle all sensor rendering without changing per-sensor toggles.
 
-The shell reflects the sensor's radius and vibration-dampening blocks such as wool and wool carpet, so dampened positions are absent rather than merely hidden. It is rendered with both see-through and depth-tested passes to remain readable in terrain.
+The shell reflects the sensor's radius and vibration-dampening blocks such as wool and wool carpet, so dampened positions are absent rather than merely hidden. It is rendered with both see-through and depth-tested passes to remain readable in terrain. Both passes composite to exactly the configured opacity from either side of the shell boundary, so crossing the surface no longer pops; from inside, the see-through pass also fades as the camera gets close to a block and ramps back to full within a few blocks, unconditionally.
 
-Press **K** on another sensor to track it too, up to 32 at once. Each tracked sensor gets a **Remove** control on the settings screen below, plus an **Options** button that opens its name, enabled toggle, and delay-overlay checkbox.
+Press **K** on another sensor to track it too, up to 32 at once. Each tracked sensor gets a **Remove** control on the settings screen below, plus an **Options** button that opens its name, enabled toggle, and delay-overlay checkbox. Once more than one sensor is tracked, a **Remove all** button appears next to the section heading to clear the whole list in one click.
 
 With sensor rendering active, press **H** to show the travel delay in ticks for every tracked sensor whose own delay-overlay checkbox (in its Options screen) is on. Labels use the player's current view for visibility; sensor-occluded positions show no label, since the sensor cannot detect a vibration there.
 
 ### Mode B - find sensors around you
 
-Run `/sculksight find <type> <radius> <mode>` to draw every detector around you at once, without aiming at each one. It is a client-side command: it is typed in chat like any other, but never reaches the server, so it works on a vanilla server exactly as it does in single-player.
+Run `/sculksight find <type> <radius> <static|live>` to draw every detector around you at once, without aiming at each one. It is a client-side command: it is typed in chat like any other, but never reaches the server, so it works on a vanilla server exactly as it does in single-player.
 
 | Argument | Values |
 |---|---|
-| `type` | `all`, `sensor`, `calibrated`, `shrieker` |
+| `type` | `all`, `sensor`, `calibrated`, `shrieker` (its completions also offer `off`, listed first — see below) |
 | `radius` | 1 to 512 blocks |
 | `mode` | `static` or `live` |
 
-All three are required, and the mode is the important one, because it picks between two different jobs:
+All three are required for a real find, and the mode picks between two different jobs:
 
 - **`static`** - finds the sensors once, where you are standing, and adds them to the **Tracked sensors** list, exactly as if you had aimed at each one and pressed **K**. They are saved to `config/sculksight.json`, they each get a name and their own Enabled and Remove controls, and they stay put when you walk away. This is the one for auditing a redstone build you are working on.
-- **`live`** - an x-ray that follows you. It re-selects every tick against wherever you are now, so shells appear and disappear as you move. Nothing is saved; leaving the world or running another find clears it.
+- **`live`** - an x-ray that follows you. It re-selects every tick against wherever you are now, so shells appear and disappear as you move. Nothing is saved; leaving the world, running another find, or running `/sculksight find off` clears it.
+
+To cancel a live find, run `/sculksight find off` with nothing else after it. A radius and a mode are irrelevant to cancelling, so `off` is not a value of the `mode` argument above — it short-circuits the command right after `find`, before a radius is ever typed. It stops the re-scan and clears the audit shells and their rows in the settings screen, without touching any tracked or pinned sensor.
 
 A live find appears in the settings screen under a **Live find** heading, one row per sensor with a **Shown** toggle, so you can switch off an individual shell without cancelling the whole find. Those toggles last for the session. The heading also carries a **Pin all** button, which turns the current selection into tracked sensors and ends the live find - the same result as having run the find with `static`, for when you would rather walk around and look first. A sensor you have separately tracked with **K** and then disabled stays hidden even when a live find selects it too.
 
@@ -45,11 +47,15 @@ This mode answers “am I detected?” without drawing a shell. It only knows ab
 
 ### Settings
 
-Sculk Sight has an in-game settings screen with a **Shell opacity** slider, a **Mode** choice (Union or Split) for multi-sensor rendering, **Global render**/**Delay overlay**/**Detection indicator** toggles, and a bounded **Tracked sensors** list whose compact sensor cards keep identity, naming, enabled state, and removal together. While a `live` find is running, a **Live find** section lists its current selection below the tracked sensors, with a per-sensor **Shown** toggle and a **Pin all** button. Settings are saved between sessions in `config/sculksight.json`; the live-find section is session-only and saves nothing until you pin it.
+Sculk Sight has an in-game settings screen with a **Shell opacity** slider, a **Mode** choice (Union or Split) for multi-sensor rendering, an **Inside view** choice (Full, Weak, or Off, default Full) for how strongly the see-through pass draws while you are standing inside a shell, **Global render**/**Delay overlay**/**Detection indicator** toggles, and a bounded **Tracked sensors** list, headed by its current count, where each row shows the sensor and carries its own **Options** and **Remove** controls. While a `live` find is running, a **Live find** section lists its current selection below the tracked sensors, with a per-sensor **Shown** toggle and a **Pin all** button. Settings are saved between sessions in `config/sculksight.json`; the live-find section is session-only and saves nothing until you pin it.
 
 - Press **B** (rebindable) to open the settings screen directly from gameplay, on either loader.
 - On **NeoForge**, you can also open the mod’s configuration from the Mods screen.
 - On **Fabric**, you can also install [Mod Menu](https://modrinth.com/mod/modmenu) to open the configuration screen from its mod list. Mod Menu is optional; without it, edit `config/sculksight.json` manually or use the **B** key above.
+
+### Languages
+
+Sculk Sight follows the game's own language setting — there is no in-mod picker — and falls back to English for any string a locale has not translated yet. It ships 19 languages: English (US), German, Spanish (Spain), Spanish (Mexico), French, Indonesian, Italian, Japanese, Korean, Dutch, Polish, Portuguese (Brazil), Portuguese (Portugal), Russian, Turkish, Ukrainian, Chinese (Simplified), Chinese (Traditional), and Pirate Speak (a novelty locale Minecraft itself offers in its own language list).
 
 ## Requirements
 
@@ -66,9 +72,9 @@ Sculk Sight is **client-side only**. Do not install it on a server.
 
 1. Install Minecraft 26.2, Java 25, and either Fabric or NeoForge.
 2. **Fabric only:** install Fabric API. NeoForge needs no extra dependency.
-3. Download the matching v0.3.0 jar from [Releases](https://github.com/scr0ols/Sculk-Sight/releases) and place it in your instance's `mods` directory:
-   - `fabric-sculksight-0.3.0+26.2.jar` for Fabric.
-   - `neoforge-sculksight-0.3.0+26.2.jar` for NeoForge.
+3. Download the matching v1.0.0 jar from [Releases](https://github.com/scr0ols/Sculk-Sight/releases) and place it in your instance's `mods` directory:
+   - `fabric-sculksight-1.0.0+26.2.jar` for Fabric.
+   - `neoforge-sculksight-1.0.0+26.2.jar` for NeoForge.
 4. Launch the game. Aim at detectors and use **K** to track them, **G** to toggle rendering, then **H** for delay labels, or press **J** for the detection indicator. Press **B** to open the settings screen directly.
 
 ## Build from source

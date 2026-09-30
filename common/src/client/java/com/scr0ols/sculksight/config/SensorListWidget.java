@@ -46,14 +46,17 @@ final class SensorListWidget extends ContainerObjectSelectionList<SensorListWidg
 
 	@Override
 	public int getRowWidth() {
-		return Math.min(400, this.width - 20);
+		return Math.min(SettingsScreen.CONTROL_WIDTH, this.width - 20);
 	}
 
 	void refresh() {
 		List<Row> rows = new ArrayList<>();
 
-		rows.add(new SectionRow(Component.translatable("sculksight.config.tracked_sensors")));
-		for (TrackedSensor sensor : ClientConfig.get().trackedSensors()) {
+		List<TrackedSensor> trackedSensors = ClientConfig.get().trackedSensors();
+		rows.add(new TrackedHeadingRow(
+				Component.translatable("sculksight.config.tracked_sensors", trackedSensors.size()),
+				trackedSensors.size() > 1));
+		for (TrackedSensor sensor : trackedSensors) {
 			rows.add(new TrackedRow(sensor));
 		}
 
@@ -124,9 +127,10 @@ final class SensorListWidget extends ContainerObjectSelectionList<SensorListWidg
 		private Button buildPinButton() {
 			return Button.builder(Component.translatable("sculksight.config.audit_sensors.pin"),
 							button -> {
-								String outcome = ConfigScreens.pinAuditSelection();
+								Component outcome = ConfigScreens.pinAuditSelection();
 								SensorListWidget.this.minecraft.gui.hud.getChat()
-										.addClientSystemMessage(Component.literal("[sculksight] " + outcome));
+										.addClientSystemMessage(
+												Component.literal("[sculksight] ").append(outcome));
 								SensorListWidget.this.refresh();
 							})
 					.tooltip(Tooltip.create(
@@ -155,6 +159,51 @@ final class SensorListWidget extends ContainerObjectSelectionList<SensorListWidg
 		@Override
 		public List<? extends NarratableEntry> narratables() {
 			return pinButton == null ? List.of() : List.of(pinButton);
+		}
+	}
+
+	final class TrackedHeadingRow extends Row {
+
+		private final Component label;
+		private final @Nullable Button deleteAllButton;
+
+		private TrackedHeadingRow(Component label, boolean deletable) {
+			this.label = label;
+			this.deleteAllButton = deletable ? buildDeleteAllButton() : null;
+		}
+
+		private Button buildDeleteAllButton() {
+			return Button.builder(Component.translatable("sculksight.config.tracked_sensors.delete_all"),
+							button -> {
+								ConfigScreens.removeAllSensors();
+								SensorListWidget.this.refresh();
+							})
+					.tooltip(Tooltip.create(
+							Component.translatable("sculksight.config.tracked_sensors.delete_all.tooltip")))
+					.size(BUTTON_WIDTH, BUTTON_HEIGHT)
+					.build();
+		}
+
+		@Override
+		public void extractContent(GuiGraphicsExtractor graphics, int mouseX, int mouseY,
+				boolean hovered, float partialTick) {
+			if (deleteAllButton != null) {
+				deleteAllButton.setPosition(getContentRight() - deleteAllButton.getWidth(), getContentY());
+				deleteAllButton.extractRenderState(graphics, mouseX, mouseY, partialTick);
+			}
+
+			graphics.text(SensorListWidget.this.minecraft.font, label, getContentX(),
+					getContentYMiddle() - TEXT_BASELINE_OFFSET, HEADING_COLOUR);
+		}
+
+		@Override
+		public List<? extends GuiEventListener> children() {
+			return deleteAllButton == null ? List.of() : List.of(deleteAllButton);
+		}
+
+		@Override
+		public List<? extends NarratableEntry> narratables() {
+			return deleteAllButton == null ? List.of() : List.of(deleteAllButton);
 		}
 	}
 
@@ -265,7 +314,10 @@ final class SensorListWidget extends ContainerObjectSelectionList<SensorListWidg
 
 		private Component displayName(int maxWidth) {
 			Font font = SensorListWidget.this.minecraft.font;
-			Component full = Component.translatable("sculksight.config.tracked_sensors.name", name, x, y, z);
+			boolean isDefaultName = name.equals(TrackedSensor.defaultName(x, y, z));
+			Component full = isDefaultName
+					? Component.literal(name)
+					: Component.translatable("sculksight.config.tracked_sensors.name", name, x, y, z);
 			if (maxWidth <= 0 || font.width(full) <= maxWidth) {
 				return full;
 			}
@@ -273,8 +325,9 @@ final class SensorListWidget extends ContainerObjectSelectionList<SensorListWidg
 			String shortened = name;
 			while (!shortened.isEmpty()) {
 				shortened = shortened.substring(0, shortened.length() - 1);
-				Component candidate = Component.translatable(
-						"sculksight.config.tracked_sensors.name", shortened + "…", x, y, z);
+				Component candidate = isDefaultName
+						? Component.literal(shortened + "…")
+						: Component.translatable("sculksight.config.tracked_sensors.name", shortened + "…", x, y, z);
 				if (font.width(candidate) <= maxWidth) {
 					return candidate;
 				}

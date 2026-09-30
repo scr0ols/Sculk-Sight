@@ -6,13 +6,17 @@ import java.util.List;
 
 /** Every player-settable value this mod has, as one immutable record. */
 public record SculkSightConfig(int shellOpacityPercent, RenderPolicy renderPolicy,
-		List<TrackedSensor> trackedSensors, int radiusAuditCap) {
+		List<TrackedSensor> trackedSensors, int radiusAuditCap,
+		SeeThroughInsideMode seeThroughInsideMode) {
 
 	/** The default depth-tested shell alpha, as the percentage this record stores. */
 	public static final int DEFAULT_SHELL_OPACITY_PERCENT = 25;
 
 	/** The default render policy. */
 	public static final RenderPolicy DEFAULT_RENDER_POLICY = RenderPolicy.UNION;
+
+	/** The default see-through-while-inside behaviour: today's look, unchanged. */
+	public static final SeeThroughInsideMode DEFAULT_SEE_THROUGH_INSIDE_MODE = SeeThroughInsideMode.FULL;
 
 	/** Safety bound for selection, solving, and the union mesh. */
 	public static final int MAX_TRACKED_SENSORS = 32;
@@ -38,7 +42,7 @@ public record SculkSightConfig(int shellOpacityPercent, RenderPolicy renderPolic
 	/** The authored configuration, with nothing overridden. */
 	public static SculkSightConfig defaults() {
 		return new SculkSightConfig(DEFAULT_SHELL_OPACITY_PERCENT, DEFAULT_RENDER_POLICY, List.of(),
-				DEFAULT_RADIUS_AUDIT_CAP);
+				DEFAULT_RADIUS_AUDIT_CAP, DEFAULT_SEE_THROUGH_INSIDE_MODE);
 	}
 
 	/** Compatibility constructor for callers that only set the appearance. */
@@ -50,6 +54,13 @@ public record SculkSightConfig(int shellOpacityPercent, RenderPolicy renderPolic
 	public SculkSightConfig(int shellOpacityPercent, RenderPolicy renderPolicy,
 			List<TrackedSensor> trackedSensors) {
 		this(shellOpacityPercent, renderPolicy, trackedSensors, DEFAULT_RADIUS_AUDIT_CAP);
+	}
+
+	/** Compatibility constructor for callers that predate the see-through-inside mode. */
+	public SculkSightConfig(int shellOpacityPercent, RenderPolicy renderPolicy,
+			List<TrackedSensor> trackedSensors, int radiusAuditCap) {
+		this(shellOpacityPercent, renderPolicy, trackedSensors, radiusAuditCap,
+				DEFAULT_SEE_THROUGH_INSIDE_MODE);
 	}
 
 	public SculkSightConfig {
@@ -68,6 +79,7 @@ public record SculkSightConfig(int shellOpacityPercent, RenderPolicy renderPolic
 
 		Objects.requireNonNull(renderPolicy, "renderPolicy");
 		Objects.requireNonNull(trackedSensors, "trackedSensors");
+		Objects.requireNonNull(seeThroughInsideMode, "seeThroughInsideMode");
 		List<TrackedSensor> normalised = new ArrayList<>();
 		for (TrackedSensor sensor : trackedSensors) {
 			if (sensor == null) {
@@ -116,21 +128,26 @@ public record SculkSightConfig(int shellOpacityPercent, RenderPolicy renderPolic
 
 	/** A copy with a different opacity, since a record component cannot be assigned in place. */
 	public SculkSightConfig withShellOpacityPercent(int percent) {
-		return new SculkSightConfig(percent, renderPolicy, trackedSensors, radiusAuditCap);
+		return new SculkSightConfig(percent, renderPolicy, trackedSensors, radiusAuditCap, seeThroughInsideMode);
 	}
 
 	/** A copy with a different render policy, since a record component cannot be assigned in place. */
 	public SculkSightConfig withRenderPolicy(RenderPolicy policy) {
-		return new SculkSightConfig(shellOpacityPercent, policy, trackedSensors, radiusAuditCap);
+		return new SculkSightConfig(shellOpacityPercent, policy, trackedSensors, radiusAuditCap, seeThroughInsideMode);
 	}
 
 	public SculkSightConfig withTrackedSensors(List<TrackedSensor> sensors) {
-		return new SculkSightConfig(shellOpacityPercent, renderPolicy, sensors, radiusAuditCap);
+		return new SculkSightConfig(shellOpacityPercent, renderPolicy, sensors, radiusAuditCap, seeThroughInsideMode);
 	}
 
 	/** A copy with a different cap, since a record component cannot be assigned in place. */
 	public SculkSightConfig withRadiusAuditCap(int cap) {
-		return new SculkSightConfig(shellOpacityPercent, renderPolicy, trackedSensors, cap);
+		return new SculkSightConfig(shellOpacityPercent, renderPolicy, trackedSensors, cap, seeThroughInsideMode);
+	}
+
+	/** A copy with a different see-through-inside mode, since a record component cannot be assigned in place. */
+	public SculkSightConfig withSeeThroughInsideMode(SeeThroughInsideMode mode) {
+		return new SculkSightConfig(shellOpacityPercent, renderPolicy, trackedSensors, radiusAuditCap, mode);
 	}
 
 	/** Adds a position once, preserving an existing name and toggle state on repeat selection. */

@@ -10,6 +10,9 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.contents.TranslatableContents;
+
 import com.scr0ols.sculksight.audit.RadiusAudit.AuditedSensor;
 import com.scr0ols.sculksight.client.DetectorType;
 import com.scr0ols.sculksight.client.SensorKey;
@@ -36,7 +39,7 @@ class AuditPinTest {
 
 		assertSame(config, result.config());
 		assertEquals(0, result.added());
-		assertEquals("Nothing to pin.", AuditPin.describe(result));
+		assertEquals("sculksight.command.pin.nothing", contentsOf(AuditPin.describe(result)).getKey());
 	}
 
 	@Test
@@ -130,14 +133,20 @@ class AuditPinTest {
 		AuditPin.Result result = AuditPin.pin(configWith(),
 				List.of(sensorAt(1, 0, 0), sensorAt(2, 0, 0)));
 
-		assertEquals("2 sensors added to tracked sensors.", AuditPin.describe(result));
+		Component described = AuditPin.describe(result);
+		TranslatableContents contents = contentsOf(described);
+		assertEquals("sculksight.command.pin.added.many", contents.getKey());
+		assertEquals(2, contents.getArgs()[0]);
+		assertEquals(List.of(), translatableSiblingKeys(described));
 	}
 
 	@Test
 	void oneSensorIsReportedInTheSingular() {
 		AuditPin.Result result = AuditPin.pin(configWith(), List.of(sensorAt(1, 0, 0)));
 
-		assertEquals("1 sensor added to tracked sensors.", AuditPin.describe(result));
+		Component described = AuditPin.describe(result);
+		assertEquals("sculksight.command.pin.added.one", contentsOf(described).getKey());
+		assertEquals(List.of(), translatableSiblingKeys(described));
 	}
 
 	@Test
@@ -145,8 +154,13 @@ class AuditPinTest {
 		AuditPin.Result result = AuditPin.pin(configWith(TrackedSensor.selected(1, 0, 0)),
 				List.of(sensorAt(1, 0, 0), sensorAt(2, 0, 0)));
 
-		assertEquals("1 sensor added to tracked sensors; 1 already tracked.",
-				AuditPin.describe(result));
+		Component described = AuditPin.describe(result);
+		assertEquals("sculksight.command.pin.added.one", contentsOf(described).getKey());
+		assertEquals(List.of("sculksight.command.pin.already_tracked"),
+				translatableSiblingKeys(described));
+		TranslatableContents alreadyTracked =
+				(TranslatableContents) described.getSiblings().get(0).getContents();
+		assertEquals(1, alreadyTracked.getArgs()[0]);
 	}
 
 	@Test
@@ -156,9 +170,27 @@ class AuditPinTest {
 			selection.add(sensorAt(index, 0, 0));
 		}
 
-		String line = AuditPin.describe(AuditPin.pin(configWith(), selection));
+		Component described = AuditPin.describe(AuditPin.pin(configWith(), selection));
 
-		assertTrue(line.contains("1 did not fit the tracked limit of "
-				+ SculkSightConfig.MAX_TRACKED_SENSORS), line);
+		assertEquals(List.of("sculksight.command.pin.rejected_cap"),
+				translatableSiblingKeys(described));
+		TranslatableContents rejected =
+				(TranslatableContents) described.getSiblings().get(0).getContents();
+		assertEquals(1, rejected.getArgs()[0]);
+		assertEquals(SculkSightConfig.MAX_TRACKED_SENSORS, rejected.getArgs()[1]);
+	}
+
+	private static TranslatableContents contentsOf(Component component) {
+		return (TranslatableContents) component.getContents();
+	}
+
+	private static List<String> translatableSiblingKeys(Component root) {
+		List<String> keys = new ArrayList<>();
+		for (Component sibling : root.getSiblings()) {
+			if (sibling.getContents() instanceof TranslatableContents contents) {
+				keys.add(contents.getKey());
+			}
+		}
+		return keys;
 	}
 }

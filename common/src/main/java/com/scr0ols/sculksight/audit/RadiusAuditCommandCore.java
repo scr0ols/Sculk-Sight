@@ -6,6 +6,8 @@ import java.util.function.Function;
 
 import org.jspecify.annotations.Nullable;
 
+import net.minecraft.network.chat.Component;
+
 import com.scr0ols.sculksight.audit.RadiusAudit.AuditedSensor;
 
 /** The loader-agnostic body of {@code /sculksight find <type> <radius> <mode>}. */
@@ -21,7 +23,7 @@ public final class RadiusAuditCommandCore {
 	}
 
 	/** Runs a live find: validates, selects, reports, and makes the request the active one. */
-	public static int runLive(Consumer<String> report, int radius, @Nullable String detectorName,
+	public static int runLive(Consumer<Component> report, int radius, @Nullable String detectorName,
 			int centreX, int centreY, int centreZ, List<AuditedSensor> candidates, int cap) {
 
 		Selected selected = select(report, radius, detectorName, centreX, centreY, centreZ,
@@ -32,15 +34,15 @@ public final class RadiusAuditCommandCore {
 
 		RadiusAuditController.activate(selected.request());
 
-		report.accept("Live find: " + selected.request().describe()
-				+ ". The shells follow you until you leave the world or run another find.");
+		report.accept(Component.translatable(
+				"sculksight.command.find.live", selected.request().describe()));
 		return SUCCESS;
 	}
 
 	/** Runs a static find: validates, selects once at the given centre, and pins the result. */
-	public static int runStatic(Consumer<String> report, int radius, @Nullable String detectorName,
+	public static int runStatic(Consumer<Component> report, int radius, @Nullable String detectorName,
 			int centreX, int centreY, int centreZ, List<AuditedSensor> candidates, int cap,
-			Function<List<AuditedSensor>, String> pin) {
+			Function<List<AuditedSensor>, Component> pin) {
 
 		Selected selected = select(report, radius, detectorName, centreX, centreY, centreZ,
 				candidates, cap);
@@ -50,15 +52,32 @@ public final class RadiusAuditCommandCore {
 
 		RadiusAuditController.clear();
 
-		report.accept("Static find: " + selected.request().describe() + ".");
+		report.accept(Component.translatable(
+				"sculksight.command.find.static", selected.request().describe()));
 		report.accept(pin.apply(selected.selection().selected()));
+		RadiusAuditController.markStaticFindCompleted();
+		return SUCCESS;
+	}
+
+	/** Stops an active live find and clears its audit renders, touching no tracked or pinned sensor. */
+	public static int runOff(Consumer<Component> report) {
+		boolean wasActive = RadiusAuditController.activeRequest() != null;
+		boolean wasStaticCompleted = RadiusAuditController.staticFindCompleted();
+
+		RadiusAuditController.clear();
+
+		report.accept(Component.translatable(wasActive
+				? "sculksight.command.find.off.live_cancelled"
+				: wasStaticCompleted
+						? "sculksight.command.find.off.static_cancelled"
+						: "sculksight.command.find.off.none_running"));
 		return SUCCESS;
 	}
 
 	private record Selected(RadiusAuditRequest request, RadiusAudit.CappedSelection selection) {
 	}
 
-	private static @Nullable Selected select(Consumer<String> report, int radius,
+	private static @Nullable Selected select(Consumer<Component> report, int radius,
 			@Nullable String detectorName, int centreX, int centreY, int centreZ,
 			List<AuditedSensor> candidates, int cap) {
 
@@ -66,7 +85,7 @@ public final class RadiusAuditCommandCore {
 		try {
 			request = RadiusAuditRequest.of(radius, detectorName);
 		} catch (RadiusAuditArgumentException problem) {
-			report.accept(problem.getMessage());
+			report.accept(problem.component());
 			return null;
 		}
 
@@ -81,15 +100,15 @@ public final class RadiusAuditCommandCore {
 		return new Selected(request, selection);
 	}
 
-	private static String describeSelection(int count) {
+	private static Component describeSelection(int count) {
 		return switch (count) {
-			case 0 -> "No sensors found in range.";
-			case 1 -> "1 sensor found in range.";
-			default -> count + " sensors found in range.";
+			case 0 -> Component.translatable("sculksight.command.find.selection.none");
+			case 1 -> Component.translatable("sculksight.command.find.selection.one");
+			default -> Component.translatable("sculksight.command.find.selection.many", count);
 		};
 	}
 
-	private static String describeCapWarning(int matchedCount, int cap) {
-		return "Cap reached: " + matchedCount + " sensors matched, showing the nearest " + cap + ".";
+	private static Component describeCapWarning(int matchedCount, int cap) {
+		return Component.translatable("sculksight.command.find.cap_reached", matchedCount, cap);
 	}
 }

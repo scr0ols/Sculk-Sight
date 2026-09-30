@@ -10,17 +10,10 @@ description='''
 Renders the effective detection surface of sculk sensors as a world overlay.
 '''
 authors="scr0ols"
-credits="Solo project, so all credits go to me and myself. Issues and PRs welcome."
-displayURL="https://github.com/scr0ols/Sculk-Sight"
+displayURL="https://modrinth.com/project/sculk-sight"
 iconFile="sculksight_icon.png"
 logoFile="sculksight_icon.png"
 bannerFile="sculksight_banner.png"
-
-# TOML allows comments so this could just be a TODO, but the value is a live placeholder on
-# purpose: it makes it obvious out of the corner of your eye when you're looking at stale
-# metadata, and it's grep-able the moment there's a real listing to swap in.
-modrinthURL="https://www.youtube.com/watch?v=YkADj0TPrJA&list=RDYkADj0TPrJA&start_radio=1"
-curseforgeURL="https://www.youtube.com/watch?v=YkADj0TPrJA&list=RDYkADj0TPrJA&start_radio=1"
 
 [[dependencies.${mod_id}]]
 	modId="neoforge"

@@ -57,6 +57,38 @@ class RadiusAuditControllerTest {
 		assertNull(RadiusAuditController.activeRequest());
 	}
 
+	// ------------------------------------------------------- the static-find-completed flag
+
+	@Test
+	void staticFindCompletedStartsFalse() {
+		assertFalse(RadiusAuditController.staticFindCompleted());
+	}
+
+	@Test
+	void markStaticFindCompletedSetsTheFlag() {
+		RadiusAuditController.markStaticFindCompleted();
+
+		assertTrue(RadiusAuditController.staticFindCompleted());
+	}
+
+	@Test
+	void activateDropsTheStaticFindCompletedFlag() throws RadiusAuditArgumentException {
+		RadiusAuditController.markStaticFindCompleted();
+
+		RadiusAuditController.activate(RadiusAuditRequest.of(64, "all"));
+
+		assertFalse(RadiusAuditController.staticFindCompleted());
+	}
+
+	@Test
+	void clearDropsTheStaticFindCompletedFlag() {
+		RadiusAuditController.markStaticFindCompleted();
+
+		RadiusAuditController.clear();
+
+		assertFalse(RadiusAuditController.staticFindCompleted());
+	}
+
 	@Test
 	void aSuccessfulLiveCommandRunActivatesTheController() {
 		RadiusAuditCommandCore.runLive(message -> { }, 32, "all", 0, 0, 0, List.of(), 100);
