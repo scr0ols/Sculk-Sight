@@ -53,7 +53,7 @@
 	"sculksight.config.audit_sensors.shown.yes": "Sí",
 	"sculksight.config.audit_sensors.shown.no": "No",
 	"sculksight.config.audit_sensors.shown.tooltip": "Muestra u oculta la cápsula de este sensor encontrado. Una búsqueda en vivo no guarda nada, así que esto dura hasta que lo anclas, corres otra búsqueda, ejecutas '/sculksight find off', o sales del mundo.",
-	"sculksight.config.audit_sensors.pin": "Anclar todos",
+	"sculksight.config.audit_sensors.pin": "Anclar todo",
 	"sculksight.config.audit_sensors.pin.tooltip": "Agrega cada sensor que esta búsqueda en vivo seleccionó a los sensores rastreados de arriba, donde se guardan y conservan sus propios controles de Opciones y Eliminar. Esto termina la búsqueda en vivo, así que las cápsulas dejan de seguirte. Mismo resultado que correr la búsqueda con 'static'.",
 
 	"sculksight.config.done": "Listo",
@@ -92,7 +92,7 @@
 	"sculksight.chat.rendering.on": "renderizado de sensores activado.",
 	"sculksight.chat.rendering.off": "renderizado de sensores desactivado.",
 	"sculksight.chat.activate.not_aiming": "no estás apuntando a ningún bloque.",
-	"sculksight.chat.activate.no_listener": "el bloque señalado en %s no tiene ningún escucha de eventos del juego.",
+	"sculksight.chat.activate.no_listener": "el bloque señalado en %s no tiene ningún receptor de eventos del juego.",
 	"sculksight.chat.activate.not_detector": "el bloque señalado en %s no es un detector.",
 	"sculksight.chat.activate.limit_reached": "el límite de sensores rastreados es %s, así que el sensor en %s no se rastreó.",
 	"sculksight.chat.activate.already_tracked": "el sensor en %s ya se está rastreando.",

@@ -96,5 +96,5 @@
 	"sculksight.chat.activate.not_detector": "%sにある対象ブロックは検出器ではありません。",
 	"sculksight.chat.activate.limit_reached": "追跡センサーの上限は%sのため、%sのセンサーは追跡されませんでした。",
 	"sculksight.chat.activate.already_tracked": "%sのセンサーは既に追跡されています。",
-	"sculksight.chat.activate.tracked": "%sのセンサーを追跡しています。"
+	"sculksight.chat.activate.tracked": "%sのセンサーを追跡対象に追加しました。"
 }

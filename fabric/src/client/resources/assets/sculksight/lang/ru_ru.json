@@ -68,8 +68,8 @@
 	"sculksight.command.find.off.none_running": "Поиск в реальном времени не выполнялся.",
 	"sculksight.command.find.selection.none": "Датчики в радиусе не найдены.",
 	"sculksight.command.find.selection.one": "Найден 1 датчик в радиусе.",
-	"sculksight.command.find.selection.many": "Найдено %s датчиков в радиусе.",
-	"sculksight.command.find.cap_reached": "Достигнут лимит: найдено датчиков — %s, показаны ближайшие %s.",
+	"sculksight.command.find.selection.many": "Количество датчиков в радиусе: %s.",
+	"sculksight.command.find.cap_reached": "Достигнут лимит: совпадений — %s, ближайших показано — %s.",
 	"sculksight.command.find.mode.unknown": "Неизвестный режим '%s'. Ожидалось %s или %s.",
 	"sculksight.command.find.detector.unknown": "Неизвестный тип детектора '%s'. Ожидался один из %s.",
 	"sculksight.command.find.radius.out_of_range": "Радиус %s вне диапазона. Ожидалось от %s до %s блоков.",
@@ -78,9 +78,9 @@
 
 	"sculksight.command.pin.nothing": "Нечего закреплять.",
 	"sculksight.command.pin.added.one": "1 датчик добавлен в отслеживаемые датчики",
-	"sculksight.command.pin.added.many": "%s датчиков добавлено в отслеживаемые датчики",
-	"sculksight.command.pin.already_tracked": "; %s уже отслеживается",
-	"sculksight.command.pin.rejected_cap": "; %s не поместилось в лимит отслеживания %s",
+	"sculksight.command.pin.added.many": "Добавлено датчиков в отслеживаемый список: %s",
+	"sculksight.command.pin.already_tracked": "; уже в отслеживаемом списке: %s",
+	"sculksight.command.pin.rejected_cap": "; не удалось добавить датчики: %s (лимит: %s)",
 
 	"sculksight.chat.position": "%s, %s, %s",
 	"sculksight.chat.detection.off": "индикатор обнаружения выключен.",

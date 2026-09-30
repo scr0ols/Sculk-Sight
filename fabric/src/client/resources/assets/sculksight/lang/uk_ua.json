@@ -35,7 +35,7 @@
 	"sculksight.config.tracked_sensors.enabled.tooltip": "Вмикає або вимикає відображення оболонки цього датчика.",
 	"sculksight.config.tracked_sensors.remove": "Видалити",
 	"sculksight.config.tracked_sensors.remove.tooltip": "Негайно видаляє цей датчик зі списку відстежуваних датчиків.",
-	"sculksight.config.tracked_sensors.delete_all": "Видалити всі",
+	"sculksight.config.tracked_sensors.delete_all": "Очистити список",
 	"sculksight.config.tracked_sensors.delete_all.tooltip": "Негайно видаляє всі відстежувані датчики зі списку. Не впливає на активний пошук у реальному часі.",
 	"sculksight.config.tracked_sensors.options": "Опції",
 	"sculksight.config.tracked_sensors.options.tooltip": "Відкриває керування іменем, увімкненням та накладкою затримки цього датчика.",
@@ -53,7 +53,7 @@
 	"sculksight.config.audit_sensors.shown.yes": "Так",
 	"sculksight.config.audit_sensors.shown.no": "Ні",
 	"sculksight.config.audit_sensors.shown.tooltip": "Показує або приховує оболонку цього знайденого датчика. Пошук у реальному часі нічого не зберігає, тому це триває, поки ти його не закріпиш, не запустиш інший пошук, не виконаєш '/sculksight find off', або не покинеш світ.",
-	"sculksight.config.audit_sensors.pin": "Закріпити всі",
+	"sculksight.config.audit_sensors.pin": "Додати всі",
 	"sculksight.config.audit_sensors.pin.tooltip": "Додає кожен датчик, вибраний цим пошуком у реальному часі, до відстежуваних датчиків вище, де вони зберігаються та зберігають власне керування Опції та Видалити. Це завершує пошук у реальному часі, тому оболонки перестають слідувати за тобою. Той самий результат, що й запуск пошуку з 'static'.",
 
 	"sculksight.config.done": "Готово",

@@ -53,8 +53,8 @@
 	"sculksight.config.audit_sensors.shown.yes": "Ya",
 	"sculksight.config.audit_sensors.shown.no": "Tidak",
 	"sculksight.config.audit_sensors.shown.tooltip": "Menampilkan atau menyembunyikan cangkang sensor yang ditemukan ini. Pencarian langsung tidak menyimpan apa pun, jadi ini berlangsung sampai kamu menyematkannya, menjalankan pencarian lain, menjalankan '/sculksight find off', atau meninggalkan dunia.",
-	"sculksight.config.audit_sensors.pin": "Sematkan semua",
-	"sculksight.config.audit_sensors.pin.tooltip": "Menambahkan setiap sensor yang dipilih pencarian langsung ini ke sensor terlacak di atas, tempat mereka disimpan dan mempertahankan kontrol Opsi dan Hapus masing-masing. Ini mengakhiri pencarian langsung, sehingga cangkang berhenti mengikutimu. Hasil yang sama seperti menjalankan pencarian dengan 'static'.",
+	"sculksight.config.audit_sensors.pin": "Pin semua",
+	"sculksight.config.audit_sensors.pin.tooltip": "Tambahkan semua sensor yang dipilih oleh pencarian langsung ini ke daftar sensor terlacak di atas. Sensor akan tersimpan bersama kontrol Opsi dan Hapus masing-masing. Pencarian langsung pun berakhir, sehingga cangkang tidak lagi mengikutimu. Hasilnya sama dengan menjalankan pencarian memakai 'static'.",
 
 	"sculksight.config.done": "Selesai",
 
@@ -92,7 +92,7 @@
 	"sculksight.chat.rendering.on": "render sensor aktif.",
 	"sculksight.chat.rendering.off": "render sensor nonaktif.",
 	"sculksight.chat.activate.not_aiming": "tidak membidik blok apa pun.",
-	"sculksight.chat.activate.no_listener": "blok target di %s tidak memiliki pendengar peristiwa permainan.",
+	"sculksight.chat.activate.no_listener": "blok yang dibidik di %s tidak memiliki listener acara game.",
 	"sculksight.chat.activate.not_detector": "blok target di %s bukan detektor.",
 	"sculksight.chat.activate.limit_reached": "batas sensor terlacak adalah %s, jadi sensor di %s tidak dilacak.",
 	"sculksight.chat.activate.already_tracked": "sensor di %s sudah dilacak.",

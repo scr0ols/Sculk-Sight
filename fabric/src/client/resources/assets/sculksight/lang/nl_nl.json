@@ -53,7 +53,7 @@
 	"sculksight.config.audit_sensors.shown.yes": "Ja",
 	"sculksight.config.audit_sensors.shown.no": "Nee",
 	"sculksight.config.audit_sensors.shown.tooltip": "Toont of verbergt de schil van deze gevonden sensor. Een live zoekopdracht slaat niets op, dus dit duurt totdat je hem vastzet, een nieuwe zoekopdracht start, '/sculksight find off' uitvoert, of de wereld verlaat.",
-	"sculksight.config.audit_sensors.pin": "Alles vastzetten",
+	"sculksight.config.audit_sensors.pin": "Alles pinnen",
 	"sculksight.config.audit_sensors.pin.tooltip": "Voegt elke sensor die deze live zoekopdracht heeft geselecteerd toe aan de gevolgde sensoren hierboven, waar ze worden opgeslagen en hun eigen Opties- en Verwijderen-knoppen behouden. Dit beëindigt de live zoekopdracht, waardoor de schillen je niet langer volgen. Hetzelfde resultaat als een zoekopdracht met 'static'.",
 
 	"sculksight.config.done": "Gereed",

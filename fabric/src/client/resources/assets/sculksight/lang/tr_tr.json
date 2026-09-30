@@ -22,7 +22,7 @@
 	"sculksight.config.on": "Açık",
 	"sculksight.config.off": "Kapalı",
 	"sculksight.config.global_render": "Genel: %s",
-	"sculksight.config.global_render.tooltip": "Genel görüntüleme: aşağıdaki takip edilen sensörleri veya bireysel Açık anahtarlarını değiştirmeden, tüm sensör kabuğu görüntülemesini bir kerede açar veya kapatır. G tuşuna basmakla aynıdır.",
+	"sculksight.config.global_render.tooltip": "Genel görüntüleme: aşağıdaki takip edilen sensörleri veya bireysel Etkin anahtarlarını değiştirmeden, tüm sensör kabuklarının görüntülenmesini bir kerede açar ya da kapatır. G tuşuna basmakla aynıdır.",
 	"sculksight.config.delay_overlay": "Gecikme: %s",
 	"sculksight.config.delay_overlay.tooltip": "Gecikme katmanı: kendi gecikme katmanı onay kutusu (Seçenekler ekranında) açık olan her takip edilen sensörün üzerinde blok başına yayılma gecikmesi değerlerini gösterir veya gizler. H tuşuna basmakla aynıdır. En az bir böyle sensör görüntülenmedikçe etkisi yoktur.",
 	"sculksight.config.detection_indicator": "Algılama: %s",
