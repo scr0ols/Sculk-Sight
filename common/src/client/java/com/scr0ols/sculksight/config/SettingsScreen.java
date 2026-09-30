@@ -17,7 +17,7 @@ import com.scr0ols.sculksight.client.ShellRenderer;
 
 final class SettingsScreen extends Screen {
 
-	private static final int HEADER_HEIGHT = 106;
+	private static final int HEADER_HEIGHT = 112;
 
 	private static final int FOOTER_HEIGHT = 33;
 	private static final int BUTTON_HEIGHT = 20;
