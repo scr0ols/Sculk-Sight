@@ -6,7 +6,6 @@
 	"key.sculksight.open_settings": "Sculk Sight 설정 열기",
 
 	"sculksight.config.title": "Sculk Sight",
-	"sculksight.config.category.appearance": "외관",
 	"sculksight.config.shell_opacity": "셸 불투명도",
 	"sculksight.config.shell_opacity.value": "%s%%",
 	"sculksight.config.shell_opacity.tooltip": "감지 셸이 얼마나 단단해 보이는지입니다. 투시 효과는 고정된 비율로 이 값을 따르므로 슬라이더 하나로 둘 다 조절됩니다.",

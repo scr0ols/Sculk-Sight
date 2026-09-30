@@ -6,7 +6,6 @@
 	"key.sculksight.open_settings": "Открыть настройки Sculk Sight",
 
 	"sculksight.config.title": "Sculk Sight",
-	"sculksight.config.category.appearance": "Внешний вид",
 	"sculksight.config.shell_opacity": "Непрозрачность оболочки",
 	"sculksight.config.shell_opacity.value": "%s%%",
 	"sculksight.config.shell_opacity.tooltip": "Насколько плотной выглядит оболочка обнаружения. Прозрачный проход следует этому значению в фиксированной пропорции, поэтому один ползунок управляет обоими параметрами.",

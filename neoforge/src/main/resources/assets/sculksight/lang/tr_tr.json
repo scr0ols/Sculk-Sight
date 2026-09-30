@@ -6,7 +6,6 @@
 	"key.sculksight.open_settings": "Sculk Sight ayarlarını aç",
 
 	"sculksight.config.title": "Sculk Sight",
-	"sculksight.config.category.appearance": "Görünüm",
 	"sculksight.config.shell_opacity": "Kabuk saydamlığı",
 	"sculksight.config.shell_opacity.value": "%s%%",
 	"sculksight.config.shell_opacity.tooltip": "Algılama kabuğunun ne kadar katı göründüğü. Saydam geçiş bu değeri sabit bir oranda takip eder, bu yüzden tek bir kaydırıcı ikisini de hareket ettirir.",

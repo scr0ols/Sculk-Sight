@@ -6,7 +6,6 @@
 	"key.sculksight.open_settings": "Buka pengaturan Sculk Sight",
 
 	"sculksight.config.title": "Sculk Sight",
-	"sculksight.config.category.appearance": "Tampilan",
 	"sculksight.config.shell_opacity": "Opasitas cangkang",
 	"sculksight.config.shell_opacity.value": "%s%%",
 	"sculksight.config.shell_opacity.tooltip": "Seberapa padat cangkang deteksi terlihat. Efek tembus pandang mengikuti nilai ini dengan proporsi tetap, jadi satu slider menggerakkan keduanya.",

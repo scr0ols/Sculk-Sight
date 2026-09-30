@@ -6,7 +6,6 @@
 	"key.sculksight.open_settings": "Abrir configurações do Sculk Sight",
 
 	"sculksight.config.title": "Sculk Sight",
-	"sculksight.config.category.appearance": "Aparência",
 	"sculksight.config.shell_opacity": "Opacidade do invólucro",
 	"sculksight.config.shell_opacity.value": "%s%%",
 	"sculksight.config.shell_opacity.tooltip": "Quão sólido o invólucro de detecção parece. A passagem transparente segue esse valor em uma proporção fixa, então um único controle deslizante ajusta os dois.",

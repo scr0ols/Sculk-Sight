@@ -6,7 +6,6 @@
 	"key.sculksight.open_settings": "Ouvrir les paramètres de Sculk Sight",
 
 	"sculksight.config.title": "Sculk Sight",
-	"sculksight.config.category.appearance": "Apparence",
 	"sculksight.config.shell_opacity": "Opacité de la coque",
 	"sculksight.config.shell_opacity.value": "%s%%",
 	"sculksight.config.shell_opacity.tooltip": "À quel point la coque de détection paraît opaque. La passe transparente suit cette valeur dans une proportion fixe, donc un seul curseur ajuste les deux.",

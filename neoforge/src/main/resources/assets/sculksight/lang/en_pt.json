@@ -6,7 +6,6 @@
 	"key.sculksight.open_settings": "Open Sculk Sight's settings, matey",
 
 	"sculksight.config.title": "Sculk Sight",
-	"sculksight.config.category.appearance": "Look o' Things",
 	"sculksight.config.shell_opacity": "Shell Opacity",
 	"sculksight.config.shell_opacity.value": "%s%%",
 	"sculksight.config.shell_opacity.tooltip": "How solid th' detection shell looks, arr. Th' see-through pass follows this at a fixed proportion, so one slider moves both.",

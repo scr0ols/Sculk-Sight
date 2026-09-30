@@ -6,7 +6,6 @@
 	"key.sculksight.open_settings": "Sculk Sight-Einstellungen öffnen",
 
 	"sculksight.config.title": "Sculk Sight",
-	"sculksight.config.category.appearance": "Erscheinungsbild",
 	"sculksight.config.shell_opacity": "Hüllen-Deckkraft",
 	"sculksight.config.shell_opacity.value": "%s%%",
 	"sculksight.config.shell_opacity.tooltip": "Wie deckend die Erkennungshülle wirkt. Die Transparenz folgt diesem Wert in einem festen Verhältnis, daher steuert ein Regler beide Ebenen.",

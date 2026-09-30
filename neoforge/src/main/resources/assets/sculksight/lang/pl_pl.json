@@ -6,7 +6,6 @@
 	"key.sculksight.open_settings": "Otwórz ustawienia Sculk Sight",
 
 	"sculksight.config.title": "Sculk Sight",
-	"sculksight.config.category.appearance": "Wygląd",
 	"sculksight.config.shell_opacity": "Nieprzezroczystość powłoki",
 	"sculksight.config.shell_opacity.value": "%s%%",
 	"sculksight.config.shell_opacity.tooltip": "Jak kryjąca jest powłoka wykrywania. Przezroczystość podąża za tą wartością w stałej proporcji, więc jeden suwak steruje obiema warstwami.",

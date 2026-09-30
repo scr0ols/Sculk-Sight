@@ -6,7 +6,6 @@
 	"key.sculksight.open_settings": "打开 Sculk Sight 设置",
 
 	"sculksight.config.title": "Sculk Sight",
-	"sculksight.config.category.appearance": "外观",
 	"sculksight.config.shell_opacity": "外壳不透明度",
 	"sculksight.config.shell_opacity.value": "%s%%",
 	"sculksight.config.shell_opacity.tooltip": "检测外壳看起来有多实。透视效果以固定比例跟随此值，因此一个滑块可以同时调整两者。",

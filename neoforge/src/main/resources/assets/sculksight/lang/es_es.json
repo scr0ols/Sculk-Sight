@@ -6,7 +6,6 @@
 	"key.sculksight.open_settings": "Abrir los ajustes de Sculk Sight",
 
 	"sculksight.config.title": "Sculk Sight",
-	"sculksight.config.category.appearance": "Aspecto",
 	"sculksight.config.shell_opacity": "Opacidad de la envoltura",
 	"sculksight.config.shell_opacity.value": "%s%%",
 	"sculksight.config.shell_opacity.tooltip": "Qué tan sólida se ve la envoltura de detección. La transparencia sigue este valor en una proporción fija, así que un solo control ajusta ambos valores.",
