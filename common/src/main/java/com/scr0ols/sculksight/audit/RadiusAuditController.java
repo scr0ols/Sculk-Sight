@@ -18,6 +18,8 @@ public final class RadiusAuditController {
 
 	private static List<AuditedSensor> selection = List.of();
 
+	private static boolean staticFindCompleted = false;
+
 	private RadiusAuditController() {
 	}
 
@@ -26,6 +28,7 @@ public final class RadiusAuditController {
 		activeRequest = request;
 		hidden.clear();
 		selection = List.of();
+		staticFindCompleted = false;
 	}
 
 	/** A level change drops the active audit, the same as the renderer drops its own cache. */
@@ -33,6 +36,7 @@ public final class RadiusAuditController {
 		activeRequest = null;
 		hidden.clear();
 		selection = List.of();
+		staticFindCompleted = false;
 	}
 
 	/** The most recently accepted request, or {@code null} if no audit is active. */
@@ -62,5 +66,15 @@ public final class RadiusAuditController {
 		} else {
 			hidden.remove(position);
 		}
+	}
+
+	/** Records that the most recently completed find was a static one, for {@code off}'s reporting. */
+	public static void markStaticFindCompleted() {
+		staticFindCompleted = true;
+	}
+
+	/** Whether the most recently completed find was a static one and no live find has since started. */
+	public static boolean staticFindCompleted() {
+		return staticFindCompleted;
 	}
 }

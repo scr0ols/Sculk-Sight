@@ -138,12 +138,14 @@ public final class ShellRenderer {
 	/** Toggles the numeric delay overlay on or off. */
 	public static void toggleDelayHeatmap(Minecraft client) {
 		if (entries.isEmpty() && unionEntry == null) {
-			say(client, "select a shell first.");
+			say(client, Component.translatable("sculksight.chat.delay_overlay.no_shell"));
 			return;
 		}
 
 		delayHeatmap = !delayHeatmap;
-		say(client, delayHeatmap ? "delay overlay on." : "delay overlay off.");
+		say(client, Component.translatable(delayHeatmap
+				? "sculksight.chat.delay_overlay.on"
+				: "sculksight.chat.delay_overlay.off"));
 	}
 
 	/** Whether {@link #TOGGLE_DELAY_HEATMAP_KEY} (or the settings screen's button) is currently on. */
@@ -157,7 +159,9 @@ public final class ShellRenderer {
 		if (!renderingEnabled) {
 			clearRenderCaches();
 		}
-		say(client, renderingEnabled ? "sensor rendering on." : "sensor rendering off.");
+		say(client, Component.translatable(renderingEnabled
+				? "sculksight.chat.rendering.on"
+				: "sculksight.chat.rendering.off"));
 	}
 
 	/** Whether {@link #TOGGLE_RENDERING_KEY} (or the settings screen's button) is currently on. */
@@ -173,7 +177,7 @@ public final class ShellRenderer {
 		}
 
 		if (!(client.hitResult instanceof BlockHitResult blockHit)) {
-			say(client, "not aiming at a block.");
+			say(client, Component.translatable("sculksight.chat.activate.not_aiming"));
 			return;
 		}
 
@@ -181,13 +185,13 @@ public final class ShellRenderer {
 		BlockEntity blockEntity = level.getBlockEntity(pos);
 
 		if (!(blockEntity instanceof GameEventListener.Provider<?> provider)) {
-			say(client, "the targeted block at " + at(pos) + " has no game event listener.");
+			say(client, Component.translatable("sculksight.chat.activate.no_listener", at(pos)));
 			return;
 		}
 
 		Optional<DetectorType> detector = DetectorType.of(level.getBlockState(pos).getBlock());
 		if (detector.isEmpty()) {
-			say(client, "the targeted block at " + at(pos) + " is not a detector.");
+			say(client, Component.translatable("sculksight.chat.activate.not_detector", at(pos)));
 			return;
 		}
 
@@ -196,15 +200,15 @@ public final class ShellRenderer {
 		SculkSightConfig updated = current.track(selected);
 		if (updated == current) {
 			if (current.trackedSensors().size() >= SculkSightConfig.MAX_TRACKED_SENSORS) {
-				say(client, "the tracked sensor limit is " + SculkSightConfig.MAX_TRACKED_SENSORS
-						+ ", so the sensor at " + at(pos) + " was not tracked.");
+				say(client, Component.translatable("sculksight.chat.activate.limit_reached",
+						SculkSightConfig.MAX_TRACKED_SENSORS, at(pos)));
 			} else {
-				say(client, "sensor at " + at(pos) + " is already tracked.");
+				say(client, Component.translatable("sculksight.chat.activate.already_tracked", at(pos)));
 			}
 			return;
 		}
 		ClientConfig.set(updated);
-		say(client, "sensor tracked at " + at(pos) + ".");
+		say(client, Component.translatable("sculksight.chat.activate.tracked", at(pos)));
 		clearRenderCaches();
 		syncEntries(client);
 	}
@@ -664,8 +668,10 @@ public final class ShellRenderer {
 		boolean inside = cameraInside(current, camera);
 
 		ShellStyle detectorStyle = style(current.detector());
+		boolean skipSeeThrough = detectorStyle.skipsSeeThroughPass(inside);
+		float nearCameraFade = inside ? nearCameraFadeFactor(camera) : 1.0F;
 		GpuBufferSlice[] uniforms = RenderSystem.getDynamicUniforms().writeTransforms(
-				transform(modelView, detectorStyle.faceModulation(true, inside)),
+				transform(modelView, detectorStyle.faceModulation(true, inside) * nearCameraFade),
 				transform(modelView, detectorStyle.faceModulation(false, inside)));
 
 		RenderTarget target = Minecraft.getInstance().gameRenderer.mainRenderTarget();
@@ -687,7 +693,7 @@ public final class ShellRenderer {
 
 			drawGeometry(pass, faces, faceIndices,
 					ShellPipelines.FACES_SEE_THROUGH, uniforms[0],
-					ShellPipelines.FACES_DEPTH_TESTED, uniforms[1]);
+					ShellPipelines.FACES_DEPTH_TESTED, uniforms[1], skipSeeThrough);
 		}
 	}
 
@@ -703,15 +709,20 @@ public final class ShellRenderer {
 
 	private static void drawGeometry(RenderPass pass, ShellBuffer buffer, Indexed indexed,
 			RenderPipeline firstPipeline, GpuBufferSlice firstUniform,
-			RenderPipeline secondPipeline, GpuBufferSlice secondUniform) {
+			RenderPipeline secondPipeline, GpuBufferSlice secondUniform, boolean skipFirstPass) {
 
 		pass.setVertexBuffer(0, buffer.buffer().slice());
 		pass.setIndexBuffer(indexed.buffer(), indexed.indices().type());
 
-		pass.setPipeline(firstPipeline);
-		RenderSystem.bindDefaultUniforms(pass);
-		pass.setUniform("DynamicTransforms", firstUniform);
-		pass.drawIndexed(indexed.count(), 1, 0, 0, 0);
+		// skipFirstPass lets ShellStyle.skipsSeeThroughPass() avoid this draw call's GPU cost
+		// entirely, rather than issuing it with a modulation that would compose to fully
+		// transparent anyway.
+		if (!skipFirstPass) {
+			pass.setPipeline(firstPipeline);
+			RenderSystem.bindDefaultUniforms(pass);
+			pass.setUniform("DynamicTransforms", firstUniform);
+			pass.drawIndexed(indexed.count(), 1, 0, 0, 0);
+		}
 
 		pass.setPipeline(secondPipeline);
 		RenderSystem.bindDefaultUniforms(pass);
@@ -738,6 +749,17 @@ public final class ShellRenderer {
 				Mth.floor(camera.z) - sensor.z());
 	}
 
+	/**
+	 * The extra see-through alpha multiplier for near-camera occluders: see {@link NearCameraFade}.
+	 * Only meaningful while the camera is inside the shell being drawn, so callers pass {@code 1.0}
+	 * (no effect) outside that case rather than calling this at all.
+	 */
+	private static float nearCameraFadeFactor(Vec3 camera) {
+		ClientLevel level = Minecraft.getInstance().level;
+
+		return level == null ? 1.0F : NearCameraFade.factorForCamera(level, camera);
+	}
+
 	private static DynamicUniforms.Transform transform(Matrix4f modelView, float alphaModulation) {
 		return new DynamicUniforms.Transform(modelView,
 				new Vector4f(1.0F, 1.0F, 1.0F, alphaModulation),
@@ -745,30 +767,33 @@ public final class ShellRenderer {
 				new Matrix4f());
 	}
 
-	private static void say(Minecraft client, String message) {
+	private static void say(Minecraft client, Component message) {
 		emit(client, message, true);
 	}
 
 	// An instrument line rather than a reply: logged and filed either way, but reaching chat only
 	// under TimingGate.CHAT. say answers a keypress and is owed unconditionally; these answer
-	// nothing, and their reader is TimingLog's file, which is written regardless.
+	// nothing, and their reader is TimingLog's file, which is written regardless. Dev-only
+	// diagnostics stay hardcoded English (see i18n design decision on verify/diagnose output).
 	private static void diagnose(Minecraft client, String message) {
-		emit(client, message, TimingGate.CHAT);
+		emit(client, Component.literal(message), TimingGate.CHAT);
 	}
 
-	private static void emit(Minecraft client, String message, boolean toChat) {
-		SculkSight.LOGGER.info("[sculksight] {}", message);
+	private static void emit(Minecraft client, Component message, boolean toChat) {
+		String rendered = message.getString();
+		SculkSight.LOGGER.info("[sculksight] {}", rendered);
 
-		TimingLog.append(message);
+		TimingLog.append(rendered);
 
 		if (toChat && client.gui != null) {
-			client.gui.hud.getChat().addClientSystemMessage(Component.literal("[sculksight] " + message));
+			client.gui.hud.getChat().addClientSystemMessage(
+					Component.literal("[sculksight] ").append(message));
 		}
 	}
 
 	// The bare "x, y, z" the settings screen already shows, so one sensor reads the same way in
 	// both. BlockPos.toString would render the debug form BlockPos{x=1, y=2, z=3} instead.
-	private static String at(BlockPos pos) {
-		return pos.getX() + ", " + pos.getY() + ", " + pos.getZ();
+	private static Component at(BlockPos pos) {
+		return Component.translatable("sculksight.chat.position", pos.getX(), pos.getY(), pos.getZ());
 	}
 }

@@ -12,6 +12,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.contents.TranslatableContents;
+
 import com.scr0ols.sculksight.client.DetectorType;
 
 class RadiusAuditRequestTest {
@@ -72,9 +75,12 @@ class RadiusAuditRequestTest {
 		RadiusAuditArgumentException problem = assertThrows(RadiusAuditArgumentException.class,
 				() -> RadiusAuditRequest.of(16, "warden"));
 
-		assertTrue(problem.getMessage().contains("warden"), problem.getMessage());
+		TranslatableContents contents = (TranslatableContents) problem.component().getContents();
+		assertEquals("sculksight.command.find.detector.unknown", contents.getKey());
+		assertEquals("warden", contents.getArgs()[0]);
 		for (String name : RadiusAuditRequest.TYPE_NAMES) {
-			assertTrue(problem.getMessage().contains(name), problem.getMessage());
+			assertTrue(String.valueOf(contents.getArgs()[1]).contains(name),
+					String.valueOf(contents.getArgs()[1]));
 		}
 	}
 
@@ -95,7 +101,9 @@ class RadiusAuditRequestTest {
 		RadiusAuditArgumentException problem = assertThrows(RadiusAuditArgumentException.class,
 				() -> RadiusAuditRequest.of(radius, "all"));
 
-		assertTrue(problem.getMessage().contains(String.valueOf(radius)), problem.getMessage());
+		TranslatableContents contents = (TranslatableContents) problem.component().getContents();
+		assertEquals("sculksight.command.find.radius.out_of_range", contents.getKey());
+		assertEquals(radius, contents.getArgs()[0]);
 	}
 
 	@Test
@@ -108,9 +116,19 @@ class RadiusAuditRequestTest {
 
 	@Test
 	void descriptionDistinguishesOneDetectorFromAll() throws Exception {
-		assertEquals("radius 64, all detectors", RadiusAuditRequest.of(64, "all").describe());
-		assertEquals("radius 64, detector calibrated",
-				RadiusAuditRequest.of(64, "calibrated").describe());
+		TranslatableContents all =
+				(TranslatableContents) RadiusAuditRequest.of(64, "all").describe().getContents();
+		assertEquals("sculksight.command.find.description", all.getKey());
+		assertEquals(64, all.getArgs()[0]);
+		TranslatableContents allDetector = detectorClauseOf(all);
+		assertEquals("sculksight.command.find.description.all", allDetector.getKey());
+
+		TranslatableContents calibrated = (TranslatableContents)
+				RadiusAuditRequest.of(64, "calibrated").describe().getContents();
+		assertEquals(64, calibrated.getArgs()[0]);
+		TranslatableContents calibratedDetector = detectorClauseOf(calibrated);
+		assertEquals("sculksight.command.find.description.detector", calibratedDetector.getKey());
+		assertEquals("calibrated", calibratedDetector.getArgs()[0]);
 	}
 
 	@Test
@@ -126,8 +144,14 @@ class RadiusAuditRequestTest {
 		}
 	}
 
+	private static TranslatableContents detectorClauseOf(TranslatableContents description) {
+		return (TranslatableContents) ((Component) description.getArgs()[1]).getContents();
+	}
+
 	private static String describedNameOf(DetectorType type) {
-		String description = new RadiusAuditRequest(16, Optional.of(type)).describe();
-		return description.substring(description.indexOf("detector ") + "detector ".length());
+		TranslatableContents outer = (TranslatableContents)
+				new RadiusAuditRequest(16, Optional.of(type)).describe().getContents();
+		TranslatableContents detector = detectorClauseOf(outer);
+		return String.valueOf(detector.getArgs()[0]);
 	}
 }

@@ -1,14 +1,18 @@
 package com.scr0ols.sculksight.mesh;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
 import com.scr0ols.sculksight.config.SculkSightConfig;
+import com.scr0ols.sculksight.config.SeeThroughInsideMode;
 import com.scr0ols.sculksight.client.DetectorType;
 import com.scr0ols.sculksight.solver.Face;
 
@@ -181,7 +185,7 @@ class ShellStyleTest {
 	@Test
 	void aShadeArrayOfTheWrongLengthIsRejected() {
 		assertThrows(IllegalArgumentException.class,
-				() -> new ShellStyle(0xFFFFFF, 0.25F, 0.10F, new float[] {1.0F}));
+				() -> new ShellStyle(0xFFFFFF, 0.25F, 0.10F, new float[] {1.0F}, 1.0F));
 	}
 
 	@Test
@@ -210,6 +214,75 @@ class ShellStyleTest {
 
 		assertEquals(3, ShellStyle.fromConfig(
 				new SculkSightConfig(1, SculkSightConfig.DEFAULT_RENDER_POLICY)).encodedAlpha());
+	}
+
+	@Test
+	void fullModeLeavesTheInsideSeeThroughPassAtItsNormalStrength() {
+		ShellStyle style = ShellStyle.fromConfig(
+				new SculkSightConfig(60, SculkSightConfig.DEFAULT_RENDER_POLICY, List.of(),
+						SculkSightConfig.DEFAULT_RADIUS_AUDIT_CAP, SeeThroughInsideMode.FULL));
+
+		assertEquals(style.seeThroughAlpha(), style.depthTestedAlpha() * style.faceModulation(true, true),
+				1.0E-6F);
+	}
+
+	@Test
+	void weakModeDimsOnlyTheInsideSeeThroughPass() {
+		ShellStyle full = ShellStyle.fromConfig(
+				new SculkSightConfig(60, SculkSightConfig.DEFAULT_RENDER_POLICY, List.of(),
+						SculkSightConfig.DEFAULT_RADIUS_AUDIT_CAP, SeeThroughInsideMode.FULL));
+		ShellStyle weak = ShellStyle.fromConfig(
+				new SculkSightConfig(60, SculkSightConfig.DEFAULT_RENDER_POLICY, List.of(),
+						SculkSightConfig.DEFAULT_RADIUS_AUDIT_CAP, SeeThroughInsideMode.WEAK));
+
+		// Inside, see-through: weak must be strictly dimmer than full.
+		assertTrue(weak.faceModulation(true, true) < full.faceModulation(true, true));
+
+		// Every other case (outside see-through, either depth-tested case) is untouched.
+		assertEquals(full.faceModulation(true, false), weak.faceModulation(true, false), 1.0E-6F);
+		assertEquals(full.faceModulation(false, true), weak.faceModulation(false, true), 1.0E-6F);
+		assertEquals(full.faceModulation(false, false), weak.faceModulation(false, false), 1.0E-6F);
+	}
+
+	@Test
+	void offModeZeroesTheInsideSeeThroughModulationAndOnlyThatCase() {
+		ShellStyle full = ShellStyle.fromConfig(
+				new SculkSightConfig(60, SculkSightConfig.DEFAULT_RENDER_POLICY, List.of(),
+						SculkSightConfig.DEFAULT_RADIUS_AUDIT_CAP, SeeThroughInsideMode.FULL));
+		ShellStyle off = ShellStyle.fromConfig(
+				new SculkSightConfig(60, SculkSightConfig.DEFAULT_RENDER_POLICY, List.of(),
+						SculkSightConfig.DEFAULT_RADIUS_AUDIT_CAP, SeeThroughInsideMode.OFF));
+
+		assertEquals(0.0F, off.faceModulation(true, true), 1.0E-6F);
+
+		assertEquals(full.faceModulation(true, false), off.faceModulation(true, false), 1.0E-6F);
+		assertEquals(full.faceModulation(false, true), off.faceModulation(false, true), 1.0E-6F);
+		assertEquals(full.faceModulation(false, false), off.faceModulation(false, false), 1.0E-6F);
+	}
+
+	@Test
+	void skipsSeeThroughPassOnlyWhenInsideAndTheFactorIsZero() {
+		ShellStyle full = ShellStyle.fromConfig(
+				new SculkSightConfig(60, SculkSightConfig.DEFAULT_RENDER_POLICY, List.of(),
+						SculkSightConfig.DEFAULT_RADIUS_AUDIT_CAP, SeeThroughInsideMode.FULL));
+		ShellStyle weak = ShellStyle.fromConfig(
+				new SculkSightConfig(60, SculkSightConfig.DEFAULT_RENDER_POLICY, List.of(),
+						SculkSightConfig.DEFAULT_RADIUS_AUDIT_CAP, SeeThroughInsideMode.WEAK));
+		ShellStyle off = ShellStyle.fromConfig(
+				new SculkSightConfig(60, SculkSightConfig.DEFAULT_RENDER_POLICY, List.of(),
+						SculkSightConfig.DEFAULT_RADIUS_AUDIT_CAP, SeeThroughInsideMode.OFF));
+
+		assertFalseIsSkipped(full, true);
+		assertFalseIsSkipped(full, false);
+		assertFalseIsSkipped(weak, true);
+		assertFalseIsSkipped(weak, false);
+		assertFalseIsSkipped(off, false);
+
+		assertTrue(off.skipsSeeThroughPass(true), "OFF must skip the see-through pass from inside");
+	}
+
+	private static void assertFalseIsSkipped(ShellStyle style, boolean cameraInside) {
+		assertFalse(style.skipsSeeThroughPass(cameraInside));
 	}
 
 	private static float outsideComposite(float alpha) {

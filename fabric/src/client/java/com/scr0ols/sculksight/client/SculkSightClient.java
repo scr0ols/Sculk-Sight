@@ -46,8 +46,7 @@ public class SculkSightClient implements ClientModInitializer {
 			IndexVerificationCommand.register();
 
 			SculkSight.LOGGER.info("Development environment: /sculksight-verify, "
-					+ "/sculksight-verify-detection and /sculksight-verify-index registered "
-					+ "(ADR-019).");
+					+ "/sculksight-verify-detection and /sculksight-verify-index registered.");
 		}
 	}
 

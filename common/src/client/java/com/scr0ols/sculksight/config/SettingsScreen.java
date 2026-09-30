@@ -33,6 +33,7 @@ final class SettingsScreen extends Screen {
 
 	private AbstractSliderButton opacitySlider;
 	private CycleButton<RenderPolicy> renderPolicyButton;
+	private CycleButton<SeeThroughInsideMode> seeThroughInsideButton;
 	private SensorListWidget sensorList;
 
 	SettingsScreen(Screen parent) {
@@ -49,6 +50,7 @@ final class SettingsScreen extends Screen {
 		header.addChild(new StringWidget(title, font));
 		header.addChild(buildOpacitySlider(config.shellOpacityPercent()));
 		buildToggleRow(header, config.renderPolicy());
+		header.addChild(buildSeeThroughInsideButton(config.seeThroughInsideMode()));
 
 		sensorList = layout.addToContents(new SensorListWidget(
 				minecraft, width, layout.getContentHeight(), layout.getHeaderHeight(), this));
@@ -92,6 +94,20 @@ final class SettingsScreen extends Screen {
 		renderPolicyButton.setTooltip(Tooltip.create(
 				Component.translatable("sculksight.config.render_policy.tooltip")));
 		return renderPolicyButton;
+	}
+
+	private CycleButton<SeeThroughInsideMode> buildSeeThroughInsideButton(SeeThroughInsideMode initial) {
+		seeThroughInsideButton = CycleButton.builder(
+						(SeeThroughInsideMode mode) -> Component.translatable(
+								"sculksight.config.see_through_inside." + mode.name().toLowerCase(Locale.ROOT)),
+						initial)
+				.withValues(SeeThroughInsideMode.values())
+				.create(0, 0, CONTROL_WIDTH, BUTTON_HEIGHT,
+						Component.translatable("sculksight.config.see_through_inside"),
+						(button, value) -> ConfigScreens.setSeeThroughInsideMode(value));
+		seeThroughInsideButton.setTooltip(Tooltip.create(
+				Component.translatable("sculksight.config.see_through_inside.tooltip")));
+		return seeThroughInsideButton;
 	}
 
 	private void buildToggleRow(LinearLayout header, RenderPolicy initialRenderPolicy) {

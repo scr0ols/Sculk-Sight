@@ -14,24 +14,26 @@ Aim at a sculk sensor, calibrated sculk sensor, or sculk shrieker and press **K*
 
 The shell reflects the sensor's radius and vibration-dampening blocks such as wool and wool carpet, so dampened positions are absent rather than merely hidden. It is rendered with both see-through and depth-tested passes to remain readable in terrain.
 
-Press **K** on another sensor to track it too, up to 32 at once. Each tracked sensor gets a **Remove** control on the settings screen below, plus an **Options** button that opens its name, enabled toggle, and delay-overlay checkbox.
+Press **K** on another sensor to track it too, up to 32 at once. Each tracked sensor gets a **Remove** control on the settings screen below, plus an **Options** button that opens its name, enabled toggle, and delay-overlay checkbox. Once more than one sensor is tracked, a **Remove all** button appears next to the section heading to clear the whole list in one click.
 
 With sensor rendering active, press **H** to show the travel delay in ticks for every tracked sensor whose own delay-overlay checkbox (in its Options screen) is on. Labels use the player's current view for visibility; sensor-occluded positions show no label, since the sensor cannot detect a vibration there.
 
 ### Mode B - find sensors around you
 
-Run `/sculksight find <type> <radius> <mode>` to draw every detector around you at once, without aiming at each one. It is a client-side command: it is typed in chat like any other, but never reaches the server, so it works on a vanilla server exactly as it does in single-player.
+Run `/sculksight find <type> <radius> <static|live>` to draw every detector around you at once, without aiming at each one. It is a client-side command: it is typed in chat like any other, but never reaches the server, so it works on a vanilla server exactly as it does in single-player.
 
 | Argument | Values |
 |---|---|
-| `type` | `all`, `sensor`, `calibrated`, `shrieker` |
+| `type` | `all`, `sensor`, `calibrated`, `shrieker` (its completions also offer `off`, listed first — see below) |
 | `radius` | 1 to 512 blocks |
 | `mode` | `static` or `live` |
 
-All three are required, and the mode is the important one, because it picks between two different jobs:
+All three are required for a real find, and the mode picks between two different jobs:
 
 - **`static`** - finds the sensors once, where you are standing, and adds them to the **Tracked sensors** list, exactly as if you had aimed at each one and pressed **K**. They are saved to `config/sculksight.json`, they each get a name and their own Enabled and Remove controls, and they stay put when you walk away. This is the one for auditing a redstone build you are working on.
-- **`live`** - an x-ray that follows you. It re-selects every tick against wherever you are now, so shells appear and disappear as you move. Nothing is saved; leaving the world or running another find clears it.
+- **`live`** - an x-ray that follows you. It re-selects every tick against wherever you are now, so shells appear and disappear as you move. Nothing is saved; leaving the world, running another find, or running `/sculksight find off` clears it.
+
+To cancel a live find, run `/sculksight find off` with nothing else after it. A radius and a mode are irrelevant to cancelling, so `off` is not a value of the `mode` argument above — it short-circuits the command right after `find`, before a radius is ever typed. It stops the re-scan and clears the audit shells and their rows in the settings screen, without touching any tracked or pinned sensor.
 
 A live find appears in the settings screen under a **Live find** heading, one row per sensor with a **Shown** toggle, so you can switch off an individual shell without cancelling the whole find. Those toggles last for the session. The heading also carries a **Pin all** button, which turns the current selection into tracked sensors and ends the live find - the same result as having run the find with `static`, for when you would rather walk around and look first. A sensor you have separately tracked with **K** and then disabled stays hidden even when a live find selects it too.
 

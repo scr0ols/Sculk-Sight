@@ -132,7 +132,8 @@ class ConfigStoreTest {
 	void aRepairedValueIsReportedAndThenPersistedOnTheNextSave(@TempDir Path directory)
 			throws IOException {
 		write(directory,
-				"{\"shellOpacityPercent\": 400, \"renderPolicy\": \"union\", \"radiusAuditCap\": 32}");
+				"{\"shellOpacityPercent\": 400, \"renderPolicy\": \"union\", \"radiusAuditCap\": 32, "
+						+ "\"seeThroughInsideMode\": \"full\"}");
 
 		ConfigStore store = store(directory);
 		store.load();
@@ -143,7 +144,7 @@ class ConfigStoreTest {
 		store.save();
 
 		assertEquals("{\n\t\"shellOpacityPercent\": 100,\n\t\"renderPolicy\": \"union\",\n"
-						+ "\t\"radiusAuditCap\": 32\n}\n",
+						+ "\t\"radiusAuditCap\": 32,\n\t\"seeThroughInsideMode\": \"full\"\n}\n",
 				Files.readString(directory.resolve(ConfigStore.FILE_NAME), StandardCharsets.UTF_8));
 	}
 
